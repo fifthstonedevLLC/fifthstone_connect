@@ -1,7 +1,7 @@
 # Fifth Stone Connect
 
 Managed Inquiry-to-Action integration service by **Fifth Stone Dev**.
-_Fifth Stone Connect is an internal working name, not an approved public brand._
+Service site (planned): connect.fifthstonedev.com
 
 **Status:** Phase 0 — foundation. No external services are connected.
 

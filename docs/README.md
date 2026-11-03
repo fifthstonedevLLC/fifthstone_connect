@@ -23,6 +23,7 @@ Internal engineering and operations documentation for Fifth Stone Connect.
 | Operations   | [RUNBOOK.md](operations/RUNBOOK.md)                   | Health checks, triage, replay, recovery                                |
 | Operations   | [ONBOARDING.md](operations/ONBOARDING.md)             | Tenant setup procedure                                                 |
 | Operations   | [OFFBOARDING.md](operations/OFFBOARDING.md)           | Access revocation, data deletion                                       |
+| Marketing    | [SITE_BRIEF.md](marketing/SITE_BRIEF.md)              | Marketing page goals, structure, constraints                           |
 | Brand        | [STYLE_GUIDE.md](brand/STYLE_GUIDE.md)                | Names, voice, conventions, missing assets                              |
 | History      | [changelog.md](changelog.md)                          | Dated changes with test evidence                                       |
 | Source       | [handoff/](handoff/README.md)                         | Original plan documents (read-only reference)                          |

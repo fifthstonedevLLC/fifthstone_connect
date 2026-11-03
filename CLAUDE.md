@@ -5,7 +5,7 @@ Instructions for Claude (and any engineer) working in this repository. Read this
 
 ## Purpose
 
-**Fifth Stone Connect** (internal working name — not an approved public brand) is a managed
+**Fifth Stone Connect** (approved name, provisional pending trademark search) is a managed
 integration service from **Fifth Stone Dev**. The MVP runs one packaged workflow,
 **Inquiry-to-Action**:
 
@@ -72,7 +72,8 @@ sends, real lead data, DNS, paid infrastructure, new SaaS subscriptions.
 
 ## Brand
 
-Use **Fifth Stone Dev** (master brand) and **Fifth Stone Connect** (working name, internal).
+Use **Fifth Stone Dev** (master brand) and **Fifth Stone Connect** (service name, approved
+2026-11-03; domain `connect.fifthstonedev.com`).
 Never invent logos, colors, fonts, testimonials, statistics, or certifications.
 See `docs/brand/STYLE_GUIDE.md`.
 

@@ -2,7 +2,7 @@
   "name": "fifth-stone-connect",
   "version": "0.0.0",
   "private": true,
-  "description": "Fifth Stone Connect (working name) — managed Inquiry-to-Action integration service by Fifth Stone Dev.",
+  "description": "Fifth Stone Connect — managed Inquiry-to-Action integration service by Fifth Stone Dev.",
   "type": "module",
   "engines": {
     "node": ">=22"

@@ -15,17 +15,18 @@ How Fifth Stone Dev writes about this service, internally and to customers. Valu
 
 ## Names
 
-| Item                   | Value                                                            | Status                                                                                 |
-| ---------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Company (master brand) | Fifth Stone Dev                                                  | Approved                                                                               |
-| Legal entity           | Fifth Stone Dev LLC                                              | Approved                                                                               |
-| Service name           | Fifth Stone Connect                                              | **Working name only** — internal use until brand and domain availability are confirmed |
-| Offer name             | Inquiry-to-Action Setup                                          | Working                                                                                |
-| Customer-facing domain | **TBD**                                                          |                                                                                        |
-| Logo for this service  | **TBD** — use existing Fifth Stone Dev assets only when supplied |                                                                                        |
-| Colors / fonts         | **TBD** — request from owner before any branded PDF or HTML      |                                                                                        |
+| Item                   | Value                                                            | Status                                                                        |
+| ---------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Company (master brand) | Fifth Stone Dev                                                  | Approved                                                                      |
+| Legal entity           | Fifth Stone Dev LLC                                              | Approved                                                                      |
+| Service name           | Fifth Stone Connect                                              | Approved for public use 2026-11-03 (provisional — trademark search pending)   |
+| Offer name             | Inquiry-to-Action                                                | Approved                                                                      |
+| Service domain         | connect.fifthstonedev.com                                        | Approved 2026-11-03 — DNS not yet configured; DNS changes need owner approval |
+| Logo for this service  | **TBD** — use existing Fifth Stone Dev assets only when supplied |                                                                               |
+| Colors / fonts         | **TBD** — request from owner before any branded PDF or HTML      |                                                                               |
 
-In customer-facing material until approval: "Fifth Stone Dev's Inquiry-to-Action setup."
+In customer-facing material: "Fifth Stone Connect, from Fifth Stone Dev." Name the offer
+"Inquiry-to-Action" when describing the specific workflow.
 
 ## Audience
 
@@ -69,5 +70,7 @@ The acknowledgment and alert emails are sent on the customer's behalf. They must
 
 - [ ] Fifth Stone Dev logo files (SVG/PNG) for internal PDFs
 - [ ] Brand colors and fonts
-- [ ] Decision on the public name for this service
-- [ ] Customer-facing domain/subdomain for hosted forms
+- [x] Public name for this service — Fifth Stone Connect (2026-11-03)
+- [x] Service domain — connect.fifthstonedev.com (2026-11-03)
+- [ ] Trademark search on "Fifth Stone Connect"
+- [ ] Hosted-form subdomain (candidate: forms.connect.fifthstonedev.com)

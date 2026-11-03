@@ -12,6 +12,18 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-03 — Brand approval and marketing site brief
+
+**Change**
+
+- Owner approved **Fifth Stone Connect** as the public service name (provisional, trademark
+  search pending) and **connect.fifthstonedev.com** as the service domain. Updated
+  `STYLE_GUIDE.md`, `CLAUDE.md`, `README.md`, `package.json`.
+- Added `docs/marketing/SITE_BRIEF.md` for the first marketing page, to be built locally under
+  `apps/marketing/`. No DNS or deployment changes.
+
+**Test evidence:** `npm run check` — all checks pass, 43/43 tests.
+
 ## 2026-11-03 — Phase 1, part 1: core types and validation
 
 **Change**
