@@ -1,0 +1,10 @@
+{
+  "name": "@fsc/operator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Guarded operator CLI: onboard tenants, inspect and replay jobs.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

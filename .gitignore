@@ -1,0 +1,47 @@
+# ── Dependencies and build output ──
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+.cache/
+*.tsbuildinfo
+*.tgz
+
+# ── Secrets: never commit real environment files or credentials ──
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*service-account*.json
+*credentials*.json
+credentials/
+secrets/
+
+# ── Local data and logs (may contain customer PII) ──
+*.log
+npm-debug.log*
+logs/
+exports/
+backups/
+*.dump
+*.sql.gz
+*.csv
+tmp/
+
+# ── Supabase CLI local state ──
+supabase/.temp/
+supabase/.branches/
+
+# ── OS / editor ──
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp

@@ -1,0 +1,10 @@
+{
+  "name": "@fsc/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Executes queued actions and scheduled staff reminders.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

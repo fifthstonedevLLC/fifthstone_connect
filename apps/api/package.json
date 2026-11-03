@@ -1,0 +1,10 @@
+{
+  "name": "@fsc/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Public form intake, signed webhook endpoints, health/status endpoints.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

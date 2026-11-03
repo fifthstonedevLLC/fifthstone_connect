@@ -1,0 +1,10 @@
+{
+  "name": "@fsc/workflow",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Durable jobs, orchestration, idempotency.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

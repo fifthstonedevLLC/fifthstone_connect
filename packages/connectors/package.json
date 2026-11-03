@@ -1,0 +1,10 @@
+{
+  "name": "@fsc/connectors",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Adapters for Amazon SES, Google Sheets, and inbound webhook sources.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

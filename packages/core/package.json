@@ -1,0 +1,10 @@
+{
+  "name": "@fsc/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tenant config, domain models, validation, event contracts.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
