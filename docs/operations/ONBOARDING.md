@@ -12,11 +12,15 @@ last_updated: '2026-11-02'
 
 Procedure for setting up a new pilot business. Draft; finalized during Phase 4–5.
 
+> Describes v0.1 operator-run onboarding. v0.2 moves tenant onboarding into the owner portal
+> (SCOPE.md v0.2), with Fifth Stone Dev approving texting registration, email domain setup and
+> calendar connection. Rewrite this procedure when the portal onboarding is built.
+
 ## Before setup
 
 - [ ] Signed scope of work and authorization to send email on the business's behalf
 - [ ] Processor disclosure (AWS SES, Google, Cloudflare, Supabase, hosting) in the agreement
-- [ ] Confirm no regulated data (PHI, card data) will be collected
+- [ ] Confirm no regulated data (PHI, card data) will be collected; clinics use the minimum-data playbook
 
 ## Setup steps
 

@@ -1,9 +1,9 @@
 # Fifth Stone Connect
 
-Managed Inquiry-to-Action integration service by **Fifth Stone Dev**.
+Managed missed-call-to-booked-job service by **Fifth Stone Dev** (scope: `docs/product/SCOPE.md` v0.2).
 Service site (planned): connect.fifthstonedev.com
 
-**Status:** Phase 0 — foundation. No external services are connected.
+**Status:** Phase 1 — shared foundation. No external services are connected.
 
 ## Quick start
 

@@ -15,4 +15,11 @@ export default tseslint.config(
     files: ['apps/operator/**/*.ts'],
     rules: { 'no-console': 'off' },
   },
+  {
+    // Plain Node scripts (e.g. the marketing preview server) get Node globals.
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: { URL: 'readonly', process: 'readonly', console: 'readonly' },
+    },
+  },
 );

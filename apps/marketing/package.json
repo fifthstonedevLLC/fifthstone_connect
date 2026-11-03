@@ -1,0 +1,9 @@
+{
+  "name": "@fsc/marketing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Static marketing page for connect.fifthstonedev.com. Local review only; not deployed.",
+  "scripts": {
+    "preview": "node serve.mjs"
+  }
+}
