@@ -16,7 +16,8 @@ It is a repeatable paid service operated by Fifth Stone Dev, not a SaaS or autom
 
 ## Current phase
 
-Phase 0 complete (scaffold + docs). Next: Phase 1 — schema and interfaces.
+Phase 1 in progress. Done: core types and validation (`packages/core`). Next: connector
+interfaces, then SQL migrations and tenant-isolation tests (needs a test database decision).
 Track status in `docs/changelog.md`; open decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands

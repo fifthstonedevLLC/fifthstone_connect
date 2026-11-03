@@ -37,7 +37,7 @@ middlewares for the same baseline.
 
 _Consequence:_ Fastify plugin model to learn; small surface in our usage.
 
-### 3. Zod as the single source of validation — Proposed (adopted in Phase 1)
+### 3. Zod as the single source of validation — Accepted (adopted 2026-11-03)
 
 Types and runtime validation from one definition in `packages/core`.
 

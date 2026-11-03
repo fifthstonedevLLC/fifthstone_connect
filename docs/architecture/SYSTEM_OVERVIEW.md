@@ -54,6 +54,28 @@ sequenceDiagram
 | `apps/worker`         | Job loop, reminder scheduler                                                             |
 | `apps/operator`       | CLI: tenants, destinations, enable/disable, failed jobs, replay, status, export/delete   |
 
+## Canonical lead shape
+
+Defined in `packages/core/src/lead.ts` (`LeadInputSchema`). Normalization runs before validation.
+
+| Field                | Rule                                                                        |
+| -------------------- | --------------------------------------------------------------------------- |
+| `name`               | Required; single line; max 120                                              |
+| `email`              | Lowercased; valid address; max 254                                          |
+| `phone`              | Normalized to E.164; North American numbers assumed unless `+country` given |
+| `service`, `address` | Optional single line; max 120 / 300                                         |
+| `message`            | Optional; line breaks kept; max 2000                                        |
+| `preferredContact`   | Optional: `email`, `phone`, `text`, `any`                                   |
+
+At least one of `email` or `phone` is required. Unknown fields are rejected, not stored.
+Control characters are stripped from all text. Lead statuses: `new` → `contacted` / `closed` /
+`spam`; the operator can reopen to `new`. Only `new` leads are unresolved and get reminders.
+
+Job idempotency key: `<actionType>:<leadId>`, unique per tenant. Intake queues
+`send_acknowledgment`, `send_owner_alert`, `append_sheet_row`; `send_staff_reminder` is scheduled
+at its due time. Integration configs hold secret _names_ (`secretRef`), never values; a Sheets
+column mapping must include `leadId` so retries can reconcile instead of duplicating rows.
+
 ## Data entities (planned, Phase 1)
 
 `tenants`, `tenant_config`, `integration_connections`, `inbound_events`, `leads`, `jobs`,

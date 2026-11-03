@@ -6,5 +6,8 @@
   "description": "Tenant config, domain models, validation, event contracts.",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }
