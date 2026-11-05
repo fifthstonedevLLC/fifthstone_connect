@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { countSegments } from '@fsc/connectors';
 import { MOCK_LOCAL_PASSWORD, PORTAL_USERS, TENANTS } from './catalog.js';
 import { mockUuid } from './ids.js';
+import { EMAIL_EVENTS, JOBS, OPT_OUTS, SETTINGS_VERSIONS, TENANT_OPS } from './operations.js';
 import { CONTACTS, LEADS } from './scenarios.js';
 import type { MockLead, MockRequest } from './schemas.js';
 
@@ -57,10 +58,246 @@ function firstEvent(lead: MockLead) {
 }
 
 function tenantsFile(): string {
+  const config = TENANTS.map((t) => {
+    const ops = TENANT_OPS.find((o) => o.tenant === t.key);
+    if (!ops) throw new Error(`No operations data for ${t.key}`);
+    // Copied from the playbook catalog, as provisioning does.
+    const fromPlaybook = (column: string) =>
+      `(select ${column} from app.playbooks where key = ${lit(t.playbook)})`;
+    return [
+      lit(tenantId(t.key)),
+      lit(t.playbook),
+      fromPlaybook('clinic_minimum_data'),
+      lit(t.connectNumber),
+      lit(`${t.slug}@inbound.example.com`),
+      `${lit(JSON.stringify(ops.hours))}::jsonb`,
+      fromPlaybook('default_job_minutes'),
+      lit(t.name),
+    ];
+  });
+  const registrations = TENANT_OPS.flatMap((o) =>
+    (['texting', 'email'] as const).map((service) => [
+      lit(mockUuid('registration', `${o.tenant}:${service}`)),
+      lit(tenantId(o.tenant)),
+      lit(service),
+      lit(o[service]),
+    ]),
+  );
   return `${GENERATED}
--- Tenants. Config, playbooks and service registrations follow with the settings migration.
+-- Tenants, their config (playbook defaults copied from the catalog) and service status cards.
 insert into app.tenants (id, slug, name, status, timezone) values
 ${rows(TENANTS.map((t) => [lit(tenantId(t.key)), lit(t.slug), lit(t.name), lit(t.status), lit(t.timezone)]))};
+
+insert into app.tenant_config (
+  tenant_id, playbook_key, clinic_minimum_data, connect_number, inbound_email, business_hours,
+  default_job_minutes, email_sender_name
+) values
+${rows(config)};
+
+insert into app.service_registrations (id, tenant_id, service, state) values
+${rows(registrations)};
+`;
+}
+
+function settingsFile(): string {
+  const business = (tenant: string) => find(TENANTS, tenant).name;
+  const versions = (table: 'templates' | 'ai') =>
+    SETTINGS_VERSIONS.map((v) => {
+      const content =
+        table === 'templates'
+          ? Object.fromEntries(
+              Object.entries(v.templates).map(([k, body]) => [
+                k,
+                body.replaceAll('{business}', business(v.tenant)),
+              ]),
+            )
+          : v.ai;
+      return [
+        lit(mockUuid(`settings-${table}`, `${v.tenant}:${v.version}`)),
+        lit(tenantId(v.tenant)),
+        String(v.version),
+        `${lit(JSON.stringify(content))}::jsonb`,
+        String(v.active),
+        v.createdBy ? lit(portalUserId(v.createdBy)) : 'null',
+        ago(v.minutesAgo),
+      ];
+    });
+  return `${GENERATED}
+-- Template and AI settings versions. Riverbend has two of each (v2 active) for restore-previous.
+insert into app.tenant_templates (id, tenant_id, version, content, active, created_by, created_at) values
+${rows(versions('templates'))};
+
+insert into app.ai_settings (id, tenant_id, version, content, active, created_by, created_at) values
+${rows(versions('ai'))};
+`;
+}
+
+function connectionsFile(): string {
+  const integrations = TENANTS.flatMap((t) => {
+    const enabled = String(t.status === 'active');
+    return [
+      [
+        lit(mockUuid('integration', `${t.key}:twilio`)),
+        lit(tenantId(t.key)),
+        lit('twilio'),
+        `${lit(JSON.stringify({ subaccount: `MOCK-AC-${t.key}`, messagingService: `MOCK-MG-${t.key}` }))}::jsonb`,
+        lit(`mock-twilio-${t.key.toLowerCase()}`),
+        enabled,
+      ],
+      [
+        lit(mockUuid('integration', `${t.key}:ses`)),
+        lit(tenantId(t.key)),
+        lit('ses'),
+        `${lit(JSON.stringify({ fromName: t.name, fromAddress: `hello@${t.slug}.example.com` }))}::jsonb`,
+        'null',
+        enabled,
+      ],
+    ];
+  });
+  const calendars = TENANT_OPS.map((o) => [
+    lit(mockUuid('calendar-connection', o.tenant)),
+    lit(tenantId(o.tenant)),
+    lit(o.calendar.provider),
+    lit(`MOCK-GCAL-${o.tenant}`),
+    lit(o.calendar.status),
+    lit(`mock-calendar-${o.tenant.toLowerCase()}`),
+    o.calendar.status === 'disconnected' ? 'null' : ago(20000),
+  ]);
+  return `${GENERATED}
+-- Vendor configuration (secret names only, all mock) and calendar connections.
+insert into app.integration_connections (id, tenant_id, type, config, secret_ref, enabled) values
+${rows(integrations)};
+
+insert into app.calendar_connections (
+  id, tenant_id, provider, calendar_id, status, secret_ref, connected_at
+) values
+${rows(calendars)};
+`;
+}
+
+function jobsFile(): string {
+  const leadTenant = (key: string) => find(LEADS, key).tenant;
+  const jobs = JOBS.map((j) => [
+    lit(mockUuid('job', `${j.lead}:${j.action}`)),
+    lit(tenantId(leadTenant(j.lead))),
+    lit(leadId(j.lead)),
+    lit(j.action),
+    lit(`${j.action}:${leadId(j.lead)}`),
+    lit(j.status),
+    String(j.attempts),
+    `now() + interval '${j.runInMinutes} minutes'`,
+    j.leaseInMinutes === undefined ? 'null' : `now() + interval '${j.leaseInMinutes} minutes'`,
+    opt(j.error),
+    j.status === 'succeeded' ? lit(`MOCK-REF-${j.lead}-${j.action}`) : 'null',
+  ]);
+  // One attempt row per attempt: earlier ones failed, the last one matches the job's status.
+  const attempts = JOBS.flatMap((j) =>
+    Array.from({ length: j.attempts }, (_, i) => {
+      const n = i + 1;
+      const last = n === j.attempts;
+      const unfinished = last && j.status === 'running';
+      const outcome = last && j.status === 'succeeded' ? 'succeeded' : 'failed';
+      const started = `now() + interval '${j.runInMinutes + i * 5} minutes'`;
+      return [
+        lit(mockUuid('job-attempt', `${j.lead}:${j.action}:${n}`)),
+        lit(tenantId(leadTenant(j.lead))),
+        lit(mockUuid('job', `${j.lead}:${j.action}`)),
+        String(n),
+        started,
+        unfinished ? 'null' : `${started} + interval '2 seconds'`,
+        unfinished ? 'null' : lit(outcome),
+        unfinished || outcome === 'succeeded' ? 'null' : opt(j.error ?? 'provider_error'),
+      ];
+    }),
+  );
+  return `${GENERATED}
+-- Jobs in every status (MOCK_DATA.md X-09), including a dead-lettered text-back (RB-22) and a
+-- running job whose lease already expired, as after a worker crash (X-04).
+insert into app.jobs (
+  id, tenant_id, lead_id, action_type, idempotency_key, status, attempts, run_at,
+  lease_expires_at, last_error, external_ref
+) values
+${rows(jobs)};
+
+insert into app.job_attempts (
+  id, tenant_id, job_id, attempt, started_at, finished_at, outcome, error_code
+) values
+${rows(attempts)};
+`;
+}
+
+function optOutsFile(): string {
+  return `${GENERATED}
+-- Opt-outs (Wes, RB-12: STOP mid-conversation) and email delivery events (Ana, RB-07 and RB-21).
+insert into app.opt_outs (id, tenant_id, phone, source, opted_out_at) values
+${rows(OPT_OUTS.map((o) => [lit(mockUuid('opt-out', `${o.tenant}:${o.phone}`)), lit(tenantId(o.tenant)), lit(o.phone), lit('stop_keyword'), ago(o.minutesAgo)]))};
+
+insert into app.email_events (id, tenant_id, provider_message_id, recipient, status, occurred_at) values
+${rows(EMAIL_EVENTS.map((e) => [lit(mockUuid('email-event', e.messageRef)), lit(tenantId(e.tenant)), lit(e.messageRef), lit(e.recipient), lit(e.status), ago(e.minutesAgo)]))};
+`;
+}
+
+function auditFile(): string {
+  const event = (
+    key: string,
+    tenant: string,
+    actor: string | undefined,
+    action: string,
+    subject: [string, string] | undefined,
+    minutesAgo: number,
+  ) => [
+    lit(mockUuid('audit', key)),
+    lit(tenantId(tenant)),
+    lit(actor ? 'portal_user' : 'operator'),
+    actor ? lit(portalUserId(actor)) : 'null',
+    lit(action),
+    subject ? lit(subject[0]) : 'null',
+    subject ? lit(subject[1]) : 'null',
+    ago(minutesAgo),
+  ];
+  const decisions = LEADS.flatMap((l) =>
+    l.request?.decidedBy
+      ? [
+          event(
+            `request:${l.key}`,
+            l.tenant,
+            l.request.decidedBy,
+            `request.${l.request.state}`,
+            ['request', requestId(l.key)],
+            Math.max(l.minutesAgo - 30, 1),
+          ),
+        ]
+      : [],
+  );
+  const rowsOut = [
+    ...TENANTS.map((t) =>
+      event(`provision:${t.key}`, t.key, undefined, 'tenant.provisioned', undefined, 43000),
+    ),
+    event('disable:T4', 'T4', undefined, 'tenant.disabled', undefined, 30000),
+    event(
+      'templates:T1:2',
+      'T1',
+      'U-01',
+      'templates.version_activated',
+      ['tenant_templates', mockUuid('settings-templates', 'T1:2')],
+      4320,
+    ),
+    event(
+      'ai:T1:2',
+      'T1',
+      'U-01',
+      'ai_settings.version_activated',
+      ['ai_settings', mockUuid('settings-ai', 'T1:2')],
+      4320,
+    ),
+    ...decisions,
+  ];
+  return `${GENERATED}
+-- Audit trail: provisioning, offboarding, settings changes and request decisions.
+insert into app.audit_events (
+  id, tenant_id, actor_type, actor_portal_user_id, action, subject_type, subject_id, occurred_at
+) values
+${rows(rowsOut)};
 `;
 }
 
@@ -314,10 +551,15 @@ export function buildSeedFiles(): Map<string, string> {
   return new Map([
     ['01_tenants_and_config.sql', tenantsFile()],
     ['02_portal_users.sql', portalUsersFile()],
+    ['03_templates_and_ai_settings.sql', settingsFile()],
+    ['04_connections.sql', connectionsFile()],
     ['05_contacts.sql', contactsFile()],
     ['06_inbound_events.sql', inboundEventsFile()],
     ['07_leads_calls_voicemails.sql', leadsFile()],
     ['08_conversations_messages.sql', conversationsFile()],
     ['09_requests_and_holds.sql', requestsFile()],
+    ['10_jobs.sql', jobsFile()],
+    ['11_email_events_and_opt_outs.sql', optOutsFile()],
+    ['12_audit_events.sql', auditFile()],
   ]);
 }

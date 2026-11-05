@@ -60,12 +60,12 @@ playbook says so, the customer first receives the fixed safety message.
 
 ## States (proposed, ADR-0002 decision 6)
 
-| Entity               | States                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Lead                 | `new` → `clarifying` → `offered` → `requested` → `booked`; also `needs_attention`, `quiet`, `closed`, `spam`, `opted_out` |
-| Request              | `pending` → `approved` / `changed` / `declined` / `expired`                                                               |
-| Hold                 | `active` → `converted` / `released`                                                                                       |
-| Service registration | `not_started` → `submitted` → `approved` / `rejected` (per tenant, per service: texting, email)                           |
+| Entity               | States                                                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Lead                 | `new` → `clarifying` → `offered` → `requested` → `booked`; also `needs_attention`, `quiet`, `closed`, `spam`, `opted_out`  |
+| Request              | `pending` → `approved` / `changed` / `declined` / `expired`                                                                |
+| Hold                 | `active` → `converted` / `released`                                                                                        |
+| Service registration | `not_started` → `submitted` → `approved` / `rejected`; `disabled` at offboarding (per tenant, per service: texting, email) |
 
 Portal lanes are queries over these states: **Needs you** (`needs_attention`, pending
 requests, emergencies), **Waiting on customer** (`clarifying`, `offered`), **Booked**

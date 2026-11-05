@@ -37,3 +37,13 @@ export const LANE_STATES = {
   booked: ['booked'],
   wentQuiet: ['quiet'],
 } as const satisfies Record<string, readonly LeadState[]>;
+
+/** Portal status cards, per tenant and service. `disabled`: turned off at offboarding. */
+export const SERVICE_REGISTRATION_STATES = [
+  'not_started',
+  'submitted',
+  'approved',
+  'rejected',
+  'disabled',
+] as const;
+export type ServiceRegistrationState = (typeof SERVICE_REGISTRATION_STATES)[number];
