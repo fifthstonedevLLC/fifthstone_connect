@@ -29,8 +29,8 @@ Build order (owner, 2026-11-03; `docs/product/SCOPE.md`): 1 foundation → 2 por
 providers) are planned and stay behind interfaces with mocks, but no real adapter is built until
 Phase 4, after the portal works and multi-tenant isolation is proven.
 
-Phase 1 in progress. Done: core types and validation (`packages/core`). Next: connector
-interfaces with mocks, migrations in `supabase/migrations/` with row-level security, mock seed
+Phase 1 in progress. Done: core types and validation (`packages/core`), connector interfaces
+with labeled mocks (`packages/connectors`). Next: migrations in `supabase/migrations/` with row-level security, mock seed
 data and local Auth users, then tenant-isolation tests against the local Supabase stack
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
@@ -59,7 +59,7 @@ Database rules, environments and local setup: `docs/engineering/DATABASE.md`.
 | Path                    | Responsibility                                                                                                    |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `packages/core`         | Domain models, Zod validation, event contracts, tenant config                                                     |
-| `packages/connectors`   | SES, Google Sheets, webhook adapters behind narrow interfaces                                                     |
+| `packages/connectors`   | Interfaces to Twilio, SES, calendars, transcription and models; labeled mocks in `@fsc/connectors/mock`           |
 | `packages/workflow`     | Durable jobs, retries, idempotency, orchestration                                                                 |
 | `packages/conversation` | Conversation state, clarifying-question logic, playbooks, template rendering (planned)                            |
 | `packages/scheduling`   | Slot calculation, urgency rules, tentative holds (planned)                                                        |

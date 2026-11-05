@@ -3,8 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Adapters for Amazon SES, Google Sheets, and inbound webhook sources.",
+  "description": "Interfaces to Twilio, SES, calendars, transcription and language models, with labeled mocks.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mock": "./src/mock/index.ts"
+  },
+  "dependencies": {
+    "@fsc/core": "*",
+    "zod": "^4.6.7"
   }
 }

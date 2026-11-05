@@ -12,6 +12,37 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-04 — Phase 1: connector interfaces with labeled mocks
+
+**Change**
+
+- `packages/connectors`: interfaces for every external service in v0.2: `SmsSender`,
+  `PhoneEvents` (missed calls, voicemails, received texts, delivery status), `EmailSender`,
+  `EmailEvents` (forwarded inquiries, delivery, bounce, complaint), `CalendarProvider` (busy,
+  place hold, confirm hold, release hold), `TranscriptionProvider` and `LanguageModel`.
+- Every call takes `tenantId` explicitly; side effects take an idempotency key. Calls return a
+  result rather than throwing, with errors marked `transient` (retry) or `permanent`
+  (dead-letter), matching the error table in `SYSTEM_OVERVIEW.md`. Every adapter carries
+  `provider` and `isMock`, so status reporting can refuse to call a mock-only path verified.
+- `countSegments` and `findNonGsmCharacters`: billable SMS segment counting (GSM-7 vs UCS-2),
+  for the segment limits and cost controls in `SCOPE.md`.
+- `@fsc/connectors/mock` (separate entry point, never imported by production wiring): mocks for
+  each interface. They issue `MOCK-` references, enforce idempotency per tenant and key, support
+  scripted failures, record every request, and throw on any phone number outside
+  +1 319 555-0100 to 0199 or any email outside `example.com/.org/.net` (CLAUDE.md rule 17). The
+  calendar mock treats holds as busy (no double offers) and simulates revoked access; the
+  transcription and model mocks return scripted output for the evaluation set.
+- Renamed in `SYSTEM_OVERVIEW.md`: `VoiceEvents` → `PhoneEvents` (it also carries texts),
+  `InboundEmail` → `EmailEvents` (it also carries delivery events). `LeadDestination` (Sheets)
+  is not defined until decision 20 is resolved.
+
+**New dependencies (in `@fsc/connectors`):** `zod` (already used by `@fsc/core`) validates
+inbound event shapes; `@fsc/core` (workspace) supplies `ExternalEventIdSchema`. No new
+third-party packages.
+
+**Test evidence:** `npm run check`: typecheck, lint and format pass; 83/83 tests pass (29 new in
+`packages/connectors`). Mocks only: no vendor was called.
+
 ## 2026-11-03 — v0.2 pricing assumptions
 
 **Change**
