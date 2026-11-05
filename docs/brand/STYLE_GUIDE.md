@@ -5,7 +5,7 @@ organization: 'Fifth Stone Dev'
 status: 'Draft'
 version: '0.1'
 owner: 'Fifth Stone Dev'
-last_updated: '2026-11-02'
+last_updated: '2026-11-03'
 ---
 
 # Writing and Brand Style Guide
@@ -15,22 +15,25 @@ How Fifth Stone Dev writes about this service, internally and to customers. Valu
 
 ## Names
 
-| Item                   | Value                                                            | Status                                                                                 |
-| ---------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Company (master brand) | Fifth Stone Dev                                                  | Approved                                                                               |
-| Legal entity           | Fifth Stone Dev LLC                                              | Approved                                                                               |
-| Service name           | Fifth Stone Connect                                              | **Working name only** — internal use until brand and domain availability are confirmed |
-| Offer name             | Inquiry-to-Action Setup                                          | Working                                                                                |
-| Customer-facing domain | **TBD**                                                          |                                                                                        |
-| Logo for this service  | **TBD** — use existing Fifth Stone Dev assets only when supplied |                                                                                        |
-| Colors / fonts         | **TBD** — request from owner before any branded PDF or HTML      |                                                                                        |
+| Item                   | Value                                                                                     | Status                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Company (master brand) | Fifth Stone Dev                                                                           | Approved                                                                      |
+| Legal entity           | Fifth Stone Dev LLC                                                                       | Approved                                                                      |
+| Service name           | Fifth Stone Connect                                                                       | Approved for public use 2026-11-03 (provisional — trademark search pending)   |
+| Offer name             | v0.2 name pending. "Inquiry-to-Action" described the v0.1 offer; do not use it for v0.2   | Pending                                                                       |
+| Service domain         | connect.fifthstonedev.com                                                                 | Approved 2026-11-03 — DNS not yet configured; DNS changes need owner approval |
+| Logo for this service  | **TBD** — no Fifth Stone Connect mark; use the Fifth Stone Dev logo (supplied 2026-11-03) |                                                                               |
+| Colors / fonts         | Fifth Stone Dev palette, Archivo + Space Mono (see Visual identity)                       | Supplied by owner 2026-11-03                                                  |
 
-In customer-facing material until approval: "Fifth Stone Dev's Inquiry-to-Action setup."
+In customer-facing material: "Fifth Stone Connect, from Fifth Stone Dev." Until a v0.2 offer
+name is approved, describe the workflow plainly ("when you can't pick up, the conversation keeps
+going").
 
 ## Audience
 
-Owners and office managers of 1–20 person home-service businesses. Practical, busy, often
-skeptical of agencies and software pitches. Not technical.
+Owners and office managers of 1–20 person businesses where the person doing the work also
+answers the phone: service trades, contractors, tattoo studios, small clinics and practices.
+Practical, busy, often skeptical of agencies and software pitches. Not technical.
 
 ## Voice
 
@@ -65,9 +68,35 @@ The acknowledgment and alert emails are sent on the customer's behalf. They must
 - Commands in copyable code blocks. Dates as `YYYY-MM-DD`.
 - When a result came from a mock, say so.
 
+## Visual identity
+
+Source: owner's `FINAL-brand-guide.html` and `fifth-stone-brand.css` (Fifth Stone Dev LLC
+OneDrive, Branding folder), supplied 2026-11-03. Implemented in
+`apps/marketing/public/tokens.css`.
+
+| Role             | Name           | Hex       |
+| ---------------- | -------------- | --------- |
+| Primary          | Stone Slate    | `#2C3E50` |
+| Headers, text    | Stone Charcoal | `#1A252F` |
+| Primary accent   | Accent Bronze  | `#B8956A` |
+| Secondary text   | Stone River    | `#5D6D7E` |
+| Borders          | Stone Sand     | `#BDC3C7` |
+| Backgrounds      | Stone Light    | `#ECF0F1` |
+| Secondary accent | Accent Sage    | `#7D9D8E` |
+
+Fonts: Archivo (headings 700, body 400) and Space Mono (labels, code).
+
+**Contrast rule:** Bronze is about 2.8:1 against white, so it is never used for text or with
+white text. Bronze buttons carry Charcoal text (about 5.6:1). This differs from
+`fifth-stone-brand.css`, which pairs Bronze with white; owner to confirm.
+
 ## Missing brand assets
 
-- [ ] Fifth Stone Dev logo files (SVG/PNG) for internal PDFs
-- [ ] Brand colors and fonts
-- [ ] Decision on the public name for this service
-- [ ] Customer-facing domain/subdomain for hosted forms
+- [ ] Fifth Stone Dev logo as SVG (PNG supplied 2026-11-03; SVGs listed in the brand README were
+      not in the folder)
+- [x] Brand colors and fonts (2026-11-03)
+- [ ] A Fifth Stone Connect mark, if one is wanted
+- [x] Public name for this service — Fifth Stone Connect (2026-11-03)
+- [x] Service domain — connect.fifthstonedev.com (2026-11-03)
+- [ ] Trademark search on "Fifth Stone Connect"
+- [ ] Hosted-form subdomain (candidate: forms.connect.fifthstonedev.com)

@@ -13,6 +13,10 @@ last_updated: '2026-11-02'
 Records the Phase 0 baseline. Items marked **Proposed** need owner sign-off; see
 [DECISIONS_PENDING.md](DECISIONS_PENDING.md).
 
+> The product context below describes the v0.1 offer. Scope changed to v0.2 on 2026-11-03;
+> see [ADR-0002](0002-scope-v0.2-architecture.md). The technical decisions in this record remain
+> in force unless ADR-0002 changes them.
+
 ## Context
 
 A single operator (Fifth Stone Dev) must run a repeatable paid integration for a handful of
@@ -37,7 +41,7 @@ middlewares for the same baseline.
 
 _Consequence:_ Fastify plugin model to learn; small surface in our usage.
 
-### 3. Zod as the single source of validation — Proposed (adopted in Phase 1)
+### 3. Zod as the single source of validation — Accepted (adopted 2026-11-03)
 
 Types and runtime validation from one definition in `packages/core`.
 
@@ -59,10 +63,11 @@ API and worker connect with `pg` using a least-privilege application role, not t
 foreign keys `(tenant_id, id)` prevent cross-tenant references. RLS considered as defense in
 depth; decision deferred to the tenant-isolation ADR.
 
-### 6. Plain SQL migrations — Proposed
+### 6. Plain SQL migrations — Superseded in part by ADR-0003
 
-Numbered `.sql` files in `infra/migrations` with a small runner and a `schema_migrations`
-table. Readable, reviewable, no ORM.
+Plain SQL, readable and reviewable, no ORM. The planned folder (`infra/migrations`) and
+hand-written runner were replaced by the Supabase CLI and `supabase/migrations/`
+([ADR-0003](0003-database-platform-and-hosting.md) decision 2).
 
 ### 7. Tooling — Accepted
 

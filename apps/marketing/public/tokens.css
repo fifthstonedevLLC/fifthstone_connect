@@ -1,0 +1,55 @@
+/*
+ * Design tokens from the Fifth Stone Dev brand guide and fifth-stone-brand.css (supplied by the
+ * owner 2026-11-03). Brand primitives first, then the semantic roles styles.css reads.
+ * Contrast note: Bronze is about 2.8:1 against white, so white-on-Bronze buttons and Bronze link
+ * text (as in fifth-stone-brand.css) fail the guide's own 4.5:1 rule. Here Bronze is used only
+ * as a fill behind Charcoal text (about 5.6:1) or as decoration.
+ */
+:root {
+  color-scheme: light;
+
+  /* Brand palette */
+  --stone-slate: #2c3e50;
+  --stone-charcoal: #1a252f;
+  --stone-river: #5d6d7e;
+  --stone-sand: #bdc3c7;
+  --stone-light: #ecf0f1;
+  --accent-bronze: #b8956a;
+  --accent-sage: #7d9d8e;
+  --white: #ffffff;
+  --off-white: #f8f9fa;
+
+  /* Surfaces */
+  --color-page: var(--off-white);
+  --color-surface: var(--white);
+  --color-surface-sunk: var(--stone-light);
+  --color-surface-inverse: var(--stone-charcoal);
+
+  /* Text */
+  --color-ink: var(--stone-charcoal);
+  --color-heading: var(--stone-slate);
+  --color-ink-muted: var(--stone-river);
+  --color-ink-inverse: var(--off-white);
+  --color-ink-inverse-muted: var(--stone-sand);
+
+  /* Lines and borders */
+  --color-rule: var(--stone-sand);
+  --color-rule-strong: var(--stone-slate);
+  --color-accent-rule: var(--accent-bronze);
+
+  /* Interaction: Bronze for CTAs, per the guide */
+  --color-action: var(--accent-bronze);
+  --color-action-ink: var(--stone-charcoal);
+  --color-action-hover: var(--stone-slate);
+  --color-action-hover-ink: var(--white);
+  --color-focus: var(--stone-slate);
+
+  /* Type */
+  --font-sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  /* Shape and motion, from fifth-stone-brand.css */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --transition-fast: 150ms ease-in-out;
+}

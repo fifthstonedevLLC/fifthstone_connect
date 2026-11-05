@@ -5,7 +5,7 @@ organization: 'Fifth Stone Dev'
 status: 'Draft'
 version: '0.1'
 owner: 'Engineering'
-last_updated: '2026-11-02'
+last_updated: '2026-11-03'
 ---
 
 # Architecture Decision Records
@@ -14,6 +14,8 @@ One file per decision: `NNNN-short-title.md`. Copy [TEMPLATE.md](TEMPLATE.md).
 Open questions with working defaults are tracked in [DECISIONS_PENDING.md](DECISIONS_PENDING.md)
 until promoted to an ADR.
 
-| ADR                                  | Title                | Status   |
-| ------------------------------------ | -------------------- | -------- |
-| [0001](0001-initial-architecture.md) | Initial architecture | Proposed |
+| ADR                                           | Title                                     | Status   |
+| --------------------------------------------- | ----------------------------------------- | -------- |
+| [0001](0001-initial-architecture.md)          | Initial architecture                      | Proposed |
+| [0002](0002-scope-v0.2-architecture.md)       | Scope v0.2 architecture                   | Proposed |
+| [0003](0003-database-platform-and-hosting.md) | Database platform, migrations and hosting | Proposed |

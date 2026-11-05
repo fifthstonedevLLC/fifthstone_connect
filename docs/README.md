@@ -5,27 +5,31 @@ organization: 'Fifth Stone Dev'
 status: 'Draft'
 version: '0.1'
 owner: 'Engineering'
-last_updated: '2026-11-02'
+last_updated: '2026-11-03'
 ---
 
 # Documentation Index
 
 Internal engineering and operations documentation for Fifth Stone Connect.
 
-| Area         | Document                                              | Purpose                                                                |
-| ------------ | ----------------------------------------------------- | ---------------------------------------------------------------------- |
-| Product      | [SCOPE.md](product/SCOPE.md)                          | Offer, inclusions/exclusions, acceptance criteria, pricing assumptions |
-| Product      | [BACKLOG.md](product/BACKLOG.md)                      | Out-of-scope ideas parked for later gates                              |
-| Architecture | [SYSTEM_OVERVIEW.md](architecture/SYSTEM_OVERVIEW.md) | Boundaries, data flow, modules, error behavior                         |
-| Decisions    | [adr/](adr/README.md)                                 | Architecture decision records                                          |
-| Decisions    | [DECISIONS_PENDING.md](adr/DECISIONS_PENDING.md)      | Open decisions and current defaults                                    |
-| Security     | [THREAT_MODEL.md](security/THREAT_MODEL.md)           | Assets, entry points, abuse cases, mitigations                         |
-| Operations   | [RUNBOOK.md](operations/RUNBOOK.md)                   | Health checks, triage, replay, recovery                                |
-| Operations   | [ONBOARDING.md](operations/ONBOARDING.md)             | Tenant setup procedure                                                 |
-| Operations   | [OFFBOARDING.md](operations/OFFBOARDING.md)           | Access revocation, data deletion                                       |
-| Brand        | [STYLE_GUIDE.md](brand/STYLE_GUIDE.md)                | Names, voice, conventions, missing assets                              |
-| History      | [changelog.md](changelog.md)                          | Dated changes with test evidence                                       |
-| Source       | [handoff/](handoff/README.md)                         | Original plan documents (read-only reference)                          |
+| Area         | Document                                               | Purpose                                                                |
+| ------------ | ------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Product      | [SCOPE.md](product/SCOPE.md)                           | Offer, inclusions/exclusions, acceptance criteria, pricing assumptions |
+| Product      | [BACKLOG.md](product/BACKLOG.md)                       | Out-of-scope ideas parked for later gates                              |
+| Product      | [MOCK_DATA.md](product/MOCK_DATA.md)                   | Mock tenants, scenarios, evaluation set and import plan                |
+| Architecture | [SYSTEM_OVERVIEW.md](architecture/SYSTEM_OVERVIEW.md)  | Boundaries, data flow, modules, error behavior                         |
+| Engineering  | [DATABASE.md](engineering/DATABASE.md)                 | Environments, local Supabase setup, migration, seed and cleanup rules  |
+| Engineering  | [MIGRATION_LEDGER.md](engineering/MIGRATION_LEDGER.md) | Every migration, its status and where it has been applied              |
+| Decisions    | [adr/](adr/README.md)                                  | Architecture decision records                                          |
+| Decisions    | [DECISIONS_PENDING.md](adr/DECISIONS_PENDING.md)       | Open decisions and current defaults                                    |
+| Security     | [THREAT_MODEL.md](security/THREAT_MODEL.md)            | Assets, entry points, abuse cases, mitigations                         |
+| Operations   | [RUNBOOK.md](operations/RUNBOOK.md)                    | Health checks, triage, replay, recovery                                |
+| Operations   | [ONBOARDING.md](operations/ONBOARDING.md)              | Tenant setup procedure                                                 |
+| Operations   | [OFFBOARDING.md](operations/OFFBOARDING.md)            | Access revocation, data deletion                                       |
+| Marketing    | [SITE_BRIEF.md](marketing/SITE_BRIEF.md)               | Marketing page goals, structure, constraints                           |
+| Brand        | [STYLE_GUIDE.md](brand/STYLE_GUIDE.md)                 | Names, voice, conventions, missing assets                              |
+| History      | [changelog.md](changelog.md)                           | Dated changes with test evidence                                       |
+| Source       | [handoff/](handoff/README.md)                          | Original plan documents (read-only reference)                          |
 
 ## Conventions
 
