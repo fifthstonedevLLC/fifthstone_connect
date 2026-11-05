@@ -1,3 +1,4 @@
+import { MAX_TEMPLATE_SEGMENTS, OPT_OUT_LINE, type TemplateProblem } from '@fsc/conversation';
 import type { LeadCard, LeadSource, LeadState, ServiceState, Urgency } from './types';
 
 /**
@@ -240,4 +241,76 @@ const ACTION_ERROR: Record<string, string> = {
 /** Plain words for a refused or failed action. Nothing was written when an action is refused. */
 export function actionErrorMessage(code: string): string {
   return ACTION_ERROR[code] ?? "That didn't work. Nothing was changed; try again.";
+}
+
+const PLACEHOLDER_LABEL: Record<string, string> = {
+  business: 'business name',
+  name: 'first name',
+  need: 'what they need',
+  question: 'next question',
+  slots: 'open times',
+  slot: 'the time',
+  summary: 'short summary',
+};
+
+/** "{slot} (the time)" for a placeholder in settings hints. */
+export function placeholderLabel(placeholder: string): string {
+  const words = PLACEHOLDER_LABEL[placeholder];
+  return words ? `{${placeholder}} (${words})` : `{${placeholder}}`;
+}
+
+/** One template problem in plain words, from the shared rules the server enforces. */
+export function templateProblemMessage(problem: TemplateProblem): string {
+  switch (problem.code) {
+    case 'unknown_template':
+      return "This isn't a template the system sends.";
+    case 'empty':
+      return "This template can't be empty.";
+    case 'missing_placeholder':
+      return problem.placeholder === 'business'
+        ? 'Keep your business name in this text, written out or as {business}.'
+        : `Keep ${placeholderLabel(problem.placeholder)} in this text.`;
+    case 'missing_opt_out':
+      return `Keep the opt-out line: "${OPT_OUT_LINE}"`;
+    case 'unknown_placeholder':
+      return `{${problem.placeholder}} can't be filled in this template.`;
+    case 'stray_brace':
+      return 'A { or } here is not part of a placeholder and would be sent as typed.';
+    case 'non_gsm':
+      return `Replace ${problem.characters.join(' ')}: curly quotes and emoji make every text cost more. Use straight quotes and no emoji.`;
+    case 'too_long':
+      return `This runs to ${problem.segments} segments when sent; keep it to ${MAX_TEMPLATE_SEGMENTS}.`;
+  }
+}
+
+/** "Nov 5, 2:10 PM" for when a settings version was saved. */
+export function savedAtLabel(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
+const SETTINGS_ERROR: Record<string, string> = {
+  stale_version:
+    'These settings changed since you opened them, maybe from another device. The latest is shown; make your change again.',
+  template_keys_changed:
+    'The set of templates changed. The latest is shown; make your change again.',
+  owner_only: 'Only the owner can change these settings.',
+  minimum_data: 'This business does not use AI instructions.',
+  version_breaks_rules:
+    "That version no longer meets today's template rules, so it can't be made live. Edit the live version instead.",
+  not_found: 'That version no longer exists. The latest is shown.',
+  invalid_request: 'Some fields are too long or have too many lines. Shorten them and try again.',
+  template_problems:
+    'Some templates need a fix before they can be saved. See the notes below each one.',
+  network: "We couldn't reach the server. Nothing was saved; try again.",
+};
+
+/** Plain words for a refused settings save or restore. Nothing was written when one is refused. */
+export function settingsErrorMessage(code: string): string {
+  return SETTINGS_ERROR[code] ?? "That didn't work. Nothing was saved; try again.";
 }

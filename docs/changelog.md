@@ -12,6 +12,87 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 2: versioned templates and AI settings
+
+**Change**
+
+- New **Templates & AI** page in the portal (`/templates`, `apps/portal/src/SettingsPage.tsx`):
+  - **Text templates:** grouped as texts to customers, replies, and texts to you. Each shows what
+    it must keep, which placeholders it may use, an example as sent, and a live segment and
+    character count.
+  - **AI instructions:** structured fields only (what you do, what you don't, emergencies,
+    questions, tone), never a raw prompt.
+  - **Version history:** every save makes a new live version. "Make live" restores an earlier one,
+    and each older version lists how it differs from the live one.
+  - Staff see everything read-only. Minimum-data (clinic) businesses have no AI instructions to
+    set. The page shows only what the server confirmed (decision 24).
+- **Template rules** (`packages/conversation/src/templates.ts`, CLAUDE.md rule 11). Owners change
+  wording, not which templates exist. Each template keeps its required pieces:
+  - the business name in the first text and the confirmation, written out or as `{business}`;
+  - the opt-out line where required;
+  - `{slots}` and `{slot}` in offers and confirmations.
+
+  Templates may use only the placeholders the engine can fill there. Curly quotes, emoji and stray
+  braces are refused, and a template must fit in 2 segments with typical values filled in. The
+  API runs these checks before writing; the portal runs the same functions for its live notes.
+
+- **AI settings schema** (`packages/core/src/ai-settings.ts`): strict Zod object, every field
+  optional, with limits in a Zod-free `ai-limits.ts` that the portal shares.
+- **API** (`apps/api/src/repositories/settings.ts`):
+  - `GET /portal/settings`.
+  - `PUT /portal/settings/templates` and `PUT /portal/settings/ai`, each with
+    `{ id, baseVersion, content }`.
+  - `POST /portal/settings/:kind/restore` with `{ version, baseVersion }`.
+  - Writes are **owner-only** (403 `owner_only`; decision 27, working default).
+  - Each write locks the live version, refuses a stale `baseVersion` (409), and writes the new
+    version, the flip of `active`, and an audit event (`settings.templates_saved`,
+    `settings.ai_restored`, and so on, listing what changed) in one transaction.
+  - The client-made `id` makes a double submit write one version. Restoring the live version is a
+    no-op. A version that fails today's rules is not restored.
+  - Template problems come back as 422 with the problem list. AI writes are refused for
+    minimum-data tenants (rule 13).
+- **Reply rendering** now fills `{business}` from the tenant's name, so owners can use the
+  placeholder in reply templates.
+- **Segment counting** moved from `@fsc/connectors` to `@fsc/core`, with a `@fsc/core/segments`
+  entry point that keeps Zod out of the browser. `@fsc/connectors` re-exports it unchanged.
+- **New workspace dependencies:** `@fsc/conversation` and `@fsc/core` in `apps/portal` (shared
+  rules), and `@fsc/conversation` in `packages/mock-data` (a test that every seeded version passes
+  the rules, since restore re-checks them). No new third-party packages.
+- **Not built yet** from SCOPE.md's settings list: the "Try it" box, and the warning when an edit
+  changes a message's purpose.
+
+**Test evidence:** `npm run check`: 180 passed (1 skipped locally without the anon key). New
+tests:
+
+- template rules, 12 tests;
+- AI schema and limits, 4 tests;
+- reply `{business}` filling;
+- settings wording in the portal;
+- seeded versions passing the rules.
+
+API settings route tests, 8 of 8 against the local stack:
+
+- staff read-only and refused (403);
+- save once with audit, and a double submit;
+- a stale base refused (409);
+- required pieces refused (422) with each problem named;
+- an added template refused;
+- restore and repeat restore;
+- a missing version (404);
+- raw AI prompt refused (400) and AI fields saved;
+- clinic AI unavailable and refused.
+
+`db:test` 84/84. In the in-app browser as Rhett:
+
+- removing `{slots}` showed the note and blocked Save;
+- a valid edit saved as Version 3;
+- "Make live" on Version 2 restored it;
+- six AI questions showed the limit note, and four saved as AI Version 3.
+
+As Carla at 375px: every field was read-only, with no Save or "Make live" and no sideways scroll.
+The local database was reset afterwards. The portal bundle is 519 kB, against 502 kB before this
+change; Vite's 500 kB warning predates it. Mock data only.
+
 ## 2026-11-05 — Phase 2: template replies from the lead page
 
 **Change**

@@ -13,6 +13,8 @@ export const REPLY_PREFIX = 'reply_';
 export interface ReplyVars {
   /** The contact's display name ("Marcus T."); only the first name is used. */
   name: string | null;
+  /** The business's name, for `{business}`. */
+  business: string;
 }
 
 export type ReplyError =
@@ -43,9 +45,10 @@ export function renderReply(
 
   const name = firstName(vars.name);
   // Without a name, "Thanks, {name}." reads "Thanks." rather than "Thanks, ."
+  const withBusiness = template.replaceAll('{business}', vars.business);
   const withName = name
-    ? template.replaceAll('{name}', name)
-    : template.replaceAll(/,?\s*\{name\}/g, '');
+    ? withBusiness.replaceAll('{name}', name)
+    : withBusiness.replaceAll(/,?\s*\{name\}/g, '');
   if (/\{[a-z_]+\}/.test(withName)) return { ok: false, error: 'unfilled_placeholder' };
   return { ok: true, body: withName };
 }

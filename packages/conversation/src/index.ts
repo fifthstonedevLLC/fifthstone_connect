@@ -4,3 +4,4 @@
  */
 export * from './actions.js';
 export * from './replies.js';
+export * from './templates.js';

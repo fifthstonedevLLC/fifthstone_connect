@@ -102,3 +102,28 @@ export interface LeadDetail {
 }
 
 export type PortalAction = 'approve' | 'suggest_time' | 'nudge' | 'close';
+
+export interface SettingsVersion<T> {
+  version: number;
+  active: boolean;
+  createdAt: string;
+  createdByName: string | null;
+  content: T;
+}
+
+export interface AiSettings {
+  what_we_do?: string;
+  what_we_dont_do?: string[];
+  emergency?: string;
+  questions?: string[];
+  tone?: string;
+}
+
+export interface Settings {
+  canEdit: boolean;
+  businessName: string;
+  templates: { versions: SettingsVersion<Record<string, string>>[] };
+  ai: { available: boolean; versions: SettingsVersion<AiSettings>[] };
+}
+
+export type SettingsKind = 'templates' | 'ai';

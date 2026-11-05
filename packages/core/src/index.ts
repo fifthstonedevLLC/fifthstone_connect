@@ -9,3 +9,6 @@ export * from './events.js';
 export * from './jobs.js';
 export * from './connections.js';
 export * from './states.js';
+export * from './segments.js';
+export * from './ai-limits.js';
+export * from './ai-settings.js';

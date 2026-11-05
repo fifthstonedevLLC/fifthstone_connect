@@ -5,7 +5,7 @@ organization: 'Fifth Stone Dev'
 status: 'Draft'
 version: '0.2'
 owner: 'Phil (Fifth Stone Dev)'
-last_updated: '2026-11-03'
+last_updated: '2026-11-05'
 ---
 
 # Pending Decisions
@@ -41,3 +41,4 @@ answer is then recorded as an ADR.
 | 24  | Portal status display                      | Show only true, server-confirmed state; no optimistic UI. After Approve the lead reads "Confirming" until the calendar event exists, then "Booked" (owner, 2026-11-05)                             | Phase 2                          |
 | 25  | Who can act on a lead                      | Owners and staff can approve, suggest another time, nudge and close (owner, 2026-11-05). Every action is audited with the person who took it                                                       | Phase 2                          |
 | 26  | Replies from the portal                    | Template-only for now: owners and staff pick an owner-approved reply template; no free-typed texts (owner, 2026-11-05). Revisit free text with a prices/clinical-detail guard later                | Phase 2                          |
+| 27  | Who can change templates and AI settings   | Working default: the owner edits and restores; staff can read them. Owners can change wording but not add or remove templates; required pieces are enforced by the server. Confirm before pilots   | Phase 2                          |
