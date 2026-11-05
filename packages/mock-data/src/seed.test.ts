@@ -48,6 +48,10 @@ describe('mock catalog', () => {
     expect(unique(LEADS.map((l) => l.key))).toBe(true);
     expect(unique(CONTACTS.map((c) => `${c.tenant}:${c.phone}`))).toBe(true);
     expect(unique(LEADS.flatMap((l) => (l.voicemail ? [l.voicemail.code] : [])))).toBe(true);
+    // Messages in one thread never share a timestamp, so the thread order is always the same.
+    for (const lead of LEADS) {
+      expect(unique((lead.messages ?? []).map((m) => String(m.minutesAgo))), lead.key).toBe(true);
+    }
   });
 
   it('rejects real-looking phone numbers and email addresses', () => {

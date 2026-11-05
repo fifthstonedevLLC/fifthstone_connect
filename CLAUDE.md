@@ -38,10 +38,11 @@ calendar holds) with Riverbend's scenario leads, and the settings and operations
 its seed. The Phase 1 exit (`db:reset` builds cleanly, isolation tests pass) is met for every
 table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios.
 
-Phase 2 started: `apps/api` (Fastify) serves `/health`, `/portal/me` and `/portal/today` with
-Supabase sign-in and tenant-scoped transactions, and `apps/portal` (React + Vite) signs in and
-shows the Today dashboard from them. The portal shows only server-confirmed state (decision 24).
-Next: the lead page (API and screen), then actions (approve, suggest a time, nudge, close)
+Phase 2 in progress: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/today` and
+`/portal/leads/:id` with Supabase sign-in and tenant-scoped transactions; `apps/portal`
+(React + Vite) signs in and shows Today and the lead page from them. The portal shows only
+server-confirmed state (decision 24). Next: actions (approve, suggest a time, nudge, close), each
+writing the decision, audit event and jobs in one transaction
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 

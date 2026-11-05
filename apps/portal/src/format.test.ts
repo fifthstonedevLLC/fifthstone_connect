@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { displayName, slotLabel, statusLine, summarySentence, whenLabel } from './format';
+import {
+  authorLabel,
+  displayName,
+  durationLabel,
+  leadProgress,
+  slotLabel,
+  statusLine,
+  summarySentence,
+  urgencyLabel,
+  whenLabel,
+} from './format';
 import type { LeadCard } from './types';
 
 const TZ = 'America/Chicago';
@@ -66,5 +76,44 @@ describe('summarySentence', () => {
 
   it('falls back to the phone number for unknown callers', () => {
     expect(displayName(card({ name: null }))).toBe('(319) 555-0142');
+  });
+});
+
+describe('leadProgress', () => {
+  it('marks earlier steps done and the current one current', () => {
+    expect(leadProgress('missed_call', 'requested')?.map((s) => s.status)).toEqual([
+      'done',
+      'done',
+      'done',
+      'current',
+      'upcoming',
+    ]);
+  });
+
+  it('names the first step after how the lead arrived', () => {
+    expect(leadProgress('form', 'offered')?.[0]?.label).toBe('Form received');
+  });
+
+  it('completes every step once booked', () => {
+    expect(leadProgress('text', 'booked')?.every((s) => s.status === 'done')).toBe(true);
+  });
+
+  it('shows no line for a lead off the normal path', () => {
+    expect(leadProgress('missed_call', 'needs_attention')).toBeNull();
+    expect(leadProgress('missed_call', 'quiet')).toBeNull();
+  });
+});
+
+describe('labels', () => {
+  it('formats voicemail length and urgency', () => {
+    expect(durationLabel(24)).toBe('0:24');
+    expect(durationLabel(95)).toBe('1:35');
+    expect(urgencyLabel('this_week')).toBe('This week');
+    expect(urgencyLabel(null)).toBe('Not known yet');
+  });
+
+  it('says who wrote each message', () => {
+    expect(authorLabel('template', 'Marcus T.')).toBe('You, from your template');
+    expect(authorLabel('customer', 'Marcus T.')).toBe('Marcus T.');
   });
 });

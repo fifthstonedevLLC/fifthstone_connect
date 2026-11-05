@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import {
   displayName,
   formatPhone,
@@ -48,7 +49,9 @@ function Card({ card, timeZone }: { card: LeadCard; timeZone: string }) {
   return (
     <article className={emergency ? 'card card--emergency' : 'card'}>
       <div className="card__head">
-        <h3 className="card__name">{displayName(card)}</h3>
+        <h3 className="card__name">
+          <Link to={`/leads/${card.id}`}>{displayName(card)}</Link>
+        </h3>
         <span className="card__when">{whenLabel(card.createdAt, timeZone)}</span>
       </div>
       {emergency && (

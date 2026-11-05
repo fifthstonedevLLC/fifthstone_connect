@@ -1,4 +1,11 @@
-import { LEAD_STATES, SERVICE_REGISTRATION_STATES, URGENCIES } from '@fsc/core';
+import {
+  HOLD_STATES,
+  LEAD_SOURCES,
+  LEAD_STATES,
+  REQUEST_STATES,
+  SERVICE_REGISTRATION_STATES,
+  URGENCIES,
+} from '@fsc/core';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import {
   serializerCompiler,
@@ -9,6 +16,7 @@ import type pg from 'pg';
 import { z } from 'zod';
 import { requirePortalUser, type TokenVerifier } from './auth.js';
 import { withTenant } from './db.js';
+import { getLead } from './repositories/lead.js';
 import { getMe } from './repositories/me.js';
 import { getToday } from './repositories/today.js';
 
@@ -76,6 +84,56 @@ const MeSchema = z.object({
     .nullable(),
 });
 
+const IsoDate = z.iso.datetime();
+
+const LeadDetailSchema = z.object({
+  id: z.uuid(),
+  source: z.enum(LEAD_SOURCES),
+  state: z.enum(LEAD_STATES),
+  reason: z.string().nullable(),
+  urgency: z.enum(URGENCIES).nullable(),
+  category: z.string().nullable(),
+  summary: z.string().nullable(),
+  address: z.string().nullable(),
+  createdAt: IsoDate,
+  contact: z.object({
+    name: z.string().nullable(),
+    phone: z.string().nullable(),
+    email: z.string().nullable(),
+    earlierLeads: z.number().int().min(0),
+  }),
+  voicemail: z
+    .object({
+      durationSeconds: z.number().int(),
+      transcript: z.string().nullable(),
+      confidence: z.number().min(0).max(1).nullable(),
+      receivedAt: IsoDate,
+    })
+    .nullable(),
+  messages: z.array(
+    z.object({
+      id: z.uuid(),
+      direction: z.enum(['in', 'out']),
+      author: z.enum(['customer', 'template', 'staff', 'ai_question']),
+      templateKey: z.string().nullable(),
+      body: z.string(),
+      deliveryStatus: z.enum(['received', 'queued', 'sent', 'delivered', 'undelivered', 'failed']),
+      occurredAt: IsoDate,
+    }),
+  ),
+  request: z
+    .object({
+      state: z.enum(REQUEST_STATES),
+      slotStart: IsoDate,
+      slotEnd: IsoDate,
+      decidedAt: IsoDate.nullable(),
+      decidedVia: z.enum(['text', 'portal']).nullable(),
+      decidedByName: z.string().nullable(),
+      hold: z.object({ state: z.enum(HOLD_STATES), expiresAt: IsoDate }).nullable(),
+    })
+    .nullable(),
+});
+
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({
     logger: deps.logger ?? { level: 'info', redact: { paths: REDACT_PATHS, censor: '[redacted]' } },
@@ -84,6 +142,13 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   app.decorateRequest('portalUser', null);
+
+  // Errors return a short code only; details stay in the (redacted) server log.
+  app.setErrorHandler((error: { validation?: unknown; statusCode?: number }, request, reply) => {
+    if (error.validation) return reply.code(400).send({ error: 'invalid_request' });
+    request.log.error({ err: error }, 'request failed');
+    return reply.code(500).send({ error: 'internal' });
+  });
 
   app.get(
     '/health',
@@ -125,6 +190,29 @@ export function buildApp(deps: AppDeps): FastifyInstance {
             getToday(client, user.tenantId),
           );
           return { lanes };
+        },
+      );
+
+      // Another business's lead is a plain 404, never a 403: the API does not confirm it exists.
+      typed.get(
+        '/leads/:id',
+        {
+          schema: {
+            params: z.object({ id: z.uuid() }),
+            response: {
+              200: LeadDetailSchema,
+              401: ErrorSchema,
+              403: ErrorSchema,
+              404: ErrorSchema,
+            },
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          const lead = await withTenant(deps.pool, user.tenantId, (client) =>
+            getLead(client, user.tenantId, request.params.id),
+          );
+          return lead ?? reply.code(404).send({ error: 'not_found' });
         },
       );
     },

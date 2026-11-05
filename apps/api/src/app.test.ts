@@ -135,6 +135,56 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
     expect((marcus as unknown as { slotStart: string | null }).slotStart).not.toBeNull();
   });
 
+  /** A Riverbend lead's ID, looked up by contact name (seed IDs are generated). */
+  async function riverbendLeadId(name: string): Promise<string> {
+    const { rows } = await pool.query<{ id: string }>(
+      `select l.id from app.leads l join app.contacts c on c.id = l.contact_id
+        where c.display_name = $1 order by l.created_at desc limit 1`,
+      [name],
+    );
+    if (!rows[0]) throw new Error(`No seeded lead for ${name}`);
+    return rows[0].id;
+  }
+
+  it("returns a lead's page: details, voicemail, thread and the request with its hold", async () => {
+    const id = await riverbendLeadId('Marcus T.');
+    const res = await get(`/portal/leads/${id}`, 'carla@riverbend.example.com');
+    expect(res.statusCode).toBe(200);
+    const lead = res.json();
+    expect(lead).toMatchObject({
+      id,
+      state: 'requested',
+      urgency: 'flexible',
+      address: '9918 Elm St, Cedar Falls',
+      contact: { name: 'Marcus T.', phone: '+13195550142', earlierLeads: 0 },
+      voicemail: { durationSeconds: 24 },
+      request: { state: 'pending', hold: { state: 'active' }, decidedAt: null },
+    });
+    expect(lead.voicemail.transcript).toContain('This is Marcus');
+    expect(
+      lead.messages.map((m: { direction: string; author: string }) => `${m.direction}:${m.author}`),
+    ).toEqual(['out:template', 'in:customer', 'out:template', 'in:customer', 'out:template']);
+  });
+
+  it('counts earlier leads from a repeat customer', async () => {
+    const id = await riverbendLeadId('Tom H.');
+    const res = await get(`/portal/leads/${id}`, 'rhett@riverbend.example.com');
+    expect(res.json()).toMatchObject({ contact: { name: 'Tom H.', earlierLeads: 1 } });
+  });
+
+  it("answers 404, not 403, for another business's lead", async () => {
+    const id = await riverbendLeadId('Marcus T.');
+    const res = await get(`/portal/leads/${id}`, 'mara@northline.example.com');
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toEqual({ error: 'not_found' });
+  });
+
+  it('rejects a malformed lead ID with a short error code', async () => {
+    const res = await get('/portal/leads/not-a-uuid', 'rhett@riverbend.example.com');
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ error: 'invalid_request' });
+  });
+
   it('keeps tokens and customer details out of the logs', async () => {
     await get('/portal/today', 'rhett@riverbend.example.com');
     const logs = logLines.join('');

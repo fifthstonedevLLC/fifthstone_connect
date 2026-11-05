@@ -12,6 +12,42 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 2: lead page (API and screen)
+
+**Change**
+
+- `GET /portal/leads/:id` (`apps/api/src/repositories/lead.ts`): the lead with its contact and
+  number of earlier leads, the latest voicemail and transcript, the full message thread with
+  authors and delivery status, and the latest request with who decided, how, and its hold.
+  Another business's lead returns 404, never 403, so the API does not confirm it exists. A
+  malformed ID returns 400 `invalid_request`.
+- API error handler: validation errors answer `{"error": "invalid_request"}`; anything else is
+  logged (redacted) and answers `{"error": "internal"}`, so no internal detail reaches a browser.
+- `apps/portal` lead page (`/leads/:id`), from the approved canvas layout:
+  - Header with how and when the lead arrived; the five-step line for leads on the normal path
+    (none for leads that need a person, went quiet or closed).
+  - Decision box: a pending request shows the slot, the hold's expiry and, until portal approval
+    is built, "reply 1 to the approval text to approve" instead of a button that does nothing
+    (decision 24). Booked shows the slot and who approved it, how and when. Others show why the
+    lead needs a person. Every variant has a Call link.
+  - One conversation thread: the voicemail (length, time, transcript, a warning when confidence
+    is low, "Not transcribed" when there is none) then each text, labeled "You, from your
+    template", "You, AI-drafted question", "You" or the customer's name, with "Not delivered"
+    where it applies.
+  - Details: what they need (labeled as an AI summary), how soon, address, phone, email, history.
+  - Today's card names now link to the lead page.
+- Portal layout fix: the sidebar is sticky only when it sits beside the content (880px and wider).
+  Between phone width and 880px it stacked above the content while still sticky, and covered it
+  on scroll.
+- Seed fix: in RB-02's thread, Marcus's "1" and the confirmation shared a timestamp, so their
+  order varied. The catalog test now rejects tied timestamps within a thread.
+
+**Test evidence:** `npm run check` passes (API: lead page, repeat-customer count, 404 for
+another business's lead, 400 for a malformed ID; portal: progress-line and label tests). In the
+in-app browser against the local stack: Marcus's page (pending request, active hold, voicemail,
+five texts in order, details), Ana's (booked, approved by Rhett in the portal), Ben's (needs a
+person, no progress line) and an unknown ID (not-found message). Mock data only.
+
 ## 2026-11-05 — Phase 2: portal shell with sign-in and the Today dashboard
 
 **Change**

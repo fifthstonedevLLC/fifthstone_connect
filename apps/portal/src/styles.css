@@ -399,9 +399,14 @@ a {
   outline: none;
 }
 
-/* On wider screens the sidebar stays in view while the lanes scroll, so the services and account
-   block are always reachable. */
-@media (min-width: 641px) {
+/* Wide enough for both columns: side by side, with the sidebar in view while the lanes scroll so
+   the services and account block are always reachable. Narrower: stacked, nothing sticky (a
+   sticky sidebar above the content would cover it). */
+@media (min-width: 880px) {
+  .shell {
+    flex-wrap: nowrap;
+  }
+
   .sidebar {
     position: sticky;
     top: 0;
@@ -411,7 +416,7 @@ a {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 879px) {
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--panel);
@@ -666,4 +671,211 @@ a {
   * {
     transition: none !important;
   }
+}
+
+/* Lead page --------------------------------------------------------------------------------- */
+
+.page--narrow {
+  max-width: 1040px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  color: var(--text-muted);
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  color: var(--text);
+}
+
+.card__name a {
+  text-decoration: none;
+}
+
+.card__name a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Per-lead progress: each dot shows its own status, so the fixed Bronze segment is off. */
+.steps__list--lead::after {
+  display: none;
+}
+
+.step--done .step__dot {
+  border-color: var(--accent-bronze);
+  background: var(--accent-bronze);
+}
+
+.step--current {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.step--current .step__dot {
+  border: 2px solid var(--accent-bronze);
+}
+
+.decision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 32px;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.decision__body {
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.decision__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.decision__check {
+  color: var(--accent-sage);
+}
+
+.decision__headline {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.decision__detail {
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.decision__note {
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.decision__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lead-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.conversation {
+  display: flex;
+  flex: 999 1 460px;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.voicemail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--panel);
+}
+
+.voicemail__transcript {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 16px;
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 62ch;
+}
+
+.message__body {
+  padding: 12px 16px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.message--out .message__body {
+  border-color: transparent;
+  background: var(--panel);
+}
+
+.message__failed {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.details {
+  display: flex;
+  flex: 1 1 280px;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.details__list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+}
+
+.details__list div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.details__list dt {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.details__list dd {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.details__list a {
+  text-underline-offset: 3px;
 }

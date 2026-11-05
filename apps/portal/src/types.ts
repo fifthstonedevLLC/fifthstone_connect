@@ -51,3 +51,49 @@ export interface Today {
     wentQuiet: LeadCard[];
   };
 }
+
+export type LeadSource = 'missed_call' | 'text' | 'email' | 'form';
+export type RequestState = 'pending' | 'approved' | 'changed' | 'declined' | 'expired';
+export type HoldState = 'active' | 'converted' | 'released';
+
+export interface LeadDetail {
+  id: string;
+  source: LeadSource;
+  state: LeadState;
+  reason: string | null;
+  urgency: Urgency | null;
+  category: string | null;
+  summary: string | null;
+  address: string | null;
+  createdAt: string;
+  contact: {
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    earlierLeads: number;
+  };
+  voicemail: {
+    durationSeconds: number;
+    transcript: string | null;
+    confidence: number | null;
+    receivedAt: string;
+  } | null;
+  messages: {
+    id: string;
+    direction: 'in' | 'out';
+    author: 'customer' | 'template' | 'staff' | 'ai_question';
+    templateKey: string | null;
+    body: string;
+    deliveryStatus: 'received' | 'queued' | 'sent' | 'delivered' | 'undelivered' | 'failed';
+    occurredAt: string;
+  }[];
+  request: {
+    state: RequestState;
+    slotStart: string;
+    slotEnd: string;
+    decidedAt: string | null;
+    decidedVia: 'text' | 'portal' | null;
+    decidedByName: string | null;
+    hold: { state: HoldState; expiresAt: string } | null;
+  } | null;
+}
