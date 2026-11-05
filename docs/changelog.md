@@ -12,6 +12,46 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 1: settings and operations migration
+
+**Change**
+
+- Migration `20261105161651_settings_and_operations.sql` (ledger row added):
+  - `playbooks`: the industry catalog (HVAC/plumbing, tattoo, contractor, clinic) as reference
+    data in the migration, read-only to the application.
+  - `tenant_config`: playbook, number, inbound address, hours, job length, approval window, hold
+    length, daily text limit, email sender. The playbook and the clinic minimum-data flag are
+    locked: the application can update only the owner-editable columns (CLAUDE.md rule 13).
+  - `tenant_templates` and `ai_settings`: write-once versions with one active per tenant, so undo
+    is activating an earlier version and history never changes.
+  - `service_registrations` (status cards; adds a `disabled` state for offboarding) and
+    `integration_connections` (secret names only): read-only to the application.
+  - `calendar_connections`, `jobs` and `job_attempts` (unique idempotency key per tenant; a
+    running job always has a lease), `opt_outs`, `email_events`, and an append-only
+    `audit_events`.
+  - Trigger on `app.messages`: an outbound text to a number that opted out of that tenant is
+    refused, as a second lock behind the engine (CLAUDE.md rule 12).
+  - `app.resolve_inbound_tenant(channel, address)`: maps the number called or address mailed to
+    an active tenant before any context exists.
+  - `app.claim_jobs(limit, lease_seconds)`: the worker's single cross-tenant path; leases due,
+    retryable and stale-lease jobs from active tenants with `for update skip locked`.
+- `@fsc/core` `states.ts`: adds service registration states; the drift test now also covers job
+  statuses and registration states.
+- `packages/mock-data/src/operations.ts` and seed files `03`, `04`, `10`, `11`, `12`; `01` now
+  also seeds tenant config and status cards. Riverbend has two versions of each setting (X-06),
+  jobs exist in every status with attempts (X-09, including a stale lease for X-04), Wes is opted
+  out (RB-12), Ana has a delivered and a bounced email (RB-07, RB-21), and the audit trail covers
+  provisioning, offboarding, settings and decisions.
+- Tests: `settings_operations.test.sql` (24) and `seed_operations.test.sql` (8).
+
+**Decisions made inside defaults (review):** approval window 120 minutes, hold 24 hours and
+daily text limit 200 per tenant as column defaults (owner-editable except the limit); the
+playbook catalog lives in a migration because production needs it; required template pieces are
+checked by `apps/api`, not the database.
+
+**Test evidence:** `npm run db:reset` builds and seeds from empty; `npm run db:test`: 84/84 pass;
+`npm run check`: typecheck, lint and format pass, 97/97 tests. Local stack only.
+
 ## 2026-11-05 — Phase 1: lead-domain migration and Riverbend scenarios
 
 **Change**

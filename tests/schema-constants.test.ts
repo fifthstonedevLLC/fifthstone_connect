@@ -1,6 +1,14 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { HOLD_STATES, LEAD_SOURCES, LEAD_STATES, REQUEST_STATES, URGENCIES } from '@fsc/core';
+import {
+  HOLD_STATES,
+  JOB_STATUSES,
+  LEAD_SOURCES,
+  LEAD_STATES,
+  REQUEST_STATES,
+  SERVICE_REGISTRATION_STATES,
+  URGENCIES,
+} from '@fsc/core';
 
 // The TypeScript state lists and the database check constraints describe the same thing. This
 // fails if a value is added to one side only.
@@ -28,6 +36,8 @@ describe('schema constants match the migrations', () => {
     ['app.leads', 'urgency', URGENCIES],
     ['app.requests', 'state', REQUEST_STATES],
     ['app.calendar_holds', 'state', HOLD_STATES],
+    ['app.jobs', 'status', JOB_STATUSES],
+    ['app.service_registrations', 'state', SERVICE_REGISTRATION_STATES],
   ])('%s.%s', (table, column, values) => {
     expect(checkList(table, column)).toEqual([...values]);
   });

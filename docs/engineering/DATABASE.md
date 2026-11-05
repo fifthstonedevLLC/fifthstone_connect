@@ -121,6 +121,10 @@ Nothing else belongs in `supabase/`. No SQL files anywhere else in the repo.
   touching tenant data; row-level security policies check it (ADR-0003 decision 6). Missing or
   malformed context matches no rows. The application role is `fsc_app` (no login until an
   environment enables it); before a tenant is known, sign-in uses `app.resolve_portal_user`,
-  the one cross-tenant read it is granted.
+  one of three narrow cross-tenant functions it is granted. The others are
+  `app.resolve_inbound_tenant` (the number called or address mailed identifies an active tenant)
+  and `app.claim_jobs` (the worker leases due jobs across active tenants, then sets each job's
+  tenant context). Outbound texts to an opted-out number are refused by a trigger on
+  `app.messages`, behind the engine's own check.
 - The service-role key is used only by the operator CLI on the owner's machine. Never in the API,
   worker, portal or browser.

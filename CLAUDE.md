@@ -32,11 +32,12 @@ Phase 4, after the portal works and multi-tenant isolation is proven.
 Phase 1 in progress. Done: core types and validation (`packages/core`), connector interfaces
 with labeled mocks (`packages/connectors`), the tenancy migration (`app.tenants`,
 `app.portal_users`, RLS) with its isolation tests, the mock-data catalog with generated seed files
-for the four mock tenants and seven local logins, and the lead-domain migration (contacts through
-calendar holds) with Riverbend's scenario leads seeded. Next: the settings and operations
-migration (playbooks, versioned templates and AI settings, audit events, opt-outs, service
-registrations, connections, jobs), then the other tenants' scenarios, against the local Supabase
-stack
+for the four mock tenants and seven local logins, the lead-domain migration (contacts through
+calendar holds) with Riverbend's scenario leads, and the settings and operations migration
+(playbooks, config, versioned settings, registrations, connections, jobs, opt-outs, audit) with
+its seed. The Phase 1 exit (`db:reset` builds cleanly, isolation tests pass) is met for every
+table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios. Next phase:
+Portal API routes and `apps/portal` (React + Vite) on this data
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
