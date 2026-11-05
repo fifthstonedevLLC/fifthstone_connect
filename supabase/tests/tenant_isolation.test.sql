@@ -1,26 +1,26 @@
 -- Tenant isolation for the tenancy foundation (ADR-0003 decision 6). Everything runs in one
--- transaction that is rolled back, so no fixture outlives the test. Mock values only
--- (docs/product/MOCK_DATA.md).
+-- transaction that is rolled back, so no fixture outlives the test. Fixtures use test-only
+-- tenants (`mock-test-*`) so they never collide with the seed data (docs/product/MOCK_DATA.md).
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
 select plan(21);
 
--- Fixtures: T1 Riverbend (two users, plus a spare login), T2 Northline (one active owner, one
--- disabled staff user), T4 Old Mill (disabled tenant).
+-- Fixtures: Alpha (two users, plus a spare login), Bravo (one active owner, one disabled staff
+-- user), Closed (a disabled tenant).
 insert into auth.users (id, email, aud, role) values
-  ('a0000000-0000-4000-8000-000000000001', 'rhett@riverbend.example.com', 'authenticated', 'authenticated'),
-  ('a0000000-0000-4000-8000-000000000002', 'carla@riverbend.example.com', 'authenticated', 'authenticated'),
-  ('a0000000-0000-4000-8000-000000000003', 'mara@northline.example.com', 'authenticated', 'authenticated'),
-  ('a0000000-0000-4000-8000-000000000004', 'jules@northline.example.com', 'authenticated', 'authenticated'),
-  ('a0000000-0000-4000-8000-000000000007', 'owen@oldmill.example.net', 'authenticated', 'authenticated'),
-  ('a0000000-0000-4000-8000-000000000008', 'spare@riverbend.example.com', 'authenticated', 'authenticated');
+  ('a0000000-0000-4000-8000-000000000001', 'rhett@alpha.example.com', 'authenticated', 'authenticated'),
+  ('a0000000-0000-4000-8000-000000000002', 'carla@alpha.example.com', 'authenticated', 'authenticated'),
+  ('a0000000-0000-4000-8000-000000000003', 'mara@bravo.example.com', 'authenticated', 'authenticated'),
+  ('a0000000-0000-4000-8000-000000000004', 'jules@bravo.example.com', 'authenticated', 'authenticated'),
+  ('a0000000-0000-4000-8000-000000000007', 'owen@closed.example.net', 'authenticated', 'authenticated'),
+  ('a0000000-0000-4000-8000-000000000008', 'spare@alpha.example.com', 'authenticated', 'authenticated');
 
 insert into app.tenants (id, slug, name, status) values
-  ('10000000-0000-4000-8000-000000000001', 'mock-riverbend', 'Riverbend Heating & Air', 'active'),
-  ('10000000-0000-4000-8000-000000000002', 'mock-northline-ink', 'Northline Ink', 'active'),
-  ('10000000-0000-4000-8000-000000000004', 'mock-old-mill-roofing', 'Old Mill Roofing', 'disabled');
+  ('10000000-0000-4000-8000-000000000001', 'mock-test-alpha', 'Alpha Test Co', 'active'),
+  ('10000000-0000-4000-8000-000000000002', 'mock-test-bravo', 'Bravo Test Co', 'active'),
+  ('10000000-0000-4000-8000-000000000004', 'mock-test-closed', 'Closed Test Co', 'disabled');
 
 insert into app.portal_users (id, tenant_id, auth_user_id, role, display_name, mobile, disabled_at) values
   ('b0000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001',
@@ -45,7 +45,7 @@ set local app.tenant_id = '10000000-0000-4000-8000-000000000001';
 
 select results_eq(
   'select slug from app.tenants',
-  $$values ('mock-riverbend')$$,
+  $$values ('mock-test-alpha')$$,
   'the application sees only its own tenant'
 );
 

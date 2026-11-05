@@ -1,0 +1,15 @@
+{
+  "name": "@fsc/mock-data",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mock tenants, users and scenarios (docs/product/MOCK_DATA.md) and the generator for supabase/seed. Local only.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@fsc/connectors": "*",
+    "@fsc/core": "*",
+    "zod": "^4.6.7"
+  }
+}

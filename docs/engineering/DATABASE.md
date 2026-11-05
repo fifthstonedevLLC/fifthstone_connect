@@ -43,6 +43,7 @@ rows, never separate projects (ADR-0003).
 | `npm run db:reset`             | Drop the local database, replay every migration, load seed data     |
 | `npm run db:new -- <name>`     | Create `supabase/migrations/<timestamp>_<name>.sql`                 |
 | `npm run db:test`              | Run the pgTAP tests in `supabase/tests/` against the local database |
+| `npm run seed:build`           | Regenerate `supabase/seed/` from `packages/mock-data`               |
 
 ## What lives in `supabase/`
 
@@ -88,7 +89,9 @@ Nothing else belongs in `supabase/`. No SQL files anywhere else in the repo.
 ## Seed data rules
 
 - Seed files are local only. `supabase db push` is never run with `--include-seed`.
-- Seed files are numbered `NN_<name>.sql` and load in order after migrations.
+- Seed files are numbered `NN_<name>.sql` and load in order after migrations. They are generated
+  by `npm run seed:build` from `packages/mock-data`, never edited by hand; a test fails when they
+  are out of date with the catalog.
 - All mock data follows [MOCK_DATA.md](../product/MOCK_DATA.md): `mock-` tenant slugs, fictional
   phone numbers (555-0100 to 555-0199) and `example.com` / `example.org` / `example.net`
   addresses only. The hygiene test rejects anything else in `supabase/seed/`.

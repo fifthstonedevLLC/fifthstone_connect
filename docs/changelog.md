@@ -12,6 +12,73 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 1: lead-domain migration and Riverbend scenarios
+
+**Change**
+
+- Migration `20261105155805_leads_and_conversations.sql` (ledger row added): `contacts`,
+  `inbound_events`, `leads`, `calls`, `voicemails`, `ai_analyses`, `conversations`, `messages`,
+  `requests` and `calendar_holds` in schema `app`. Every table has `tenant_id`, composite
+  foreign keys to its parents (a row can never point into another tenant), row-level security,
+  and no delete privilege for the application. Rules held by the schema itself:
+  - Intake idempotency: unique `(tenant_id, source, external_event_id)` on inbound events, which
+    are append-only to the application (CLAUDE.md rule 2).
+  - Templates promise: outbound message authors are only `template` (with its key), `staff` or
+    `ai_question`; there is no free-form AI author (rule 10).
+  - At most one pending request per lead; decided requests must record who, how and when.
+  - Two active holds can never overlap on one calendar (exclusion constraint, `btree_gist`).
+  - Contacts are unique per tenant by phone and by email; the same number in two tenants is two
+    contacts.
+- `@fsc/core` `states.ts`: lead, source, urgency, request and hold state lists, plus the portal
+  lane mapping. `tests/schema-constants.test.ts` fails if they drift from the migration's checks.
+- `packages/mock-data`: Riverbend's scenario leads (RB-01 to RB-25, without RB-21, which needs
+  email events), their contacts, the 12 evaluation-set voicemails, Marcus's scripted thread, and
+  requests and holds in pending, approved, changed and expired states. New seed files `05` to `09`.
+  `@fsc/mock-data` now depends on `@fsc/connectors` (workspace) for segment counts.
+- Tests: `lead_isolation.test.sql` (20) proves cross-tenant reads, writes and references fail and
+  each schema rule holds; `seed_leads.test.sql` (6) reads Riverbend as Carla through the
+  application role and checks every Today lane, the RB-02 thread, the active hold and the
+  transcripts.
+
+**Decisions made inside defaults (review):** voicemail recordings stay with the provider (only
+references stored); raw webhook payloads are not stored (hash only); the clinic no-transcript
+rule is enforced in code, not the schema, until tenant playbooks exist in the database.
+
+**Test evidence:** `npm run db:reset` builds and seeds from empty; `npm run db:test`: 52/52 pass;
+`npm run check`: typecheck, lint and format pass, 95/95 tests. Local stack only.
+
+## 2026-11-05 — Phase 1: mock-data catalog and seed for tenants and logins
+
+**Change**
+
+- New workspace `packages/mock-data`: the four mock tenants and seven portal users from
+  `MOCK_DATA.md` as typed objects, each parsed through schemas that enforce the mock rules
+  (`mock-` slugs, +1 319 555-0100 to 0199, `example.com/.org/.net`, normalized values).
+  Deterministic name-based UUIDs from scenario keys (`mockUuid`).
+- `npm run seed:build` generates `supabase/seed/01_tenants_and_config.sql` (tenants) and
+  `02_portal_users.sql` (local Supabase Auth users and identities, password `mock-local-only`,
+  plus `app.portal_users`). Seed files are never edited by hand; a test fails if they drift
+  from the catalog.
+- `supabase/tests/seed_sign_in.test.sql` (5 pgTAP tests): the four tenants load with Old Mill
+  disabled, only `mock-` tenants exist, each active login resolves to its own tenant and role,
+  the disabled tenant's owner cannot sign in, and all seven logins have a password, confirmed
+  email and email identity.
+- `tenant_isolation.test.sql` fixtures renamed to test-only tenants (`mock-test-*`) so they never
+  collide with seed data.
+- `DECISIONS_PENDING.md` decision 18: portal front end is React + Vite, matching the WayMaker
+  Ink request portal (owner, 2026-11-05).
+- Docs: `CLAUDE.md` (layout, commands, phase), `DATABASE.md` (seed generation),
+  `MOCK_DATA.md` (catalog status, local password).
+
+**New dependency:** `tsx` (root dev dependency) runs `seed:build`. Node 22 can strip types but
+cannot resolve this repo's `.js` import specifiers to `.ts` sources; `tsx` can. Dev-only, never
+shipped.
+
+**Test evidence:** `npm run db:reset` loads both seed files; `npm run db:test`: 26/26 pass;
+`npm run check`: typecheck, lint and format pass, 89/89 tests. Manual check against
+the local Auth API: Rhett and Jules sign in with the mock password (HTTP 200, token issued); a
+wrong password is refused (HTTP 400). Local stack only.
+
 ## 2026-11-04 — Phase 1: tenancy migration and isolation tests
 
 **Change**
