@@ -9,6 +9,8 @@ import {
   summarySentence,
   urgencyLabel,
   whenLabel,
+  workLabel,
+  actionErrorMessage,
 } from './format';
 import type { LeadCard } from './types';
 
@@ -23,6 +25,7 @@ const card = (over: Partial<LeadCard>): LeadCard => ({
   urgency: null,
   createdAt: '2026-11-05T14:15:00Z',
   slotStart: null,
+  requestState: null,
   ...over,
 });
 
@@ -115,5 +118,24 @@ describe('labels', () => {
   it('says who wrote each message', () => {
     expect(authorLabel('template', 'Marcus T.')).toBe('You, from your template');
     expect(authorLabel('customer', 'Marcus T.')).toBe('Marcus T.');
+  });
+});
+
+describe('decided requests', () => {
+  it('says what is happening after a portal decision', () => {
+    const slot = '2026-11-12T20:00:00Z';
+    expect(statusLine(card({ slotStart: slot, requestState: 'approved' }), TZ)).toBe(
+      `Approved · confirming ${slotLabel(slot, TZ)} with your calendar`,
+    );
+    expect(statusLine(card({ requestState: 'changed' }), TZ)).toBe('Sending new times');
+  });
+
+  it('describes pending work and refused actions in plain words', () => {
+    expect(workLabel('confirm_calendar_event', 'queued')).toBe(
+      'Creating the calendar event: queued',
+    );
+    expect(workLabel('something_new', 'dead')).toBe("Working: didn't go through");
+    expect(actionErrorMessage('hold_expired')).toMatch(/lapsed/);
+    expect(actionErrorMessage('unknown_code')).toMatch(/Nothing was changed/);
   });
 });

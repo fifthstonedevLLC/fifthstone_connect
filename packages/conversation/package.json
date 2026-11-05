@@ -1,0 +1,13 @@
+{
+  "name": "@fsc/conversation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Conversation rules: lead and request transitions, portal actions, playbooks, templates.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@fsc/core": "*"
+  }
+}

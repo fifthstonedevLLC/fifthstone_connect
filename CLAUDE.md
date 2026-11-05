@@ -39,10 +39,12 @@ its seed. The Phase 1 exit (`db:reset` builds cleanly, isolation tests pass) is 
 table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios.
 
 Phase 2 in progress: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/today` and
-`/portal/leads/:id` with Supabase sign-in and tenant-scoped transactions; `apps/portal`
-(React + Vite) signs in and shows Today and the lead page from them. The portal shows only
-server-confirmed state (decision 24). Next: actions (approve, suggest a time, nudge, close), each
-writing the decision, audit event and jobs in one transaction
+`/portal/leads/:id` and `POST /portal/leads/:id/actions` with Supabase sign-in and tenant-scoped
+transactions; `apps/portal` (React + Vite) shows Today and the lead page and takes actions
+(approve, suggest another time, nudge, close; owners and staff, decision 25). Each action writes
+the decision, its jobs and an audit event in one transaction; the portal shows only
+server-confirmed state (decision 24). Next: settings (versioned templates and AI settings with
+restore), then other tenants' scenarios and onboarding screens
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
@@ -79,7 +81,7 @@ tests (which must run there, not skip). Mock data only; no secrets.
 | `packages/core`         | Domain models, Zod validation, event contracts, tenant config                                                     |
 | `packages/connectors`   | Interfaces to Twilio, SES, calendars, transcription and models; labeled mocks in `@fsc/connectors/mock`           |
 | `packages/workflow`     | Durable jobs, retries, idempotency, orchestration                                                                 |
-| `packages/conversation` | Conversation state, clarifying-question logic, playbooks, template rendering (planned)                            |
+| `packages/conversation` | Portal actions (built); conversation state, clarifying questions, playbooks, templates (Phase 3)                  |
 | `packages/scheduling`   | Slot calculation, urgency rules, tentative holds (planned)                                                        |
 | `packages/ai`           | Prompt compiler, locked safety layer, AI output schemas (planned)                                                 |
 | `packages/mock-data`    | Mock tenants, users and scenarios (MOCK_DATA.md) and the seed generator; local only                               |

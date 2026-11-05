@@ -6,6 +6,7 @@ import {
   SERVICE_REGISTRATION_STATES,
   URGENCIES,
 } from '@fsc/core';
+import { PORTAL_ACTIONS } from '@fsc/conversation';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import {
   serializerCompiler,
@@ -16,6 +17,7 @@ import type pg from 'pg';
 import { z } from 'zod';
 import { requirePortalUser, type TokenVerifier } from './auth.js';
 import { withTenant } from './db.js';
+import { applyAction } from './repositories/actions.js';
 import { getLead } from './repositories/lead.js';
 import { getMe } from './repositories/me.js';
 import { getToday } from './repositories/today.js';
@@ -57,6 +59,7 @@ const LeadCardSchema = z.object({
   urgency: z.enum(URGENCIES).nullable(),
   createdAt: z.iso.datetime(),
   slotStart: z.iso.datetime().nullable(),
+  requestState: z.enum(['pending', 'approved', 'changed']).nullable(),
 });
 
 const TodaySchema = z.object({
@@ -132,6 +135,12 @@ const LeadDetailSchema = z.object({
       hold: z.object({ state: z.enum(HOLD_STATES), expiresAt: IsoDate }).nullable(),
     })
     .nullable(),
+  pendingWork: z.array(
+    z.object({
+      actionType: z.string(),
+      status: z.enum(['queued', 'running', 'failed', 'dead']),
+    }),
+  ),
 });
 
 export function buildApp(deps: AppDeps): FastifyInstance {
@@ -213,6 +222,48 @@ export function buildApp(deps: AppDeps): FastifyInstance {
             getLead(client, user.tenantId, request.params.id),
           );
           return lead ?? reply.code(404).send({ error: 'not_found' });
+        },
+      );
+
+      // Owners and staff can take every action (decision 25). The response is the lead as it now
+      // stands in the database, so the portal shows the true result (decision 24). A refused
+      // action is a 409 with a short reason; nothing was written.
+      typed.post(
+        '/leads/:id/actions',
+        {
+          schema: {
+            params: z.object({ id: z.uuid() }),
+            body: z.object({ action: z.enum(PORTAL_ACTIONS) }).strict(),
+            response: {
+              200: LeadDetailSchema,
+              401: ErrorSchema,
+              403: ErrorSchema,
+              404: ErrorSchema,
+              409: ErrorSchema,
+            },
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          const { id } = request.params;
+          const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+            const applied = await applyAction(
+              client,
+              user.tenantId,
+              user.portalUserId,
+              id,
+              request.body.action,
+            );
+            return applied.ok
+              ? { ok: true as const, lead: await getLead(client, user.tenantId, id) }
+              : applied;
+          });
+          if (!outcome.ok) {
+            return reply
+              .code(outcome.error === 'not_found' ? 404 : 409)
+              .send({ error: outcome.error });
+          }
+          return outcome.lead ?? reply.code(404).send({ error: 'not_found' });
         },
       );
     },

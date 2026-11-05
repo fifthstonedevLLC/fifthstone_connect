@@ -1,4 +1,6 @@
+import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
+import { ApiError, apiPost } from './api';
 import {
   authorLabel,
   durationLabel,
@@ -9,15 +11,18 @@ import {
   statusLine,
   urgencyLabel,
   whenLabel,
+  workLabel,
+  actionErrorMessage,
 } from './format';
 import { Icon } from './icons';
-import type { LeadDetail, Me } from './types';
+import type { LeadDetail, Me, PortalAction } from './types';
 import { useApi } from './useApi';
 
 /**
  * One lead: what needs deciding, the details, then the whole conversation. Everything shown is
- * what the API returned (decision 24). Approving from the portal is the next step; until it
- * exists the page says how to approve instead of showing a button that does nothing.
+ * what the API returned (decision 24): after an action the page shows the lead exactly as the
+ * server now has it, including work still in progress. Owners and staff can take every action
+ * (decision 25).
  */
 
 function CallLink({ lead }: { lead: LeadDetail }) {
@@ -30,83 +35,196 @@ function CallLink({ lead }: { lead: LeadDetail }) {
   );
 }
 
-function Decision({ lead, timeZone }: { lead: LeadDetail; timeZone: string }) {
+const ACTION_LABEL: Record<PortalAction, { idle: string; busy: string }> = {
+  approve: { idle: 'Approve', busy: 'Approving…' },
+  suggest_time: { idle: 'Suggest another time', busy: 'Sending…' },
+  nudge: { idle: 'Nudge', busy: 'Nudging…' },
+  close: { idle: 'Close lead', busy: 'Closing…' },
+};
+
+/** Which actions make sense for the lead as the server reported it. */
+function availableActions(lead: LeadDetail): PortalAction[] {
+  const pending = lead.state === 'requested' && lead.request?.state === 'pending';
+  if (pending) return ['approve', 'suggest_time', 'close'];
+  if (lead.state === 'quiet') {
+    // One nudge per lead: once one is queued or running, only Close remains.
+    const nudging = lead.pendingWork.some((w) => w.actionType === 'send_nudge');
+    return nudging ? ['close'] : ['nudge', 'close'];
+  }
+  if (['booked', 'closed', 'spam', 'opted_out'].includes(lead.state)) return [];
+  if (lead.state === 'requested' && lead.request?.state === 'approved') return [];
+  return ['close'];
+}
+
+function Actions({
+  lead,
+  run,
+  busy,
+}: {
+  lead: LeadDetail;
+  run: (action: PortalAction) => void;
+  busy: PortalAction | null;
+}) {
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const actions = availableActions(lead);
+
+  if (confirmingClose) {
+    return (
+      <div className="decision__actions" role="group" aria-label="Confirm closing this lead">
+        <p className="decision__confirm">
+          Close this lead? Follow-ups stop, and any held time is released.
+        </p>
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={busy !== null}
+          onClick={() => run('close')}
+        >
+          {busy === 'close' ? ACTION_LABEL.close.busy : 'Yes, close it'}
+        </button>
+        <button
+          className="button"
+          type="button"
+          disabled={busy !== null}
+          onClick={() => setConfirmingClose(false)}
+        >
+          Keep it open
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="decision__actions">
+      {actions.map((action, i) => (
+        <button
+          key={action}
+          className={i === 0 && action !== 'close' ? 'button button--primary' : 'button'}
+          type="button"
+          disabled={busy !== null}
+          onClick={() => (action === 'close' ? setConfirmingClose(true) : run(action))}
+        >
+          {busy === action ? ACTION_LABEL[action].busy : ACTION_LABEL[action].idle}
+        </button>
+      ))}
+      <CallLink lead={lead} />
+    </div>
+  );
+}
+
+function PendingWork({ lead }: { lead: LeadDetail }) {
+  if (lead.pendingWork.length === 0) return null;
+  return (
+    <ul className="decision__work" aria-label="In progress">
+      {lead.pendingWork.map((w) => (
+        <li key={`${w.actionType}-${w.status}`}>{workLabel(w.actionType, w.status)}</li>
+      ))}
+    </ul>
+  );
+}
+
+function decidedBy(request: NonNullable<LeadDetail['request']>, timeZone: string): string | null {
+  if (!request.decidedAt) return null;
+  const who = request.decidedByName ? ` by ${request.decidedByName}` : '';
+  const how = request.decidedVia === 'text' ? ' by text' : ' in the portal';
+  return `${who}${how}, ${whenLabel(request.decidedAt, timeZone)}`;
+}
+
+function Decision({
+  lead,
+  timeZone,
+  run,
+  busy,
+  error,
+}: {
+  lead: LeadDetail;
+  timeZone: string;
+  run: (action: PortalAction) => void;
+  busy: PortalAction | null;
+  error: string | null;
+}) {
   const { request } = lead;
   const name = lead.contact.name ?? 'They';
 
+  let eyebrow: ReactNode;
+  let headline: string;
+  let detail: string | null = null;
+  let done = false;
+
   if (lead.state === 'requested' && request?.state === 'pending') {
-    return (
-      <section className="decision" aria-labelledby="decision-heading">
-        <div className="decision__body">
-          <h2 id="decision-heading" className="decision__eyebrow">
-            {name} picked a time. It needs your OK.
-          </h2>
-          <p className="decision__headline">{longSlotLabel(request.slotStart, timeZone)}</p>
-          {request.hold?.state === 'active' && (
-            <p className="decision__detail">
-              Held on your calendar until {longSlotLabel(request.hold.expiresAt, timeZone)}.
-            </p>
-          )}
-          <p className="decision__note">
-            Approving here is coming next. For now, reply 1 to the approval text to approve.
-          </p>
-        </div>
-        <div className="decision__actions">
-          <CallLink lead={lead} />
-        </div>
-      </section>
+    eyebrow = `${name} picked a time. It needs your OK.`;
+    headline = longSlotLabel(request.slotStart, timeZone);
+    detail =
+      request.hold?.state === 'active'
+        ? `Held on your calendar until ${longSlotLabel(request.hold.expiresAt, timeZone)}. Approving creates the calendar event; ${name === 'They' ? 'they are' : `${name} is`} texted once it exists.`
+        : null;
+  } else if (lead.state === 'requested' && request?.state === 'approved') {
+    eyebrow = 'Approved. Confirming with your calendar.';
+    headline = longSlotLabel(request.slotStart, timeZone);
+    detail = `Approved${decidedBy(request, timeZone) ?? ''}. It shows as booked once the calendar event exists.`;
+  } else if (lead.state === 'requested' && request?.state === 'changed') {
+    eyebrow = 'You asked for another time.';
+    headline = 'Sending new times';
+    detail = `Changed${decidedBy(request, timeZone) ?? ''}.`;
+  } else if (lead.state === 'booked' && request?.state === 'approved') {
+    eyebrow = (
+      <>
+        <Icon name="check" size={16} className="decision__check" />
+        Booked
+      </>
+    );
+    headline = longSlotLabel(request.slotStart, timeZone);
+    detail = `Approved${decidedBy(request, timeZone) ?? ''}.`;
+    done = true;
+  } else if (lead.state === 'needs_attention') {
+    eyebrow = 'This one needs a person';
+    headline = reasonLabel(lead.reason);
+  } else if (lead.state === 'closed') {
+    eyebrow = 'Closed';
+    headline = lead.reason === 'closed_in_portal' ? 'Closed in the portal' : 'Closed';
+  } else {
+    eyebrow = 'Where it stands';
+    headline = statusLine(
+      {
+        ...lead,
+        name: lead.contact.name,
+        phone: lead.contact.phone,
+        slotStart: request?.slotStart ?? null,
+        requestState:
+          request?.state === 'pending' ||
+          request?.state === 'approved' ||
+          request?.state === 'changed'
+            ? request.state
+            : null,
+      },
+      timeZone,
     );
   }
 
-  if (lead.state === 'booked' && request?.state === 'approved') {
-    const by = request.decidedByName
-      ? ` by ${request.decidedByName}${request.decidedVia === 'text' ? ' by text' : ' in the portal'}`
-      : '';
-    return (
-      <section className="decision decision--done" aria-labelledby="decision-heading">
-        <div className="decision__body">
-          <h2 id="decision-heading" className="decision__eyebrow">
-            <Icon name="check" size={16} className="decision__check" />
-            Booked
-          </h2>
-          <p className="decision__headline">{longSlotLabel(request.slotStart, timeZone)}</p>
-          {request.decidedAt && (
-            <p className="decision__detail">
-              Approved{by}, {whenLabel(request.decidedAt, timeZone)}.
-            </p>
-          )}
-        </div>
-        <div className="decision__actions">
-          <CallLink lead={lead} />
-        </div>
-      </section>
-    );
-  }
-
-  const needsPerson = lead.state === 'needs_attention';
   return (
-    <section className="decision" aria-labelledby="decision-heading">
+    <section
+      className={done ? 'decision decision--done' : 'decision'}
+      aria-labelledby="decision-heading"
+    >
       <div className="decision__body">
         <h2 id="decision-heading" className="decision__eyebrow">
-          {needsPerson ? 'This one needs a person' : 'Where it stands'}
+          {eyebrow}
         </h2>
-        <p className="decision__headline">
-          {needsPerson
-            ? reasonLabel(lead.reason)
-            : statusLine(
-                {
-                  ...lead,
-                  name: lead.contact.name,
-                  phone: lead.contact.phone,
-                  slotStart: request?.slotStart ?? null,
-                },
-                timeZone,
-              )}
-        </p>
+        <p className="decision__headline">{headline}</p>
+        {detail && <p className="decision__detail">{detail}</p>}
+        <PendingWork lead={lead} />
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
       </div>
-      <div className="decision__actions">
-        <CallLink lead={lead} />
-      </div>
+      <Actions
+        key={`${lead.state}-${request?.state ?? 'none'}`}
+        lead={lead}
+        run={run}
+        busy={busy}
+      />
     </section>
   );
 }
@@ -234,8 +352,27 @@ function firstContact(lead: LeadDetail, timeZone: string): string {
 
 export function LeadPage({ me, accessToken }: { me: Me; accessToken: string }) {
   const { id = '' } = useParams();
-  const [lead, reload] = useApi<LeadDetail>(`/portal/leads/${encodeURIComponent(id)}`, accessToken);
+  const path = `/portal/leads/${encodeURIComponent(id)}`;
+  const [lead, reload, replace] = useApi<LeadDetail>(path, accessToken);
+  const [busy, setBusy] = useState<PortalAction | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const timeZone = me.tenant.timezone;
+
+  // Show the server's answer, never an assumed result: on success the response is the lead as it
+  // now stands; on a refusal nothing was written, so reload to show the latest.
+  async function run(action: PortalAction) {
+    setBusy(action);
+    setActionError(null);
+    try {
+      replace(await apiPost<LeadDetail>(`${path}/actions`, accessToken, { action }));
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : 'error';
+      setActionError(actionErrorMessage(code));
+      if (error instanceof ApiError && error.status === 409) reload();
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div className="page page--narrow">
@@ -292,7 +429,13 @@ export function LeadPage({ me, accessToken }: { me: Me; accessToken: string }) {
             ) : null;
           })()}
 
-          <Decision lead={lead.data} timeZone={timeZone} />
+          <Decision
+            lead={lead.data}
+            timeZone={timeZone}
+            run={run}
+            busy={busy}
+            error={actionError}
+          />
 
           <div className="lead-columns">
             <Conversation lead={lead.data} timeZone={timeZone} />

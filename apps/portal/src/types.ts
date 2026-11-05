@@ -41,6 +41,7 @@ export interface LeadCard {
   urgency: Urgency | null;
   createdAt: string;
   slotStart: string | null;
+  requestState: 'pending' | 'approved' | 'changed' | null;
 }
 
 export interface Today {
@@ -96,4 +97,7 @@ export interface LeadDetail {
     decidedByName: string | null;
     hold: { state: HoldState; expiresAt: string } | null;
   } | null;
+  pendingWork: { actionType: string; status: 'queued' | 'running' | 'failed' | 'dead' }[];
 }
+
+export type PortalAction = 'approve' | 'suggest_time' | 'nudge' | 'close';

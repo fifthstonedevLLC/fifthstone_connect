@@ -879,3 +879,32 @@ a {
 .details__list a {
   text-underline-offset: 3px;
 }
+
+.decision__work {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.decision__work li::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--accent-bronze);
+  vertical-align: middle;
+}
+
+.decision__confirm {
+  flex-basis: 100%;
+  font-size: 15px;
+}
+
+.decision .form-error {
+  margin-top: 8px;
+}

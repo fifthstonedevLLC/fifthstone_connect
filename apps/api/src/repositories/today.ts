@@ -14,6 +14,8 @@ export interface LeadCard {
   createdAt: string;
   /** Slot of the open or approved request, if any (ISO 8601). */
   slotStart: string | null;
+  /** State of the open, approved or changed request, if any. */
+  requestState: 'pending' | 'approved' | 'changed' | null;
 }
 
 export type Lanes = Record<keyof typeof LANE_STATES, LeadCard[]>;
@@ -28,6 +30,7 @@ interface Row {
   urgency: Urgency | null;
   created_at: Date;
   slot_start: Date | null;
+  request_state: 'pending' | 'approved' | 'changed' | null;
 }
 
 /**
@@ -38,13 +41,13 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
   const laneStates = Object.values(LANE_STATES).flat();
   const { rows } = await client.query<Row>(
     `select l.id, c.display_name, c.phone, l.summary, l.state, l.state_reason, l.urgency,
-            l.created_at, r.slot_start
+            l.created_at, r.slot_start, r.state as request_state
        from app.leads l
        join app.contacts c on c.tenant_id = l.tenant_id and c.id = l.contact_id
        left join lateral (
-         select slot_start from app.requests r
+         select slot_start, state from app.requests r
           where r.tenant_id = l.tenant_id and r.lead_id = l.id
-            and r.state in ('pending', 'approved')
+            and r.state in ('pending', 'approved', 'changed')
           order by r.created_at desc
           limit 1
        ) r on true
@@ -55,9 +58,19 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
 
   const lanes: Lanes = { needsYou: [], waitingOnCustomer: [], booked: [], wentQuiet: [] };
   for (const row of rows) {
-    const lane = (Object.keys(LANE_STATES) as (keyof Lanes)[]).find((k) =>
-      (LANE_STATES[k] as readonly LeadState[]).includes(row.state),
-    );
+    // A request already decided in the portal no longer needs the owner: an approval waits on the
+    // calendar (shown as confirming, with the booked), a change waits on the customer's new pick.
+    const decided =
+      row.state === 'requested' && row.request_state === 'approved'
+        ? 'booked'
+        : row.state === 'requested' && row.request_state === 'changed'
+          ? 'waitingOnCustomer'
+          : null;
+    const lane =
+      decided ??
+      (Object.keys(LANE_STATES) as (keyof Lanes)[]).find((k) =>
+        (LANE_STATES[k] as readonly LeadState[]).includes(row.state),
+      );
     if (!lane) continue;
     lanes[lane].push({
       id: row.id,
@@ -69,6 +82,7 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
       urgency: row.urgency,
       createdAt: row.created_at.toISOString(),
       slotStart: row.slot_start?.toISOString() ?? null,
+      requestState: row.request_state,
     });
   }
   return lanes;

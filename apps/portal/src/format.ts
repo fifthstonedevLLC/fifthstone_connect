@@ -71,9 +71,14 @@ export function statusLine(card: LeadCard, timeZone: string): string {
   const slot = card.slotStart ? slotLabel(card.slotStart, timeZone) : null;
   const byState: Partial<Record<LeadState, string>> = {
     needs_attention: (card.reason && REASON_LABEL[card.reason]) ?? 'Needs a person',
-    requested: slot
-      ? `Picked ${slot}${urgency} · waiting for your OK`
-      : `Waiting for your OK${urgency}`,
+    requested:
+      card.requestState === 'approved'
+        ? `Approved · confirming ${slot ?? 'the time'} with your calendar`
+        : card.requestState === 'changed'
+          ? 'Sending new times'
+          : slot
+            ? `Picked ${slot}${urgency} · waiting for your OK`
+            : `Waiting for your OK${urgency}`,
     offered: `Times sent, no pick yet${urgency}`,
     clarifying: `Waiting for their details${urgency}`,
     new: 'Just came in',
@@ -189,4 +194,45 @@ export function authorLabel(
 
 export function reasonLabel(reason: string | null): string {
   return (reason && REASON_LABEL[reason]) ?? 'Needs a person';
+}
+
+const WORK_LABEL: Record<string, string> = {
+  confirm_calendar_event: 'Creating the calendar event',
+  release_hold: 'Releasing the held time',
+  send_slot_offer: 'Texting new times',
+  send_nudge: 'Sending a nudge',
+  approval_reminder: 'Approval reminder',
+  send_clarifying_question: 'Texting a question',
+  transcribe_voicemail: 'Transcribing the voicemail',
+  send_text_back: 'Texting back',
+};
+
+const WORK_STATUS: Record<'queued' | 'running' | 'failed' | 'dead', string> = {
+  queued: 'queued',
+  running: 'in progress',
+  failed: 'retrying',
+  dead: "didn't go through",
+};
+
+/** "Creating the calendar event: queued" for one item of a lead's pending work. */
+export function workLabel(actionType: string, status: keyof typeof WORK_STATUS): string {
+  return `${WORK_LABEL[actionType] ?? 'Working'}: ${WORK_STATUS[status]}`;
+}
+
+const ACTION_ERROR: Record<string, string> = {
+  no_pending_request:
+    'This request was already decided, maybe by someone else. Showing the latest.',
+  hold_expired:
+    "The held time has lapsed, so it can't be approved. Suggest another time or call them.",
+  not_quiet: "This lead isn't quiet anymore. Showing the latest.",
+  already_nudged: 'A nudge has already gone to this person. Each lead gets one.',
+  opted_out: 'This person replied STOP, so no more texts can go to them. Call them instead.',
+  already_closed: 'This lead is already closed.',
+  booked: "A booked job can't be closed here; it is on your calendar.",
+  network: "We couldn't reach the server. Nothing was changed; try again.",
+};
+
+/** Plain words for a refused or failed action. Nothing was written when an action is refused. */
+export function actionErrorMessage(code: string): string {
+  return ACTION_ERROR[code] ?? "That didn't work. Nothing was changed; try again.";
 }

@@ -12,6 +12,7 @@
     "start": "tsx --env-file-if-exists=../../.env src/server.ts"
   },
   "dependencies": {
+    "@fsc/conversation": "*",
     "@fsc/core": "*",
     "fastify": "^5.12.8",
     "fastify-type-provider-zod": "^7.0.0",
