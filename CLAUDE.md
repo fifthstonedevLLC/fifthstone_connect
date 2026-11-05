@@ -68,6 +68,10 @@ npm run dev -w @fsc/portal # portal on http://127.0.0.1:5173 (apps/portal/.env.l
 
 Database rules, environments and local setup: `docs/engineering/DATABASE.md`.
 
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: `npm run check` and
+the portal build, then a throwaway local Supabase stack for `db:reset`, `db:test` and the API route
+tests (which must run there, not skip). Mock data only; no secrets.
+
 ## Layout
 
 | Path                    | Responsibility                                                                                                    |
