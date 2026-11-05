@@ -29,6 +29,15 @@ async function databaseReachable(): Promise<boolean> {
 }
 
 const reachable = await databaseReachable();
+const anonKey = process.env.SUPABASE_ANON_KEY;
+const hasAnonKey = Boolean(anonKey) && anonKey !== 'CHANGE_ME';
+
+// CI sets FSC_REQUIRE_LOCAL_STACK so these tests fail loudly instead of silently skipping.
+if (process.env.FSC_REQUIRE_LOCAL_STACK === '1' && (!reachable || !hasAnonKey)) {
+  throw new Error(
+    `FSC_REQUIRE_LOCAL_STACK is set but ${!reachable ? 'the local stack is not reachable' : 'SUPABASE_ANON_KEY is missing'}`,
+  );
+}
 if (!reachable) console.warn('apps/api route tests skipped: local Supabase stack is not running');
 
 describe.skipIf(!reachable)('portal routes (local stack)', () => {
@@ -198,8 +207,7 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
  * The real sign-in path: a token issued by local Supabase Auth, verified against its published
  * keys. Needs the local anon key (`SUPABASE_ANON_KEY`, from `npx supabase status`).
  */
-const anonKey = process.env.SUPABASE_ANON_KEY;
-describe.skipIf(!reachable || !anonKey || anonKey === 'CHANGE_ME')('real Supabase sign-in', () => {
+describe.skipIf(!reachable || !hasAnonKey)('real Supabase sign-in', () => {
   it('accepts a token from local Supabase Auth and rejects a tampered one', async () => {
     const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',

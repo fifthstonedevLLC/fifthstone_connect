@@ -1,0 +1,66 @@
+# Continuous integration: runs on every pull request and on every push to main. Mock data and a
+# throwaway local Supabase stack only; no secrets, no hosted database, no vendor calls.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch cancels the run it replaces.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Typecheck, lint, format, unit tests, portal build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build -w @fsc/portal
+
+  database:
+    name: Migrations, seed, pgTAP and API route tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # Only what the tests use: Postgres, Auth (gotrue) and the gateway in front of it (kong).
+      - name: Start local Supabase
+        run: >
+          npx supabase start
+          -x realtime,storage-api,imgproxy,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      - name: Rebuild from empty (migrations + seed)
+        run: npm run db:reset
+
+      - name: pgTAP tests
+        run: npm run db:test
+
+      # Route tests against the stack, including a real token from local Supabase Auth. The anon
+      # key here is the local stack's own, generated fresh in this runner.
+      - name: API route tests
+        run: |
+          eval "$(npx supabase status -o env | grep -E '^ANON_KEY=')"
+          SUPABASE_ANON_KEY="$ANON_KEY" FSC_REQUIRE_LOCAL_STACK=1 npx vitest run apps/api
+
+      - name: Stop Supabase
+        if: always()
+        run: npx supabase stop --no-backup

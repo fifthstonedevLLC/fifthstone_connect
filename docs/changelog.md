@@ -12,6 +12,33 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Continuous integration (GitHub Actions)
+
+**Change**
+
+- `.github/workflows/ci.yml`, on every pull request and every push to `main`:
+  - **Checks job:** `npm ci`, `npm run check` (typecheck, lint, format, unit tests) and the
+    portal build.
+  - **Database job:** starts a local Supabase stack in the runner with only Postgres, Auth and
+    the gateway, rebuilds it from empty (`db:reset`: every migration and the seed), runs the
+    pgTAP tests (`db:test`), then the API route tests with the stack's own anon key, including
+    a real sign-in token.
+  - Read-only repository permissions, a newer push cancels the older run, time limits per job.
+    No secrets, no hosted database, no vendor calls.
+- `apps/api/src/app.test.ts`: with `FSC_REQUIRE_LOCAL_STACK=1` (set in CI) the route tests fail
+  if the stack or anon key is missing, instead of skipping. Local runs without Docker still skip
+  with a warning.
+
+**Rationale:** until now every check ran only on the owner's machine. CI runs the same checks,
+including tenant isolation, on every PR, and shows the result on GitHub. GitHub Actions is part
+of the existing GitHub account; private repositories have a monthly allowance of free minutes.
+
+**Test evidence:** locally, the database job's exact steps with the same excluded services
+(only `db`, `auth` and `kong` running): `db:reset` from empty, `db:test` 84/84, route tests
+11/11 with none skipped. With the stack unreachable and `FSC_REQUIRE_LOCAL_STACK=1`, the route
+tests fail with a clear message. The lockfile is in sync for `npm ci`. The workflow itself has
+not run on GitHub yet; it runs on the first push.
+
 ## 2026-11-05 — Phase 2: lead page (API and screen)
 
 **Change**
