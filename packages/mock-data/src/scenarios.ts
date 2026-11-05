@@ -101,7 +101,7 @@ export const LEADS: readonly MockLead[] = [
       {
         direction: 'out',
         template: 'request_received',
-        minutesAgo: 130,
+        minutesAgo: 129,
         body: "Got it, Thu 2:00 PM is requested. We'll text you a confirmation shortly. Reply STOP to opt out.",
       },
     ],

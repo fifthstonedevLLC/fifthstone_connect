@@ -1,0 +1,99 @@
+/**
+ * Response shapes of the portal API (apps/api/src/app.ts, where they are Zod schemas validated on
+ * the way out). Kept in step by hand for now; the portal never invents fields the API does not
+ * send.
+ */
+
+export type LeadState =
+  | 'new'
+  | 'clarifying'
+  | 'offered'
+  | 'requested'
+  | 'booked'
+  | 'needs_attention'
+  | 'quiet'
+  | 'closed'
+  | 'spam'
+  | 'opted_out';
+
+export type Urgency = 'emergency' | 'this_week' | 'flexible';
+
+export type ServiceState = 'not_started' | 'submitted' | 'approved' | 'rejected' | 'disabled';
+
+export interface Me {
+  displayName: string;
+  role: 'owner' | 'staff';
+  tenant: { name: string; slug: string; timezone: string };
+  services: { texting: ServiceState; email: ServiceState };
+  calendar: {
+    provider: 'google' | 'acuity';
+    status: 'connected' | 'revoked' | 'disconnected';
+  } | null;
+}
+
+export interface LeadCard {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  summary: string | null;
+  state: LeadState;
+  reason: string | null;
+  urgency: Urgency | null;
+  createdAt: string;
+  slotStart: string | null;
+}
+
+export interface Today {
+  lanes: {
+    needsYou: LeadCard[];
+    waitingOnCustomer: LeadCard[];
+    booked: LeadCard[];
+    wentQuiet: LeadCard[];
+  };
+}
+
+export type LeadSource = 'missed_call' | 'text' | 'email' | 'form';
+export type RequestState = 'pending' | 'approved' | 'changed' | 'declined' | 'expired';
+export type HoldState = 'active' | 'converted' | 'released';
+
+export interface LeadDetail {
+  id: string;
+  source: LeadSource;
+  state: LeadState;
+  reason: string | null;
+  urgency: Urgency | null;
+  category: string | null;
+  summary: string | null;
+  address: string | null;
+  createdAt: string;
+  contact: {
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    earlierLeads: number;
+  };
+  voicemail: {
+    durationSeconds: number;
+    transcript: string | null;
+    confidence: number | null;
+    receivedAt: string;
+  } | null;
+  messages: {
+    id: string;
+    direction: 'in' | 'out';
+    author: 'customer' | 'template' | 'staff' | 'ai_question';
+    templateKey: string | null;
+    body: string;
+    deliveryStatus: 'received' | 'queued' | 'sent' | 'delivered' | 'undelivered' | 'failed';
+    occurredAt: string;
+  }[];
+  request: {
+    state: RequestState;
+    slotStart: string;
+    slotEnd: string;
+    decidedAt: string | null;
+    decidedVia: 'text' | 'portal' | null;
+    decidedByName: string | null;
+    hold: { state: HoldState; expiresAt: string } | null;
+  } | null;
+}

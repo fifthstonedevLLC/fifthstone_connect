@@ -18,11 +18,12 @@ Status values: `active` (in force), `superseded` (replaced by a later migration;
 so the database can be rebuilt from empty). Applied dates are filled in when `supabase db push`
 succeeds against that environment.
 
-| File                                         | Purpose                                                                                                                                                                                                | Status | Superseded by | Staging | Production |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ------------- | ------- | ---------- |
-| `20261105050016_tenancy_foundation.sql`      | Private `app` schema, `fsc_app` role, tenant context, `tenants` and `portal_users` with RLS, sign-in resolution                                                                                        | active |               |         |            |
-| `20261105155805_leads_and_conversations.sql` | Lead domain: contacts, inbound events, leads, calls, voicemails, AI analyses, conversations, messages, requests, calendar holds, all with RLS                                                          | active |               |         |            |
-| `20261105161651_settings_and_operations.sql` | Playbook catalog, tenant config, versioned templates and AI settings, registrations, connections, jobs, opt-outs (with outbound guard), email and audit events; inbound-tenant and job-claim functions | active |               |         |            |
+| File                                           | Purpose                                                                                                                                                                                                | Status | Superseded by | Staging | Production |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ------------- | ------- | ---------- |
+| `20261105050016_tenancy_foundation.sql`        | Private `app` schema, `fsc_app` role, tenant context, `tenants` and `portal_users` with RLS, sign-in resolution                                                                                        | active |               |         |            |
+| `20261105155805_leads_and_conversations.sql`   | Lead domain: contacts, inbound events, leads, calls, voicemails, AI analyses, conversations, messages, requests, calendar holds, all with RLS                                                          | active |               |         |            |
+| `20261105161651_settings_and_operations.sql`   | Playbook catalog, tenant config, versioned templates and AI settings, registrations, connections, jobs, opt-outs (with outbound guard), email and audit events; inbound-tenant and job-claim functions | active |               |         |            |
+| `20261105165057_admin_can_act_as_app_role.sql` | `grant fsc_app to postgres`, so admin connections run tenant work as the application role                                                                                                              | active |               |         |            |
 
 ## Squash record
 

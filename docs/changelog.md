@@ -12,6 +12,124 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 2: lead page (API and screen)
+
+**Change**
+
+- `GET /portal/leads/:id` (`apps/api/src/repositories/lead.ts`): the lead with its contact and
+  number of earlier leads, the latest voicemail and transcript, the full message thread with
+  authors and delivery status, and the latest request with who decided, how, and its hold.
+  Another business's lead returns 404, never 403, so the API does not confirm it exists. A
+  malformed ID returns 400 `invalid_request`.
+- API error handler: validation errors answer `{"error": "invalid_request"}`; anything else is
+  logged (redacted) and answers `{"error": "internal"}`, so no internal detail reaches a browser.
+- `apps/portal` lead page (`/leads/:id`), from the approved canvas layout:
+  - Header with how and when the lead arrived; the five-step line for leads on the normal path
+    (none for leads that need a person, went quiet or closed).
+  - Decision box: a pending request shows the slot, the hold's expiry and, until portal approval
+    is built, "reply 1 to the approval text to approve" instead of a button that does nothing
+    (decision 24). Booked shows the slot and who approved it, how and when. Others show why the
+    lead needs a person. Every variant has a Call link.
+  - One conversation thread: the voicemail (length, time, transcript, a warning when confidence
+    is low, "Not transcribed" when there is none) then each text, labeled "You, from your
+    template", "You, AI-drafted question", "You" or the customer's name, with "Not delivered"
+    where it applies.
+  - Details: what they need (labeled as an AI summary), how soon, address, phone, email, history.
+  - Today's card names now link to the lead page.
+- Portal layout fix: the sidebar is sticky only when it sits beside the content (880px and wider).
+  Between phone width and 880px it stacked above the content while still sticky, and covered it
+  on scroll.
+- Seed fix: in RB-02's thread, Marcus's "1" and the confirmation shared a timestamp, so their
+  order varied. The catalog test now rejects tied timestamps within a thread.
+
+**Test evidence:** `npm run check` passes (API: lead page, repeat-customer count, 404 for
+another business's lead, 400 for a malformed ID; portal: progress-line and label tests). In the
+in-app browser against the local stack: Marcus's page (pending request, active hold, voicemail,
+five texts in order, details), Ana's (booked, approved by Rhett in the portal), Ben's (needs a
+person, no progress line) and an unknown ID (not-found message). Mock data only.
+
+## 2026-11-05 — Phase 2: portal shell with sign-in and the Today dashboard
+
+**Change**
+
+- New workspace `apps/portal` (React + Vite, decision 18):
+  - Sign-in with email and password through Supabase Auth (local mock logins), with plain error
+    messages. The browser holds only the public anon key; all data comes from `apps/api`.
+  - "No portal access" screen for a login without an active business (Old Mill's owner), and a
+    retry screen for API errors. An expired session returns to sign-in.
+  - Shell from the approved canvas: brand tile, sidebar navigation (Leads, Calendar, Templates &
+    AI and Settings listed as "Soon" rather than hidden), service status from the API, account and
+    sign-out. The sidebar stays in view on wide screens and stacks on phones.
+  - Today: a summary sentence naming who needs the owner, the five-step line, and the four lanes
+    from `/portal/today`, with status lines in plain words, times in the business's time zone,
+    emergency flags and a "Call" link (the only action on this screen for now).
+  - Vite forwards `/api` to `apps/api` in development, so no CORS rules are needed.
+  - `apps/portal/.env.example` documents the two browser values; `.env.local` is git-ignored.
+- Decision 24 (owner, 2026-11-05): the portal shows only true, server-confirmed state, with no
+  optimistic UI. After Approve a lead reads "Confirming" until the calendar event exists.
+- `/portal/me` now also returns the tenant's time zone, texting and email status, and calendar
+  connection, so the sidebar shows real status instead of fixed text.
+- Tooling: root `tsconfig.json` excludes `apps/portal`, which has its own config (DOM types,
+  JSX, bundler resolution), and `npm run typecheck` checks both. ESLint applies the React hooks
+  rules to the portal. The hygiene test allows `apps/portal/vite.config.ts`. `.claude/launch.json`
+  starts the API and the portal for in-app preview.
+
+**New dependencies:** in `@fsc/portal`: `react` and `react-dom` (UI), `react-router` (screens
+and links; the lead page is next), `@supabase/supabase-js` (browser sign-in and session refresh);
+dev-only `vite` and `@vitejs/plugin-react` (dev server and build), `@types/react` and
+`@types/react-dom`. Root dev-only: `eslint-plugin-react-hooks` (catches hooks called out of
+order, a common source of stale or wrong data on screen).
+
+**Known gaps:** response types in `apps/portal/src/types.ts` mirror the API's Zod schemas by
+hand for now. On phones the sidebar comes before the lanes; a collapsible menu is a follow-up.
+Marcus's seeded thread says "Thu 2:00 PM" while his seeded slot is relative to load time, so
+the card and the thread can name different times.
+
+**Test evidence:** `npm run check`: typecheck (both configs), lint and format pass, all tests
+pass (including 7 new portal formatting tests and the updated `/portal/me` test).
+`npm run build -w @fsc/portal` succeeds. In the in-app browser against the local stack: Rhett
+signs in and sees Riverbend's four lanes (9 / 7 / 2 / 1) with emergencies first; a wrong
+password shows the mismatch message; Owen (Old Mill, disabled) sees "No portal access"; Carla
+signs in at 375px wide with no horizontal scroll. Mock data only.
+
+## 2026-11-05 — Phase 2 begins: Fastify API skeleton with portal sign-in
+
+**Change**
+
+- `apps/api` is now a Fastify app (decision 1 resolved: Fastify, owner 2026-11-05):
+  - `config.ts`: environment validated with Zod at startup; errors name variables, never values.
+  - `db.ts`: every query runs in a transaction as `fsc_app` (`set local role`), with the tenant
+    context set for tenant work (`withTenant`) or absent before sign-in (`withoutTenant`).
+  - `auth.ts`: verifies Supabase access tokens (ES256) against the project's published keys,
+    then `app.resolve_portal_user`. 401 without a valid token; 403 for a disabled user or tenant.
+  - Routes: `GET /health`, `GET /portal/me`, `GET /portal/today` (the four lanes, built from the
+    `LANE_STATES` mapping in `@fsc/core`). Request and response shapes are Zod schemas; repository
+    queries filter by tenant explicitly on top of row-level security.
+  - Logging through Fastify's Pino logger with redaction of authorization headers, cookies, phone
+    numbers, emails, message bodies, summaries and transcripts (CLAUDE.md rule 4).
+  - `npm run dev -w @fsc/api` and `npm run start -w @fsc/api`.
+- Migration `20261105165057_admin_can_act_as_app_role.sql`: `grant fsc_app to postgres`, so the
+  API's `set local role fsc_app` works on an admin connection (ledger row added).
+- `tsconfig.json`: `strict: true` stated explicitly (owner). It was already on through
+  `tsconfig.base.json`, so behavior is unchanged.
+- Root `package.json` lists `zod` as a dependency (owner). Each workspace already declares its own
+  `zod`, so this is redundant but harmless.
+
+**New dependencies (`@fsc/api`):** `fastify` (HTTP server; per-route body parsing for signed
+webhooks, encapsulated plugins for per-route security, built-in Pino logging with redaction,
+`inject()` for tests without a network); `fastify-type-provider-zod` (validates and types routes
+with the same Zod schemas as `@fsc/core`); `pg` and `@types/pg` (Postgres client; plain SQL with
+transactions, matching the migration-first approach); `jose` (verifies Supabase JWTs against the
+published JWKS, no network call per request after the keys are cached).
+
+**Test evidence:** `npm run db:reset` applies all four migrations and seeds; `npm run db:test`
+passes; `apps/api/src/app.test.ts` (7 tests, local stack): health, 401 without or with a bad
+token, 403 for Old Mill's owner, `/portal/me`, Riverbend's lanes (9 / 7 / 2 / 1, Riverbend leads
+only), no tokens or customer details in logs, and a real local Supabase token accepted while a
+tampered one is refused. Manual: the server process answered `/health`, refused `/portal/today`
+without a token (401) and returned Riverbend's lanes to Rhett's real token. Local stack and mock
+data only.
+
 ## 2026-11-05 — Phase 1: settings and operations migration
 
 **Change**

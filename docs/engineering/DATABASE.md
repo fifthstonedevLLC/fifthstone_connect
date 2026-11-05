@@ -120,7 +120,8 @@ Nothing else belongs in `supabase/`. No SQL files anywhere else in the repo.
 - Every transaction sets the tenant context (`set_config('app.tenant_id', …, true)`) before
   touching tenant data; row-level security policies check it (ADR-0003 decision 6). Missing or
   malformed context matches no rows. The application role is `fsc_app` (no login until an
-  environment enables it); before a tenant is known, sign-in uses `app.resolve_portal_user`,
+  environment enables it). `apps/api` runs every transaction with `set local role fsc_app`, so a
+  connection made as `postgres` (local development) is still held to the application's privileges; before a tenant is known, sign-in uses `app.resolve_portal_user`,
   one of three narrow cross-tenant functions it is granted. The others are
   `app.resolve_inbound_tenant` (the number called or address mailed identifies an active tenant)
   and `app.claim_jobs` (the worker leases due jobs across active tenants, then sets each job's

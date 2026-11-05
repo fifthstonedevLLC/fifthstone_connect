@@ -1,7 +1,9 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "strict": true
   },
-  "include": ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts", "tests/**/*.ts", "*.config.ts"]
+  "include": ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts", "tests/**/*.ts", "*.config.ts"],
+  "exclude": ["apps/portal/**"]
 }
