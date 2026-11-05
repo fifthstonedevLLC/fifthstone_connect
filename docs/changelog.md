@@ -12,6 +12,41 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-04 — Phase 1: tenancy migration and isolation tests
+
+**Change**
+
+- First migration, `supabase/migrations/20261105050016_tenancy_foundation.sql` (ledger row
+  added):
+  - Private `app` schema. Tenant data never lives in `public`, so the Supabase Data API cannot
+    expose it; the browser roles `anon` and `authenticated` have no privileges in `app`.
+  - `fsc_app` application role, created without login or password (each environment enables it).
+  - `app.current_tenant_id()` reads the transaction-scoped `app.tenant_id`; missing or malformed
+    context matches no rows.
+  - `app.tenants` (read-only to the application: only the operator creates or disables tenants)
+    and `app.portal_users` (owner/staff, one login per tenant, disabled rather than deleted,
+    `unique (tenant_id, id)` for composite foreign keys), both under row-level security.
+  - `app.resolve_portal_user(auth_user_id)`: the one cross-tenant read the application gets,
+    returning a login's tenant and role only when both the user and the tenant are active.
+- `supabase/tests/tenant_isolation.test.sql`: 21 pgTAP tests. As the application role in one
+  tenant: sees only its own tenant and users; cannot read, add, edit or move users across
+  tenants; cannot create or change tenants or delete users. No or malformed context sees
+  nothing. Disabled tenants and disabled users cannot sign in. `anon` and `authenticated` are
+  denied. Fixtures are mock values inside a rolled-back transaction.
+- `supabase/.gitignore` and `tests/repo-hygiene.test.ts`: local Studio's `supabase/snippets/`
+  folder (saved SQL queries) is git-ignored and treated as CLI state, so scratch SQL can never be
+  committed.
+- `DATABASE.md`: connection rules now name the `app` schema, the `fsc_app` role and sign-in
+  resolution.
+
+**Decisions made inside defaults (review):** tables live in schema `app` rather than `public`;
+one login belongs to one tenant in MVP; deleting a Supabase Auth user is blocked while a portal
+user still points to it. The operator CLI will write through a direct database connection
+(the service-role Data API cannot see `app`); settled when the CLI is built.
+
+**Test evidence:** `npm run db:reset` builds cleanly from empty; `npm run db:test`: 21/21 pass;
+`npm run check`: typecheck, lint and format pass, 84/84 tests. Local Supabase stack only.
+
 ## 2026-11-04 — Phase 1: connector interfaces with labeled mocks
 
 **Change**

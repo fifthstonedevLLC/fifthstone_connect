@@ -1,6 +1,8 @@
 # Supabase
 .branches
 .temp
+# Local Studio's saved SQL queries: scratch SQL is never committed (DATABASE.md)
+snippets
 
 # dotenvx
 .env.keys
