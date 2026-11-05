@@ -31,9 +31,10 @@ Phase 4, after the portal works and multi-tenant isolation is proven.
 
 Phase 1 in progress. Done: core types and validation (`packages/core`), connector interfaces
 with labeled mocks (`packages/connectors`), the tenancy migration (`app.tenants`,
-`app.portal_users`, RLS) with its isolation tests. Next: the remaining tables' migrations with
-row-level security, mock seed data and local Auth users, with isolation tests for each, against
-the local Supabase stack
+`app.portal_users`, RLS) with its isolation tests, and the mock-data catalog with generated seed
+files for the four mock tenants and seven local logins. Next: the leads migration, then settings
+and operations, each with row-level security, isolation tests and seed data, against the local
+Supabase stack
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
@@ -52,6 +53,7 @@ npm run db:reset       # rebuild the local database from migrations, then load s
 npm run db:new -- name # new migration in supabase/migrations/
 npm run db:test        # pgTAP tests in supabase/tests/
 npm run db:stop
+npm run seed:build     # regenerate supabase/seed/ from packages/mock-data (never edit seeds by hand)
 ```
 
 Database rules, environments and local setup: `docs/engineering/DATABASE.md`.
@@ -66,6 +68,7 @@ Database rules, environments and local setup: `docs/engineering/DATABASE.md`.
 | `packages/conversation` | Conversation state, clarifying-question logic, playbooks, template rendering (planned)                            |
 | `packages/scheduling`   | Slot calculation, urgency rules, tentative holds (planned)                                                        |
 | `packages/ai`           | Prompt compiler, locked safety layer, AI output schemas (planned)                                                 |
+| `packages/mock-data`    | Mock tenants, users and scenarios (MOCK_DATA.md) and the seed generator; local only                               |
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, portal API, health                                 |
 | `apps/worker`           | Executes jobs: texts, emails, calendar writes, transcription, reminders, hold expiry                              |
 | `apps/portal`           | Owner portal web app (planned)                                                                                    |

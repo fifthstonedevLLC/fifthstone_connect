@@ -31,7 +31,8 @@ ranges.
 
 ## How it gets into the database
 
-1. **Catalog.** The scenarios below become typed objects in a `packages/mock-data` workspace,
+1. **Catalog.** (Tenants and portal users built 2026-11-05; scenarios join as their tables are
+   migrated.) The scenarios below become typed objects in a `packages/mock-data` workspace,
    validated by the same Zod schemas as real data, so mock data cannot drift from the schema.
 2. **Generated seed files.** `npm run seed:build` turns the catalog into
    `supabase/seed/NN_<name>.sql`, deterministically: UUIDs derived from scenario IDs, timestamps
@@ -112,7 +113,8 @@ Inbound email addresses: `<slug>@inbound.example.com`.
 | U-06 | Tess Albright | T3     | staff | `frontdesk@prairiepath.example.org` | +1 319 555-0109 |
 | U-07 | Owen Mills    | T4     | owner | `owen@oldmill.example.net`          | +1 319 555-0110 |
 
-Local Auth users share one documented local-only password, set in `02_portal_users.sql`. It works
+Local Auth users share one documented local-only password, `mock-local-only`, set in
+`02_portal_users.sql`. It works
 only against the local stack.
 
 Customer numbers use `+1 319 555-0111` to `+1 319 555-0199` (89 numbers). Historical leads reuse
