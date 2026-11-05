@@ -18,9 +18,10 @@ Status values: `active` (in force), `superseded` (replaced by a later migration;
 so the database can be rebuilt from empty). Applied dates are filled in when `supabase db push`
 succeeds against that environment.
 
-| File                                    | Purpose                                                                                                         | Status | Superseded by | Staging | Production |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------ | ------------- | ------- | ---------- |
-| `20261105050016_tenancy_foundation.sql` | Private `app` schema, `fsc_app` role, tenant context, `tenants` and `portal_users` with RLS, sign-in resolution | active |               |         |            |
+| File                                         | Purpose                                                                                                                                       | Status | Superseded by | Staging | Production |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------- | ------- | ---------- |
+| `20261105050016_tenancy_foundation.sql`      | Private `app` schema, `fsc_app` role, tenant context, `tenants` and `portal_users` with RLS, sign-in resolution                               | active |               |         |            |
+| `20261105155805_leads_and_conversations.sql` | Lead domain: contacts, inbound events, leads, calls, voicemails, AI analyses, conversations, messages, requests, calendar holds, all with RLS | active |               |         |            |
 
 ## Squash record
 

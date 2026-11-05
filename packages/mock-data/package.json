@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@fsc/connectors": "*",
     "@fsc/core": "*",
     "zod": "^4.6.7"
   }

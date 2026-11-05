@@ -31,8 +31,9 @@ ranges.
 
 ## How it gets into the database
 
-1. **Catalog.** (Tenants and portal users built 2026-11-05; scenarios join as their tables are
-   migrated.) The scenarios below become typed objects in a `packages/mock-data` workspace,
+1. **Catalog.** (Built 2026-11-05: tenants, portal users, and Riverbend's scenario leads RB-01 to
+   RB-25 with contacts, calls, voicemails, the RB-02 thread, requests and holds. RB-21 waits for
+   email events. Other tenants' scenarios join next.) The scenarios below become typed objects in a `packages/mock-data` workspace,
    validated by the same Zod schemas as real data, so mock data cannot drift from the schema.
 2. **Generated seed files.** `npm run seed:build` turns the catalog into
    `supabase/seed/NN_<name>.sql`, deterministically: UUIDs derived from scenario IDs, timestamps

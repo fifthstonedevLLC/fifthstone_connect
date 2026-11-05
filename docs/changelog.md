@@ -12,6 +12,41 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 1: lead-domain migration and Riverbend scenarios
+
+**Change**
+
+- Migration `20261105155805_leads_and_conversations.sql` (ledger row added): `contacts`,
+  `inbound_events`, `leads`, `calls`, `voicemails`, `ai_analyses`, `conversations`, `messages`,
+  `requests` and `calendar_holds` in schema `app`. Every table has `tenant_id`, composite
+  foreign keys to its parents (a row can never point into another tenant), row-level security,
+  and no delete privilege for the application. Rules held by the schema itself:
+  - Intake idempotency: unique `(tenant_id, source, external_event_id)` on inbound events, which
+    are append-only to the application (CLAUDE.md rule 2).
+  - Templates promise: outbound message authors are only `template` (with its key), `staff` or
+    `ai_question`; there is no free-form AI author (rule 10).
+  - At most one pending request per lead; decided requests must record who, how and when.
+  - Two active holds can never overlap on one calendar (exclusion constraint, `btree_gist`).
+  - Contacts are unique per tenant by phone and by email; the same number in two tenants is two
+    contacts.
+- `@fsc/core` `states.ts`: lead, source, urgency, request and hold state lists, plus the portal
+  lane mapping. `tests/schema-constants.test.ts` fails if they drift from the migration's checks.
+- `packages/mock-data`: Riverbend's scenario leads (RB-01 to RB-25, without RB-21, which needs
+  email events), their contacts, the 12 evaluation-set voicemails, Marcus's scripted thread, and
+  requests and holds in pending, approved, changed and expired states. New seed files `05` to `09`.
+  `@fsc/mock-data` now depends on `@fsc/connectors` (workspace) for segment counts.
+- Tests: `lead_isolation.test.sql` (20) proves cross-tenant reads, writes and references fail and
+  each schema rule holds; `seed_leads.test.sql` (6) reads Riverbend as Carla through the
+  application role and checks every Today lane, the RB-02 thread, the active hold and the
+  transcripts.
+
+**Decisions made inside defaults (review):** voicemail recordings stay with the provider (only
+references stored); raw webhook payloads are not stored (hash only); the clinic no-transcript
+rule is enforced in code, not the schema, until tenant playbooks exist in the database.
+
+**Test evidence:** `npm run db:reset` builds and seeds from empty; `npm run db:test`: 52/52 pass;
+`npm run check`: typecheck, lint and format pass, 95/95 tests. Local stack only.
+
 ## 2026-11-05 — Phase 1: mock-data catalog and seed for tenants and logins
 
 **Change**

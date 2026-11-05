@@ -1,4 +1,13 @@
-import { TENANT_STATUSES, normalizeEmail, normalizePhone } from '@fsc/core';
+import {
+  HOLD_STATES,
+  LEAD_SOURCES,
+  LEAD_STATES,
+  REQUEST_STATES,
+  TENANT_STATUSES,
+  URGENCIES,
+  normalizeEmail,
+  normalizePhone,
+} from '@fsc/core';
 import { z } from 'zod';
 
 /**
@@ -58,3 +67,88 @@ export const MockPortalUserSchema = z
 
 export type MockTenant = z.output<typeof MockTenantSchema>;
 export type MockPortalUser = z.output<typeof MockPortalUserSchema>;
+
+export const MockContactSchema = z
+  .object({
+    key: z.string().regex(/^C-[A-Z]{2}-\d{2}$/),
+    tenant: z.string().regex(/^T\d+$/),
+    name: z.string().min(1).max(120).optional(),
+    phone: MockPhoneSchema,
+    email: MockEmailSchema.optional(),
+  })
+  .strict();
+
+export const MockVoicemailSchema = z
+  .object({
+    /** Evaluation-set code from MOCK_DATA.md, e.g. VM-02. */
+    code: z.string().regex(/^VM-\d{2}$/),
+    transcript: z.string().min(1).max(2000),
+    confidence: z.number().min(0).max(1),
+    seconds: z.number().int().min(1).max(600),
+  })
+  .strict();
+
+export const MockMessageSchema = z
+  .object({
+    direction: z.enum(['in', 'out']),
+    /** Outbound only: the template that produced it. */
+    template: z
+      .string()
+      .regex(/^[a-z][a-z_]+$/)
+      .optional(),
+    body: z.string().min(1).max(1600),
+    minutesAgo: z.number().int().min(0),
+  })
+  .strict()
+  .refine((m) => (m.direction === 'out') === (m.template !== undefined), {
+    message: 'Outbound mock messages name their template; inbound ones do not',
+  });
+
+export const MockRequestSchema = z
+  .object({
+    state: z.enum(REQUEST_STATES),
+    /** Slot start, in hours from now (negative is past). Slots are one hour. */
+    slotInHours: z.number().int(),
+    decidedBy: z
+      .string()
+      .regex(/^U-\d{2}$/)
+      .optional(),
+    decidedVia: z.enum(['text', 'portal']).optional(),
+    hold: z.enum(HOLD_STATES).optional(),
+  })
+  .strict()
+  .refine(
+    (r) => (r.decidedBy !== undefined) === ['approved', 'changed', 'declined'].includes(r.state),
+    {
+      message: 'Decided requests name who decided; pending and expired ones do not',
+    },
+  );
+
+export const MockLeadSchema = z
+  .object({
+    key: z.string().regex(/^[A-Z]{2}-\d{2}$/),
+    tenant: z.string().regex(/^T\d+$/),
+    contact: z.string().regex(/^C-[A-Z]{2}-\d{2}$/),
+    source: z.enum(LEAD_SOURCES),
+    state: z.enum(LEAD_STATES),
+    reason: z
+      .string()
+      .regex(/^[a-z][a-z_]+$/)
+      .optional(),
+    urgency: z.enum(URGENCIES).optional(),
+    category: z
+      .string()
+      .regex(/^[a-z][a-z_]+$/)
+      .optional(),
+    summary: z.string().min(1).max(500),
+    address: z.string().max(300).optional(),
+    minutesAgo: z.number().int().min(0),
+    voicemail: MockVoicemailSchema.optional(),
+    messages: z.array(MockMessageSchema).optional(),
+    request: MockRequestSchema.optional(),
+  })
+  .strict();
+
+export type MockContact = z.output<typeof MockContactSchema>;
+export type MockLead = z.output<typeof MockLeadSchema>;
+export type MockRequest = z.output<typeof MockRequestSchema>;

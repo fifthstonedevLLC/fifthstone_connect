@@ -1,6 +1,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  CONTACTS,
+  LEADS,
   MockEmailSchema,
   MockPhoneSchema,
   PORTAL_USERS,
@@ -29,6 +31,23 @@ describe('mock catalog', () => {
     }
     const keys = new Set(TENANTS.map((t) => t.key));
     for (const user of PORTAL_USERS) expect(keys.has(user.tenant), user.key).toBe(true);
+  });
+
+  it('keeps every scenario inside its own tenant', () => {
+    for (const lead of LEADS) {
+      const contact = CONTACTS.find((c) => c.key === lead.contact);
+      expect(contact?.tenant, `${lead.key} contact`).toBe(lead.tenant);
+      const decider = lead.request?.decidedBy;
+      if (decider) {
+        expect(PORTAL_USERS.find((u) => u.key === decider)?.tenant, `${lead.key} approver`).toBe(
+          lead.tenant,
+        );
+      }
+    }
+    const unique = (values: string[]) => new Set(values).size === values.length;
+    expect(unique(LEADS.map((l) => l.key))).toBe(true);
+    expect(unique(CONTACTS.map((c) => `${c.tenant}:${c.phone}`))).toBe(true);
+    expect(unique(LEADS.flatMap((l) => (l.voicemail ? [l.voicemail.code] : [])))).toBe(true);
   });
 
   it('rejects real-looking phone numbers and email addresses', () => {
