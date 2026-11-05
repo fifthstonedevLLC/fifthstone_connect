@@ -30,8 +30,10 @@ providers) are planned and stay behind interfaces with mocks, but no real adapte
 Phase 4, after the portal works and multi-tenant isolation is proven.
 
 Phase 1 in progress. Done: core types and validation (`packages/core`), connector interfaces
-with labeled mocks (`packages/connectors`). Next: migrations in `supabase/migrations/` with row-level security, mock seed
-data and local Auth users, then tenant-isolation tests against the local Supabase stack
+with labeled mocks (`packages/connectors`), the tenancy migration (`app.tenants`,
+`app.portal_users`, RLS) with its isolation tests. Next: the remaining tables' migrations with
+row-level security, mock seed data and local Auth users, with isolation tests for each, against
+the local Supabase stack
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 

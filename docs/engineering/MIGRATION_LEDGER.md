@@ -5,7 +5,7 @@ organization: 'Fifth Stone Dev'
 status: 'Approved'
 version: '1.0'
 owner: 'Phil (Fifth Stone Dev)'
-last_updated: '2026-11-03'
+last_updated: '2026-11-04'
 ---
 
 # Migration Ledger
@@ -18,8 +18,9 @@ Status values: `active` (in force), `superseded` (replaced by a later migration;
 so the database can be rebuilt from empty). Applied dates are filled in when `supabase db push`
 succeeds against that environment.
 
-| File | Purpose | Status | Superseded by | Staging | Production |
-| ---- | ------- | ------ | ------------- | ------- | ---------- |
+| File                                    | Purpose                                                                                                         | Status | Superseded by | Staging | Production |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------ | ------------- | ------- | ---------- |
+| `20261105050016_tenancy_foundation.sql` | Private `app` schema, `fsc_app` role, tenant context, `tenants` and `portal_users` with RLS, sign-in resolution | active |               |         |            |
 
 ## Squash record
 

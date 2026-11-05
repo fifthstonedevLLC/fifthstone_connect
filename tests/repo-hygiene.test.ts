@@ -9,7 +9,7 @@ const list = (path: string) =>
   exists(path) ? readdirSync(new URL(`../${path}/`, import.meta.url)) : [];
 
 // Directories never scanned: dependencies, VCS data, build output, and the Supabase CLI's own
-// git-ignored local state.
+// git-ignored local state (including local Studio's saved SQL snippets).
 const SKIP = new Set([
   'node_modules',
   '.git',
@@ -18,6 +18,7 @@ const SKIP = new Set([
   'coverage',
   'supabase/.temp',
   'supabase/.branches',
+  'supabase/snippets',
 ]);
 
 /** Every tracked-looking file in the repo, as a posix path relative to the root. */
@@ -101,9 +102,13 @@ describe('repository hygiene: no stray files', () => {
 });
 
 describe('repository hygiene: supabase layout', () => {
+  it('keeps local Studio snippets out of git', () => {
+    expect(read('supabase/.gitignore').split(/\r?\n/)).toContain('snippets');
+  });
+
   it('holds only config, migrations, seed and tests', () => {
     const allowed = new Set(['config.toml', '.gitignore', 'migrations', 'seed', 'tests']);
-    const ignored = new Set(['.temp', '.branches']);
+    const ignored = new Set(['.temp', '.branches', 'snippets']);
     const offenders = list('supabase').filter((e) => !allowed.has(e) && !ignored.has(e));
     expect(offenders).toEqual([]);
   });

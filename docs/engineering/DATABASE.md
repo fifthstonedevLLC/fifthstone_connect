@@ -5,7 +5,7 @@ organization: 'Fifth Stone Dev'
 status: 'Approved'
 version: '1.0'
 owner: 'Phil (Fifth Stone Dev)'
-last_updated: '2026-11-03'
+last_updated: '2026-11-04'
 ---
 
 # Database, Migrations and Seed Data
@@ -108,10 +108,16 @@ Nothing else belongs in `supabase/`. No SQL files anywhere else in the repo.
 
 ## Connection rules
 
+- Tenant data lives in the private `app` schema, never in `public`, so the Supabase Data API
+  cannot expose it. The portal reaches data only through `apps/api` (decision 17); the browser
+  roles `anon` and `authenticated` have no privileges in `app`.
 - The API and worker connect with a least-privilege application role (ADR-0001 decision 5),
   through Supabase's connection pooler in hosted environments. Migrations use the direct
   connection.
 - Every transaction sets the tenant context (`set_config('app.tenant_id', …, true)`) before
-  touching tenant data; row-level security policies check it (ADR-0003 decision 6).
+  touching tenant data; row-level security policies check it (ADR-0003 decision 6). Missing or
+  malformed context matches no rows. The application role is `fsc_app` (no login until an
+  environment enables it); before a tenant is known, sign-in uses `app.resolve_portal_user`,
+  the one cross-tenant read it is granted.
 - The service-role key is used only by the operator CLI on the owner's machine. Never in the API,
   worker, portal or browser.
