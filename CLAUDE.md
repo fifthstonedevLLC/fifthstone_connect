@@ -39,8 +39,9 @@ its seed. The Phase 1 exit (`db:reset` builds cleanly, isolation tests pass) is 
 table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios.
 
 Phase 2 started: `apps/api` (Fastify) serves `/health`, `/portal/me` and `/portal/today` with
-Supabase sign-in and tenant-scoped transactions. Next: the lead page and actions (approve,
-nudge, close), then `apps/portal` (React + Vite) on these routes
+Supabase sign-in and tenant-scoped transactions, and `apps/portal` (React + Vite) signs in and
+shows the Today dashboard from them. The portal shows only server-confirmed state (decision 24).
+Next: the lead page (API and screen), then actions (approve, suggest a time, nudge, close)
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
@@ -61,6 +62,7 @@ npm run db:test        # pgTAP tests in supabase/tests/
 npm run db:stop
 npm run seed:build     # regenerate supabase/seed/ from packages/mock-data (never edit seeds by hand)
 npm run dev -w @fsc/api # API on http://127.0.0.1:8787 (reads .env; needs the local stack)
+npm run dev -w @fsc/portal # portal on http://127.0.0.1:5173 (apps/portal/.env.local; needs the API)
 ```
 
 Database rules, environments and local setup: `docs/engineering/DATABASE.md`.
@@ -78,7 +80,7 @@ Database rules, environments and local setup: `docs/engineering/DATABASE.md`.
 | `packages/mock-data`    | Mock tenants, users and scenarios (MOCK_DATA.md) and the seed generator; local only                               |
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, portal API, health                                 |
 | `apps/worker`           | Executes jobs: texts, emails, calendar writes, transcription, reminders, hold expiry                              |
-| `apps/portal`           | Owner portal web app (planned)                                                                                    |
+| `apps/portal`           | Owner portal (React + Vite): sign-in and Today; calls `apps/api` only, never the database                         |
 | `apps/operator`         | Guarded CLI for onboarding, status, replay, export/delete                                                         |
 | `apps/marketing`        | Static marketing page (local review only, not deployed)                                                           |
 | `supabase/migrations`   | Every schema change; the only SQL that reaches a hosted database (ledger: `docs/engineering/MIGRATION_LEDGER.md`) |

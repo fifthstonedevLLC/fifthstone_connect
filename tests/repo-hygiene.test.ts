@@ -84,11 +84,12 @@ describe('repository hygiene: no stray files', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('keeps TypeScript inside package and app sources, tests, or the test config', () => {
+  it('keeps TypeScript inside package and app sources, tests, or a tool config', () => {
     const offenders = files.filter(
       (f) =>
         f.endsWith('.ts') &&
         f !== 'vitest.config.ts' &&
+        f !== 'apps/portal/vite.config.ts' &&
         !/^(packages|apps)\/[^/]+\/src\//.test(f) &&
         !f.startsWith('tests/'),
     );

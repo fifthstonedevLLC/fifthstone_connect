@@ -12,6 +12,50 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 2: portal shell with sign-in and the Today dashboard
+
+**Change**
+
+- New workspace `apps/portal` (React + Vite, decision 18):
+  - Sign-in with email and password through Supabase Auth (local mock logins), with plain error
+    messages. The browser holds only the public anon key; all data comes from `apps/api`.
+  - "No portal access" screen for a login without an active business (Old Mill's owner), and a
+    retry screen for API errors. An expired session returns to sign-in.
+  - Shell from the approved canvas: brand tile, sidebar navigation (Leads, Calendar, Templates &
+    AI and Settings listed as "Soon" rather than hidden), service status from the API, account and
+    sign-out. The sidebar stays in view on wide screens and stacks on phones.
+  - Today: a summary sentence naming who needs the owner, the five-step line, and the four lanes
+    from `/portal/today`, with status lines in plain words, times in the business's time zone,
+    emergency flags and a "Call" link (the only action on this screen for now).
+  - Vite forwards `/api` to `apps/api` in development, so no CORS rules are needed.
+  - `apps/portal/.env.example` documents the two browser values; `.env.local` is git-ignored.
+- Decision 24 (owner, 2026-11-05): the portal shows only true, server-confirmed state, with no
+  optimistic UI. After Approve a lead reads "Confirming" until the calendar event exists.
+- `/portal/me` now also returns the tenant's time zone, texting and email status, and calendar
+  connection, so the sidebar shows real status instead of fixed text.
+- Tooling: root `tsconfig.json` excludes `apps/portal`, which has its own config (DOM types,
+  JSX, bundler resolution), and `npm run typecheck` checks both. ESLint applies the React hooks
+  rules to the portal. The hygiene test allows `apps/portal/vite.config.ts`. `.claude/launch.json`
+  starts the API and the portal for in-app preview.
+
+**New dependencies:** in `@fsc/portal`: `react` and `react-dom` (UI), `react-router` (screens
+and links; the lead page is next), `@supabase/supabase-js` (browser sign-in and session refresh);
+dev-only `vite` and `@vitejs/plugin-react` (dev server and build), `@types/react` and
+`@types/react-dom`. Root dev-only: `eslint-plugin-react-hooks` (catches hooks called out of
+order, a common source of stale or wrong data on screen).
+
+**Known gaps:** response types in `apps/portal/src/types.ts` mirror the API's Zod schemas by
+hand for now. On phones the sidebar comes before the lanes; a collapsible menu is a follow-up.
+Marcus's seeded thread says "Thu 2:00 PM" while his seeded slot is relative to load time, so
+the card and the thread can name different times.
+
+**Test evidence:** `npm run check`: typecheck (both configs), lint and format pass, all tests
+pass (including 7 new portal formatting tests and the updated `/portal/me` test).
+`npm run build -w @fsc/portal` succeeds. In the in-app browser against the local stack: Rhett
+signs in and sees Riverbend's four lanes (9 / 7 / 2 / 1) with emergencies first; a wrong
+password shows the mismatch message; Owen (Old Mill, disabled) sees "No portal access"; Carla
+signs in at 375px wide with no horizontal scroll. Mock data only.
+
 ## 2026-11-05 — Phase 2 begins: Fastify API skeleton with portal sign-in
 
 **Change**

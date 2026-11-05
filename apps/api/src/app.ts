@@ -1,4 +1,4 @@
-import { LEAD_STATES, URGENCIES } from '@fsc/core';
+import { LEAD_STATES, SERVICE_REGISTRATION_STATES, URGENCIES } from '@fsc/core';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import {
   serializerCompiler,
@@ -63,7 +63,17 @@ const TodaySchema = z.object({
 const MeSchema = z.object({
   displayName: z.string(),
   role: z.enum(['owner', 'staff']),
-  tenant: z.object({ name: z.string(), slug: z.string() }),
+  tenant: z.object({ name: z.string(), slug: z.string(), timezone: z.string() }),
+  services: z.object({
+    texting: z.enum(SERVICE_REGISTRATION_STATES),
+    email: z.enum(SERVICE_REGISTRATION_STATES),
+  }),
+  calendar: z
+    .object({
+      provider: z.enum(['google', 'acuity']),
+      status: z.enum(['connected', 'revoked', 'disconnected']),
+    })
+    .nullable(),
 });
 
 export function buildApp(deps: AppDeps): FastifyInstance {

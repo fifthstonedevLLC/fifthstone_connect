@@ -97,7 +97,13 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
     expect(res.json()).toEqual({
       displayName: 'Rhett Boyd',
       role: 'owner',
-      tenant: { name: 'Riverbend Heating & Air', slug: 'mock-riverbend' },
+      tenant: {
+        name: 'Riverbend Heating & Air',
+        slug: 'mock-riverbend',
+        timezone: 'America/Chicago',
+      },
+      services: { texting: 'approved', email: 'submitted' },
+      calendar: { provider: 'google', status: 'connected' },
     });
   });
 

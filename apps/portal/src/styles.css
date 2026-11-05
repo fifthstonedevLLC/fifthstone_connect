@@ -1,0 +1,669 @@
+/*
+ * Owner portal styles: the Fifth Stone Dev brand (docs/brand/STYLE_GUIDE.md) in the dark shell
+ * approved on the portal preview canvas. Contrast: white and Stone Sand text pass 4.5:1 on Stone
+ * Charcoal and Stone Slate; Bronze is a fill behind Charcoal text or a decoration, never text.
+ */
+:root {
+  color-scheme: dark;
+
+  --stone-slate: #2c3e50;
+  --stone-charcoal: #1a252f;
+  --stone-river: #5d6d7e;
+  --stone-sand: #bdc3c7;
+  --stone-light: #ecf0f1;
+  --accent-bronze: #b8956a;
+  --accent-sage: #7d9d8e;
+  --white: #ffffff;
+
+  --page: var(--stone-charcoal);
+  --panel: var(--stone-slate);
+  --text: var(--white);
+  --text-muted: var(--stone-sand);
+  --rule: var(--stone-river);
+  --action: var(--accent-bronze);
+  --action-text: var(--stone-charcoal);
+
+  --font: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --radius: 8px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent-bronze);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 10;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--action);
+  color: var(--action-text);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 16px;
+}
+
+/* Buttons --------------------------------------------------------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--stone-sand);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.button--primary {
+  border-color: var(--action);
+  background: var(--action);
+  color: var(--action-text);
+  font-weight: 600;
+}
+
+.button--primary:hover {
+  background: var(--stone-light);
+  border-color: var(--stone-light);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  color: var(--text);
+  border-color: var(--rule);
+}
+
+/* Brand ----------------------------------------------------------------------------------- */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The dark logo sits on a light tile so it stays visible on Charcoal. Brand minimum: 40px. */
+.brand__tile {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 48px;
+  border-radius: var(--radius);
+  background: var(--stone-light);
+}
+
+.brand__tile img {
+  width: 42px;
+  height: auto;
+}
+
+.brand__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brand__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.brand__sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Sign-in and full-page notices ----------------------------------------------------------- */
+
+.signin {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px 16px;
+}
+
+.signin__card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 400px;
+  padding: 32px 28px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.signin__title {
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.signin__text {
+  color: var(--text-muted);
+}
+
+.signin__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field__label {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.field__input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--page);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.form-error {
+  padding: 10px 12px;
+  border: 1px solid var(--accent-bronze);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.center-note {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  color: var(--text-muted);
+}
+
+/* Shell ----------------------------------------------------------------------------------- */
+
+.shell {
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 100%;
+  padding: 24px 16px;
+  border-right: 1px solid var(--panel);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.nav__link.active {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.nav__link--soon {
+  cursor: default;
+}
+
+.nav__soon {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sidebar__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+  padding: 20px 4px 0;
+  border-top: 1px solid var(--panel);
+}
+
+.sidebar__heading {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.services {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.service {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.service__icon {
+  color: var(--text-muted);
+}
+
+.service__icon--live {
+  color: var(--accent-sage);
+}
+
+.service__state {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.account__avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--panel);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.account__name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.account__role {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.main {
+  flex: 999 1 560px;
+  min-width: 0;
+  padding: 24px 32px 48px;
+}
+
+.main:focus {
+  outline: none;
+}
+
+/* On wider screens the sidebar stays in view while the lanes scroll, so the services and account
+   block are always reachable. */
+@media (min-width: 641px) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100dvh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--panel);
+  }
+
+  .main {
+    padding: 20px 16px 40px;
+  }
+}
+
+/* Today ----------------------------------------------------------------------------------- */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.page__bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.page__date {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.page__header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.page__title {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.page__lede {
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.page__note {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--accent-bronze);
+  border-radius: var(--radius);
+}
+
+/* The five-step line: thin, quiet, no numbers. */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 24px 22px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.steps__heading {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.steps__list {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.steps__list::before,
+.steps__list::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 10%;
+  height: 1px;
+}
+
+.steps__list::before {
+  right: 10%;
+  background: var(--rule);
+}
+
+.steps__list::after {
+  width: 60%;
+  background: var(--accent-bronze);
+}
+
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.step__dot {
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--stone-sand);
+  border-radius: 50%;
+  background: var(--panel);
+}
+
+.step--auto .step__dot {
+  border-color: var(--accent-bronze);
+  background: var(--accent-bronze);
+}
+
+.step--you {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.step--you .step__dot {
+  border: 2px solid var(--accent-bronze);
+}
+
+/* Lanes ------------------------------------------------------------------------------------ */
+
+.lanes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.lane {
+  display: flex;
+  flex: 1 1 230px;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lane__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.lane--bronze .lane__head {
+  border-color: var(--accent-bronze);
+}
+
+.lane--sage .lane__head {
+  border-color: var(--accent-sage);
+}
+
+.lane__icon {
+  color: var(--text-muted);
+}
+
+.lane--bronze .lane__icon {
+  color: var(--accent-bronze);
+}
+
+.lane--sage .lane__icon {
+  color: var(--accent-sage);
+}
+
+.lane__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lane__empty {
+  padding: 4px 0;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.card--emergency {
+  border-top: 3px solid var(--accent-bronze);
+}
+
+.card__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.card__name {
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.card__when {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.card__flag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.card__flag svg {
+  color: var(--accent-bronze);
+}
+
+.card__summary {
+  font-size: 15px;
+}
+
+.card__status {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.card .button {
+  margin-top: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
