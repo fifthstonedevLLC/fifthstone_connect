@@ -3,7 +3,7 @@ import { countSegments } from '@fsc/connectors';
 import { MOCK_LOCAL_PASSWORD, PORTAL_USERS, TENANTS } from './catalog.js';
 import { mockUuid } from './ids.js';
 import { EMAIL_EVENTS, JOBS, OPT_OUTS, SETTINGS_VERSIONS, TENANT_OPS } from './operations.js';
-import { CONTACTS, LEADS } from './scenarios.js';
+import { CONTACTS, IGNORED_EVENTS, LEADS } from './scenarios.js';
 import type { MockLead, MockRequest } from './schemas.js';
 
 /**
@@ -189,6 +189,8 @@ function jobsFile(): string {
     j.leaseInMinutes === undefined ? 'null' : `now() + interval '${j.leaseInMinutes} minutes'`,
     opt(j.error),
     j.status === 'succeeded' ? lit(`MOCK-REF-${j.lead}-${j.action}`) : 'null',
+    // Queued when it was due, or now for a job due later.
+    `least(now() + interval '${j.runInMinutes} minutes', now())`,
   ]);
   // One attempt row per attempt: earlier ones failed, the last one matches the job's status.
   const attempts = JOBS.flatMap((j) =>
@@ -215,7 +217,7 @@ function jobsFile(): string {
 -- running job whose lease already expired, as after a worker crash (X-04).
 insert into app.jobs (
   id, tenant_id, lead_id, action_type, idempotency_key, status, attempts, run_at,
-  lease_expires_at, last_error, external_ref
+  lease_expires_at, last_error, external_ref, created_at
 ) values
 ${rows(jobs)};
 
@@ -228,12 +230,13 @@ ${rows(attempts)};
 
 function optOutsFile(): string {
   return `${GENERATED}
--- Opt-outs (Wes, RB-12: STOP mid-conversation) and email delivery events (Ana, RB-07 and RB-21).
+-- Opt-outs (Wes, RB-12; Ray, PP-08) and email delivery events (Ana, RB-07 and RB-21; Mei's
+-- complaint, X-08).
 insert into app.opt_outs (id, tenant_id, phone, source, opted_out_at) values
 ${rows(OPT_OUTS.map((o) => [lit(mockUuid('opt-out', `${o.tenant}:${o.phone}`)), lit(tenantId(o.tenant)), lit(o.phone), lit('stop_keyword'), ago(o.minutesAgo)]))};
 
 insert into app.email_events (id, tenant_id, provider_message_id, recipient, status, occurred_at) values
-${rows(EMAIL_EVENTS.map((e) => [lit(mockUuid('email-event', e.messageRef)), lit(tenantId(e.tenant)), lit(e.messageRef), lit(e.recipient), lit(e.status), ago(e.minutesAgo)]))};
+${rows(EMAIL_EVENTS.map((e) => [lit(mockUuid('email-event', `${e.messageRef}:${e.status}`)), lit(tenantId(e.tenant)), lit(e.messageRef), lit(e.recipient), lit(e.status), ago(e.minutesAgo)]))};
 `;
 }
 
@@ -376,7 +379,7 @@ ${rows(values)};
 }
 
 function inboundEventsFile(): string {
-  const values = LEADS.map((l) => {
+  const accepted = LEADS.map((l) => {
     const e = firstEvent(l);
     return [
       lit(eventId(l.key)),
@@ -385,15 +388,31 @@ function inboundEventsFile(): string {
       lit(e.kind),
       lit(e.externalId),
       lit(e.sha256),
+      lit('accepted'),
       ago(l.minutesAgo),
     ];
   });
+  // Calls to a disabled tenant are recorded so a retry is still deduplicated, and nothing acts.
+  const ignored = IGNORED_EVENTS.map((e) => {
+    const externalId = `MOCK-CA-${e.key}`;
+    return [
+      lit(eventId(e.key)),
+      lit(tenantId(e.tenant)),
+      lit('phone'),
+      lit('missed_call'),
+      lit(externalId),
+      lit(createHash('sha256').update(externalId).digest('hex')),
+      lit('ignored'),
+      ago(e.minutesAgo),
+    ];
+  });
   return `${GENERATED}
--- The provider event that started each scenario lead.
+-- The provider event that started each scenario lead, and calls Old Mill ignored after it was
+-- disabled (OM-03).
 insert into app.inbound_events (
-  id, tenant_id, source, kind, external_event_id, payload_sha256, received_at
+  id, tenant_id, source, kind, external_event_id, payload_sha256, outcome, received_at
 ) values
-${rows(values)};
+${rows([...accepted, ...ignored])};
 `;
 }
 
@@ -408,7 +427,7 @@ function leadsFile(): string {
     opt(l.reason),
     opt(l.urgency),
     opt(l.category),
-    lit(l.summary),
+    opt(l.summary),
     opt(l.address),
     lit(eventId(l.key)),
     touched(l),
@@ -433,15 +452,16 @@ function leadsFile(): string {
             lit(mockUuid('call', l.key)),
             lit(`MOCK-RE-${l.voicemail.code}`),
             String(l.voicemail.seconds),
-            lit(l.voicemail.transcript),
-            l.voicemail.confidence.toFixed(3),
+            opt(l.voicemail.transcript),
+            l.voicemail.confidence === undefined ? 'null' : l.voicemail.confidence.toFixed(3),
             ago(l.minutesAgo),
           ],
         ]
       : [],
   );
   return `${GENERATED}
--- Scenario leads, their missed calls and voicemail transcripts (the evaluation set).
+-- Scenario leads, their missed calls and voicemail transcripts (the evaluation set). Prairie
+-- Path's voicemails have no transcript: minimum-data tenants are never transcribed.
 insert into app.leads (
   id, tenant_id, contact_id, source, state, state_reason, urgency, category, summary, address,
   first_event_id, state_changed_at, created_at, updated_at

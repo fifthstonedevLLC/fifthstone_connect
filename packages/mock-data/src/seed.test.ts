@@ -1,9 +1,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
-import { AiSettingsSchema } from '@fsc/core';
+import { AiSettingsSchema, HOLD_STATES, LEAD_STATES, REQUEST_STATES } from '@fsc/core';
 import { checkTemplateSet } from '@fsc/conversation';
 import { describe, expect, it } from 'vitest';
 import {
   CONTACTS,
+  IGNORED_EVENTS,
+  JOBS,
   LEADS,
   MockEmailSchema,
   MockPhoneSchema,
@@ -78,6 +80,62 @@ describe('mock catalog', () => {
         expect(AiSettingsSchema.safeParse(v.ai).success, label).toBe(true);
       }
     }
+  });
+
+  it('covers every lead, request and hold state (MOCK_DATA.md acceptance check)', () => {
+    const seen = (values: (string | undefined)[]) => new Set(values);
+    const leads = seen(LEADS.map((l) => l.state));
+    const requests = seen(LEADS.map((l) => l.request?.state));
+    const holds = seen(LEADS.map((l) => l.request?.hold));
+    expect(LEAD_STATES.filter((s) => !leads.has(s))).toEqual([]);
+    expect(REQUEST_STATES.filter((s) => !requests.has(s))).toEqual([]);
+    expect(HOLD_STATES.filter((s) => !holds.has(s))).toEqual([]);
+  });
+
+  it('gives every active tenant leads in its own playbook', () => {
+    for (const tenant of TENANTS) {
+      expect(LEADS.filter((l) => l.tenant === tenant.key).length, tenant.key).toBeGreaterThan(0);
+    }
+  });
+
+  // CLAUDE.md rule 13: nothing about a minimum-data lead comes from transcription or the AI layer.
+  it('keeps minimum-data leads free of transcripts, summaries and AI fields', () => {
+    const clinics = new Set(TENANTS.filter((t) => t.playbook === 'clinic').map((t) => t.key));
+    const clinicLeads = LEADS.filter((l) => clinics.has(l.tenant));
+    expect(clinicLeads.length).toBeGreaterThan(0);
+    for (const lead of clinicLeads) {
+      expect(lead.voicemail?.transcript, lead.key).toBeUndefined();
+      expect(lead.summary, lead.key).toBeUndefined();
+      expect(lead.category, lead.key).toBeUndefined();
+      expect(lead.urgency, lead.key).toBeUndefined();
+    }
+    const clinicLeadKeys = new Set(clinicLeads.map((l) => l.key));
+    const aiJobs = JOBS.filter(
+      (j) => clinicLeadKeys.has(j.lead) && /transcribe|analy[sz]e/.test(j.action),
+    );
+    expect(aiJobs).toEqual([]);
+  });
+
+  // Old Mill was disabled 30,000 minutes before load (12_audit_events.sql).
+  it('creates nothing for a disabled tenant after it was disabled, except ignored events', () => {
+    const disabled = new Set(TENANTS.filter((t) => t.status === 'disabled').map((t) => t.key));
+    const DISABLED_MINUTES_AGO = 30000;
+    for (const lead of LEADS.filter((l) => disabled.has(l.tenant))) {
+      expect(lead.minutesAgo, lead.key).toBeGreaterThan(DISABLED_MINUTES_AGO);
+    }
+    for (const job of JOBS.filter((j) =>
+      disabled.has(LEADS.find((l) => l.key === j.lead)!.tenant),
+    )) {
+      expect(-job.runInMinutes, `${job.lead} ${job.action}`).toBeGreaterThan(DISABLED_MINUTES_AGO);
+    }
+    expect(IGNORED_EVENTS.every((e) => disabled.has(e.tenant))).toBe(true);
+  });
+
+  it('shares phone numbers across tenants only as separate contacts (X-01, X-07)', () => {
+    const tenantsFor = (phone: string) =>
+      CONTACTS.filter((c) => c.phone === phone).map((c) => c.tenant);
+    expect(tenantsFor('+13195550142')).toEqual(['T1', 'T3']);
+    expect(tenantsFor('+13195550120')).toEqual(['T1', 'T2']);
   });
 
   it('rejects real-looking phone numbers and email addresses', () => {

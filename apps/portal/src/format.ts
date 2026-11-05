@@ -20,6 +20,14 @@ const REASON_LABEL: Record<string, string> = {
   hold_expired: 'Hold expired before approval',
   delivery_failed: 'Text-back undelivered',
   complaint: 'Upset; needs a person',
+  minor: 'May be under 18',
+  texting_not_live: "Texting wasn't live yet; call them",
+  not_english: 'Not in English',
+  reschedule: 'Wants to move a booking',
+  cancellation: 'Wants to cancel a booking',
+  voicemail_to_review: 'Voicemail to listen to',
+  private_details: 'Shared private details',
+  crisis_message_sent: 'Crisis message sent',
 };
 
 const dayKey = (date: Date, timeZone: string) =>
@@ -62,12 +70,13 @@ export function slotLabel(iso: string, timeZone: string): string {
   }).format(new Date(iso));
 }
 
-export function isEmergency(card: LeadCard): boolean {
-  return card.urgency === 'emergency' && card.state === 'needs_attention';
+/** The flag on an urgent card (the server decides which cards are urgent). */
+export function urgentFlag(card: LeadCard): string {
+  return card.reason === 'crisis_message_sent' ? 'Crisis' : 'Emergency';
 }
 
 /** The one-line status under each card. */
-export function statusLine(card: LeadCard, timeZone: string): string {
+export function statusLine(card: Omit<LeadCard, 'urgent'>, timeZone: string): string {
   const urgency = card.urgency ? ` · ${URGENCY_LABEL[card.urgency]}` : '';
   const slot = card.slotStart ? slotLabel(card.slotStart, timeZone) : null;
   const byState: Partial<Record<LeadState, string>> = {

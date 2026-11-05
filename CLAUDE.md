@@ -33,10 +33,10 @@ Phase 1 in progress. Done: core types and validation (`packages/core`), connecto
 with labeled mocks (`packages/connectors`), the tenancy migration (`app.tenants`,
 `app.portal_users`, RLS) with its isolation tests, the mock-data catalog with generated seed files
 for the four mock tenants and seven local logins, the lead-domain migration (contacts through
-calendar holds) with Riverbend's scenario leads, and the settings and operations migration
-(playbooks, config, versioned settings, registrations, connections, jobs, opt-outs, audit) with
-its seed. The Phase 1 exit (`db:reset` builds cleanly, isolation tests pass) is met for every
-table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios.
+calendar holds) with scenario leads for all four mock tenants, and the settings and operations
+migration (playbooks, config, versioned settings, registrations, connections, jobs, opt-outs,
+audit) with its seed. Phase 1 is complete: `db:reset` builds cleanly and isolation tests pass for
+every table.
 
 Phase 2 in progress: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/today` and
 `/portal/leads/:id`, `POST /portal/leads/:id/actions`, `POST /portal/leads/:id/replies` and the
@@ -46,7 +46,7 @@ the decision, its jobs and an audit event in one transaction; the portal shows o
 server-confirmed state (decision 24). The Templates & AI page edits versioned templates and AI
 settings with restore (`/portal/settings`; owner-only writes, decision 27); template rules live in
 `packages/conversation/src/templates.ts` and run on the server before any version is written.
-Next: other tenants' scenarios and onboarding screens
+Next: onboarding screens
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 

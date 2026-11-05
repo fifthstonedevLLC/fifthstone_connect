@@ -5,7 +5,7 @@ organization: 'Fifth Stone Dev'
 status: 'Draft'
 version: '0.1'
 owner: 'Phil (Fifth Stone Dev)'
-last_updated: '2026-11-03'
+last_updated: '2026-11-05'
 ---
 
 # Mock Data Plan
@@ -83,20 +83,21 @@ migrations, not here):
 
 ## Tenants
 
-| ID  | Slug                    | Name                    | Playbook   | Status   | Connect number  | Texting   | Email     | Calendar          |
-| --- | ----------------------- | ----------------------- | ---------- | -------- | --------------- | --------- | --------- | ----------------- |
-| T1  | `mock-riverbend`        | Riverbend Heating & Air | HVAC       | active   | +1 319 555-0100 | approved  | submitted | Google, connected |
-| T2  | `mock-northline-ink`    | Northline Ink           | Tattoo     | active   | +1 319 555-0101 | submitted | approved  | Acuity, connected |
-| T3  | `mock-prairie-path`     | Prairie Path Counseling | Clinic     | active   | +1 319 555-0102 | approved  | approved  | Google, connected |
-| T4  | `mock-old-mill-roofing` | Old Mill Roofing        | Contractor | disabled | +1 319 555-0103 | released  | disabled  | disconnected      |
+| ID  | Slug                    | Name                    | Playbook   | Status   | Connect number  | Texting  | Email     | Calendar          |
+| --- | ----------------------- | ----------------------- | ---------- | -------- | --------------- | -------- | --------- | ----------------- |
+| T1  | `mock-riverbend`        | Riverbend Heating & Air | HVAC       | active   | +1 319 555-0100 | approved | submitted | Google, connected |
+| T2  | `mock-northline-ink`    | Northline Ink           | Tattoo     | active   | +1 319 555-0101 | approved | approved  | Acuity, connected |
+| T3  | `mock-prairie-path`     | Prairie Path Counseling | Clinic     | active   | +1 319 555-0102 | approved | approved  | Google, connected |
+| T4  | `mock-old-mill-roofing` | Old Mill Roofing        | Contractor | disabled | +1 319 555-0103 | released | disabled  | disconnected      |
 
 - **T1** is the main demo tenant: hours Mon–Fri 7:00–18:00 and Sat 8:00–12:00 (America/Chicago);
   approvals by text from the owner; emergency definition covers no heat, gas smell and active
   leaks, and excludes AC unless someone is at medical risk; "what we don't do" lists
   commercial buildings and irrigation.
-- **T2** has two artists with separate calendars, deposit and waiver links in its templates, and
-  texting still pending registration, so the portal status card and the email-only fallback are
-  always visible.
+- **T2** has two artists with separate calendars and approvals in the portal. Its texting
+  registration was approved after Trey's call (NL-08), which came in while it was still pending.
+  Deposits and payments are out of scope (SCOPE.md v0.2), so no template carries a payment link.
+  Riverbend's email card keeps a "pending approval" status visible.
 - **T3** has `clinic_minimum_data = true`, front-desk approval in the portal, a waitlist and a
   fixed crisis message template.
 - **T4** was offboarded. Its data stays so tests can prove a disabled tenant receives nothing,
@@ -169,9 +170,10 @@ Each row is one lead with a full history. "VM" and "M" codes point to the evalua
 | NL-06 | Unknown  | Missed call + VM | `needs_attention` | Caller says they are under 18 (VM-12)                               |
 | NL-07 | Mei W.   | Website form     | `booked`          | Consult with Jules, approved by Jules in the portal                 |
 | NL-08 | Trey O.  | Missed call      | `needs_attention` | Texting not yet approved: no text sent; owner alerted by email      |
-| NL-09 | Gina R.  | Website form     | `quiet`           | Deposit link sent; no reply                                         |
+| NL-09 | Gina R.  | Website form     | `quiet`           | Times sent; no reply in two days                                    |
 | NL-10 | Luis M.  | Missed call + VM | `needs_attention` | Spanish voicemail; English-only templates in MVP (VM-14)            |
 | NL-11 | Ava T.   | Missed call + VM | `needs_attention` | Wants to move an existing appointment (VM-22)                       |
+| NL-12 | Tia F.   | Website form     | `new`             | Just submitted; first text queued (covers the `new` state)          |
 
 ### T3 Prairie Path Counseling (minimum-data playbook)
 
@@ -195,7 +197,7 @@ fixed and not editable by the AI layer.
 | ID    | What it exercises                                                              |
 | ----- | ------------------------------------------------------------------------------ |
 | OM-01 | Historical booked lead from before offboarding; never visible to other tenants |
-| OM-02 | Historical closed lead                                                         |
+| OM-02 | Historical closed lead; its picked time was declined when it was closed        |
 | OM-03 | Inbound call after offboarding: event recorded as ignored; no lead, no jobs    |
 | OM-04 | Owner sign-in attempt: blocked because the tenant is disabled                  |
 
@@ -203,7 +205,7 @@ fixed and not editable by the AI layer.
 
 | ID   | Case                                                                                                     |
 | ---- | -------------------------------------------------------------------------------------------------------- |
-| X-01 | `+1 319 555-0150` is a contact in T1 and T3: two separate contacts, never linked or shown across tenants |
+| X-01 | `+1 319 555-0142` is a contact in T1 and T3: two separate contacts, never linked or shown across tenants |
 | X-02 | Twilio retried a webhook: two inbound events with the same call ID produce one lead and one text         |
 | X-03 | U-02 (T1 staff) asks for an NL-01 record: denied, and the attempt is audited                             |
 | X-04 | A job's lease expired mid-run (worker crash): reclaimed and completed once                               |
@@ -277,8 +279,8 @@ Full message threads for three leads, used for the seed and for end-to-end tests
    Reply 1 to approve, 2 to suggest another time, 3 to call him."
 
 **NL-01 (Kira S., tattoo form to portal approval):** form with placement (forearm), size (palm),
-reference photo, artist (Mara) → out: deposit and waiver links with three of Mara's open
-consult times → in: "2" → request appears in Mara's portal queue.
+reference photo, artist (Mara) → out: three of Mara's open consult times → in: "2" → request
+appears in Mara's portal queue.
 
 **PP-02 (Erin K., clinic minimum-data):** form with name, callback number and "weekday
 mornings" → out: "Thanks, Prairie Path Counseling received your request. Our front desk will

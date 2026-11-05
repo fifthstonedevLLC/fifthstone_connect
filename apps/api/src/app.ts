@@ -74,6 +74,7 @@ const LeadCardSchema = z.object({
   createdAt: z.iso.datetime(),
   slotStart: z.iso.datetime().nullable(),
   requestState: z.enum(['pending', 'approved', 'changed']).nullable(),
+  urgent: z.boolean(),
 });
 
 const TodaySchema = z.object({

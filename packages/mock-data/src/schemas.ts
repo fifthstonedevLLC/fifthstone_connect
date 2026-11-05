@@ -82,11 +82,15 @@ export const MockVoicemailSchema = z
   .object({
     /** Evaluation-set code from MOCK_DATA.md, e.g. VM-02. */
     code: z.string().regex(/^VM-\d{2}$/),
-    transcript: z.string().min(1).max(2000),
-    confidence: z.number().min(0).max(1),
+    /** Absent for minimum-data (clinic) tenants, whose voicemails are never transcribed. */
+    transcript: z.string().min(1).max(2000).optional(),
+    confidence: z.number().min(0).max(1).optional(),
     seconds: z.number().int().min(1).max(600),
   })
-  .strict();
+  .strict()
+  .refine((v) => (v.transcript === undefined) === (v.confidence === undefined), {
+    message: 'A transcript and its confidence come together',
+  });
 
 export const MockMessageSchema = z
   .object({
@@ -140,7 +144,8 @@ export const MockLeadSchema = z
       .string()
       .regex(/^[a-z][a-z_]+$/)
       .optional(),
-    summary: z.string().min(1).max(500),
+    /** Absent where nothing may summarize the lead (minimum-data tenants, rule 13). */
+    summary: z.string().min(1).max(500).optional(),
     address: z.string().max(300).optional(),
     minutesAgo: z.number().int().min(0),
     voicemail: MockVoicemailSchema.optional(),
@@ -152,3 +157,14 @@ export const MockLeadSchema = z
 export type MockContact = z.output<typeof MockContactSchema>;
 export type MockLead = z.output<typeof MockLeadSchema>;
 export type MockRequest = z.output<typeof MockRequestSchema>;
+
+/** A provider event recorded but acted on by nothing, such as a call to a disabled tenant. */
+export const MockIgnoredEventSchema = z
+  .object({
+    key: z.string().regex(/^[A-Z]{2}-\d{2}$/),
+    tenant: z.string().regex(/^T\d+$/),
+    minutesAgo: z.number().int().min(0),
+  })
+  .strict();
+
+export type MockIgnoredEvent = z.output<typeof MockIgnoredEventSchema>;

@@ -5,7 +5,8 @@ import { MockEmailSchema, MockPhoneSchema } from './schemas.js';
 /**
  * Settings and operations data from docs/product/MOCK_DATA.md: per-tenant services, calendars,
  * settings versions (Riverbend has two, for restore-previous, case X-06), jobs in every status
- * (X-09), Wes's opt-out (RB-12, X-07), Ana's email events (RB-07, RB-21) and the audit trail.
+ * (X-09), opt-outs (Wes, RB-12, X-07; Ray, PP-08), email events (Ana, RB-07 and RB-21; Mei's
+ * complaint, X-08) and the audit trail.
  */
 
 const TenantOpsSchema = z
@@ -47,7 +48,8 @@ export const TENANT_OPS = [
   },
   {
     tenant: 'T2',
-    texting: 'submitted',
+    // Approved after Trey's call (NL-08), which came in while registration was still pending.
+    texting: 'approved',
     email: 'approved',
     calendar: { provider: 'acuity', status: 'connected' },
     hours: [{ days: [2, 3, 4, 5, 6], open: '11:00', close: '19:00' }],
@@ -235,10 +237,19 @@ export const JOBS = [
     runInMinutes: -60,
     error: 'undelivered',
   },
+  { lead: 'NL-01', action: 'approval_reminder', status: 'queued', attempts: 0, runInMinutes: 45 },
+  { lead: 'NL-12', action: 'send_slot_offer', status: 'queued', attempts: 0, runInMinutes: 0 },
+  done('NL-07', 'send_confirmation_email', 4200),
+  done('NL-08', 'send_owner_alert_email', 7299),
+  done('PP-05', 'send_confirmation', 1960),
+  done('PP-07', 'send_crisis_message', 599),
+  done('PP-07', 'alert_front_desk', 599),
+  done('OM-01', 'send_confirmation', 35900),
 ].map((j) => JobSchema.parse(j));
 
 export const OPT_OUTS = [
   { tenant: 'T1', phone: MockPhoneSchema.parse('+13195550120'), minutesAgo: 1995 },
+  { tenant: 'T3', phone: MockPhoneSchema.parse('+13195550149'), minutesAgo: 2990 },
 ];
 
 export const EMAIL_EVENTS = [
@@ -255,5 +266,20 @@ export const EMAIL_EVENTS = [
     recipient: MockEmailSchema.parse('ana@example.org'),
     status: 'bounced',
     minutesAgo: 600,
+  },
+  // A delivered confirmation the recipient later marked as spam (X-08).
+  {
+    tenant: 'T2',
+    messageRef: 'MOCK-EM-NL-07-CONF',
+    recipient: MockEmailSchema.parse('mei@example.org'),
+    status: 'delivered',
+    minutesAgo: 4195,
+  },
+  {
+    tenant: 'T2',
+    messageRef: 'MOCK-EM-NL-07-CONF',
+    recipient: MockEmailSchema.parse('mei@example.org'),
+    status: 'complained',
+    minutesAgo: 4000,
   },
 ] as const;
