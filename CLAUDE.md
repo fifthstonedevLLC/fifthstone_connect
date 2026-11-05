@@ -36,8 +36,11 @@ for the four mock tenants and seven local logins, the lead-domain migration (con
 calendar holds) with Riverbend's scenario leads, and the settings and operations migration
 (playbooks, config, versioned settings, registrations, connections, jobs, opt-outs, audit) with
 its seed. The Phase 1 exit (`db:reset` builds cleanly, isolation tests pass) is met for every
-table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios. Next phase:
-Portal API routes and `apps/portal` (React + Vite) on this data
+table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios.
+
+Phase 2 started: `apps/api` (Fastify) serves `/health`, `/portal/me` and `/portal/today` with
+Supabase sign-in and tenant-scoped transactions. Next: the lead page and actions (approve,
+nudge, close), then `apps/portal` (React + Vite) on these routes
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
@@ -57,6 +60,7 @@ npm run db:new -- name # new migration in supabase/migrations/
 npm run db:test        # pgTAP tests in supabase/tests/
 npm run db:stop
 npm run seed:build     # regenerate supabase/seed/ from packages/mock-data (never edit seeds by hand)
+npm run dev -w @fsc/api # API on http://127.0.0.1:8787 (reads .env; needs the local stack)
 ```
 
 Database rules, environments and local setup: `docs/engineering/DATABASE.md`.

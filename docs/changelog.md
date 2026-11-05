@@ -12,6 +12,44 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 2 begins: Fastify API skeleton with portal sign-in
+
+**Change**
+
+- `apps/api` is now a Fastify app (decision 1 resolved: Fastify, owner 2026-11-05):
+  - `config.ts`: environment validated with Zod at startup; errors name variables, never values.
+  - `db.ts`: every query runs in a transaction as `fsc_app` (`set local role`), with the tenant
+    context set for tenant work (`withTenant`) or absent before sign-in (`withoutTenant`).
+  - `auth.ts`: verifies Supabase access tokens (ES256) against the project's published keys,
+    then `app.resolve_portal_user`. 401 without a valid token; 403 for a disabled user or tenant.
+  - Routes: `GET /health`, `GET /portal/me`, `GET /portal/today` (the four lanes, built from the
+    `LANE_STATES` mapping in `@fsc/core`). Request and response shapes are Zod schemas; repository
+    queries filter by tenant explicitly on top of row-level security.
+  - Logging through Fastify's Pino logger with redaction of authorization headers, cookies, phone
+    numbers, emails, message bodies, summaries and transcripts (CLAUDE.md rule 4).
+  - `npm run dev -w @fsc/api` and `npm run start -w @fsc/api`.
+- Migration `20261105165057_admin_can_act_as_app_role.sql`: `grant fsc_app to postgres`, so the
+  API's `set local role fsc_app` works on an admin connection (ledger row added).
+- `tsconfig.json`: `strict: true` stated explicitly (owner). It was already on through
+  `tsconfig.base.json`, so behavior is unchanged.
+- Root `package.json` lists `zod` as a dependency (owner). Each workspace already declares its own
+  `zod`, so this is redundant but harmless.
+
+**New dependencies (`@fsc/api`):** `fastify` (HTTP server; per-route body parsing for signed
+webhooks, encapsulated plugins for per-route security, built-in Pino logging with redaction,
+`inject()` for tests without a network); `fastify-type-provider-zod` (validates and types routes
+with the same Zod schemas as `@fsc/core`); `pg` and `@types/pg` (Postgres client; plain SQL with
+transactions, matching the migration-first approach); `jose` (verifies Supabase JWTs against the
+published JWKS, no network call per request after the keys are cached).
+
+**Test evidence:** `npm run db:reset` applies all four migrations and seeds; `npm run db:test`
+passes; `apps/api/src/app.test.ts` (7 tests, local stack): health, 401 without or with a bad
+token, 403 for Old Mill's owner, `/portal/me`, Riverbend's lanes (9 / 7 / 2 / 1, Riverbend leads
+only), no tokens or customer details in logs, and a real local Supabase token accepted while a
+tampered one is refused. Manual: the server process answered `/health`, refused `/portal/today`
+without a token (401) and returned Riverbend's lanes to Rhett's real token. Local stack and mock
+data only.
+
 ## 2026-11-05 — Phase 1: settings and operations migration
 
 **Change**
