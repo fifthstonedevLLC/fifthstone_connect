@@ -39,9 +39,9 @@ its seed. The Phase 1 exit (`db:reset` builds cleanly, isolation tests pass) is 
 table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios.
 
 Phase 2 in progress: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/today` and
-`/portal/leads/:id` and `POST /portal/leads/:id/actions` with Supabase sign-in and tenant-scoped
-transactions; `apps/portal` (React + Vite) shows Today and the lead page and takes actions
-(approve, suggest another time, nudge, close; owners and staff, decision 25). Each action writes
+`/portal/leads/:id`, `POST /portal/leads/:id/actions` and `POST /portal/leads/:id/replies` with
+Supabase sign-in and tenant-scoped transactions; `apps/portal` (React + Vite) shows Today and the
+lead page, takes actions (approve, suggest another time, nudge, close; owners and staff, decision 25) and sends template-only replies (decision 26). Each action writes
 the decision, its jobs and an audit event in one transaction; the portal shows only
 server-confirmed state (decision 24). Next: settings (versioned templates and AI settings with
 restore), then other tenants' scenarios and onboarding screens

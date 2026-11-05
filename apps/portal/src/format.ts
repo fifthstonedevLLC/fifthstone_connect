@@ -205,6 +205,7 @@ const WORK_LABEL: Record<string, string> = {
   send_clarifying_question: 'Texting a question',
   transcribe_voicemail: 'Transcribing the voicemail',
   send_text_back: 'Texting back',
+  send_text: 'Sending your reply',
 };
 
 const WORK_STATUS: Record<'queued' | 'running' | 'failed' | 'dead', string> = {
@@ -229,6 +230,10 @@ const ACTION_ERROR: Record<string, string> = {
   opted_out: 'This person replied STOP, so no more texts can go to them. Call them instead.',
   already_closed: 'This lead is already closed.',
   booked: "A booked job can't be closed here; it is on your calendar.",
+  lead_closed: 'This lead is closed, so no replies can go out.',
+  not_reply_template: "That template can't be sent as a reply.",
+  template_not_found: 'That reply template no longer exists. Pick another.',
+  unfilled_placeholder: "That template has a blank we can't fill for this customer.",
   network: "We couldn't reach the server. Nothing was changed; try again.",
 };
 

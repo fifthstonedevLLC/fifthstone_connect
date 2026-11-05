@@ -12,6 +12,35 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 2: template replies from the lead page
+
+**Change**
+
+- Decision 26 (owner, 2026-11-05): replies from the portal are template-only for now. Owners and
+  staff pick an owner-approved reply; nothing typed in the portal reaches a customer.
+- `packages/conversation/src/replies.ts`: a template is a reply when its key starts with `reply_`.
+  `renderReply` fills only `{name}` (first name; "Thanks, {name}." becomes "Thanks." when unknown)
+  and refuses any other placeholder instead of sending braces. `replyAllowed` refuses closed
+  leads and opted-out contacts (CLAUDE.md rule 12).
+- `POST /portal/leads/:id/replies` with `{ templateKey, messageId }`
+  (`apps/api/src/repositories/replies.ts`): renders the active template version for this lead,
+  records the message as **queued** with its segment count, queues a `send_text` job and an audit
+  event (template key and version), all in one transaction, and returns the lead page. The
+  client-made `messageId` means a double submit records one message. Refusals are 409 with a
+  short code. The database's opt-out trigger remains the second lock.
+- Lead page: `replyOptions` lists the replies this lead can be sent, already filled in (empty for
+  closed leads and opted-out contacts). The portal shows them as a "Reply with a template" choice
+  under the conversation, and outbound texts now show "Queued" or "Sent" until delivered.
+- Seed: three reply templates in every tenant's template set (`reply_will_call`,
+  `reply_need_address`, `reply_after_hours`).
+
+**Test evidence:** `npm run check`: 151 passed (1 skipped locally without the anon key), including
+5 reply-rule tests. API route tests 26/26, adding: replies offered and filled in, a reply recorded
+as queued with its job and audit event, one message on a double submit, a non-reply template
+refused, an opted-out contact refused with no options, a closed lead refused. `db:test` 84/84.
+In the in-app browser as Carla: sent "will call you shortly" to Dana, saw it queued in the thread
+and "Sending your reply: queued". The local database was reset afterwards. Mock data only.
+
 ## 2026-11-05 — Phase 2: lead actions (approve, suggest another time, nudge, close)
 
 **Change**

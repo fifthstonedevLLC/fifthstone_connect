@@ -1,5 +1,7 @@
 import type { HoldState, LeadSource, LeadState, RequestState, Urgency } from '@fsc/core';
+import { replyAllowed, replyOptions } from '@fsc/conversation';
 import type { DbClient } from '../db.js';
+import { activeTemplates, contactOptedOut } from './replies.js';
 
 /** Everything the lead page shows for one lead. Runs inside `withTenant`. */
 
@@ -48,6 +50,8 @@ export interface LeadDetail {
   } | null;
   /** Work queued for this lead and not finished yet, so the page can say what is in progress. */
   pendingWork: { actionType: string; status: 'queued' | 'running' | 'failed' | 'dead' }[];
+  /** Template replies that can be sent to this lead now, rendered (decision 26). Empty when none. */
+  replyOptions: { key: string; body: string }[];
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -147,6 +151,11 @@ export async function getLead(
     ),
   ]);
 
+  const optedOut = await contactOptedOut(client, tenantId, row.phone);
+  const templates = replyAllowed(row.state, optedOut).ok
+    ? await activeTemplates(client, tenantId)
+    : null;
+
   const v = voicemail.rows[0];
   const r = request.rows[0];
   return {
@@ -197,5 +206,6 @@ export async function getLead(
         }
       : null,
     pendingWork: work.rows.map((w) => ({ actionType: w.action_type, status: w.status })),
+    replyOptions: templates ? replyOptions(templates.content, { name: row.display_name }) : [],
   };
 }

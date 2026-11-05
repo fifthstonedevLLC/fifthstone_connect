@@ -98,6 +98,7 @@ export interface LeadDetail {
     hold: { state: HoldState; expiresAt: string } | null;
   } | null;
   pendingWork: { actionType: string; status: 'queued' | 'running' | 'failed' | 'dead' }[];
+  replyOptions: { key: string; body: string }[];
 }
 
 export type PortalAction = 'approve' | 'suggest_time' | 'nudge' | 'close';
