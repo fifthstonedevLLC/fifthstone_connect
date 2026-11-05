@@ -10,6 +10,7 @@ const NAV: { label: string; icon: IconName; to?: string }[] = [
   { label: 'Leads', icon: 'leads' },
   { label: 'Calendar', icon: 'calendar' },
   { label: 'Templates & AI', icon: 'templates', to: '/templates' },
+  { label: 'Setup', icon: 'setup', to: '/setup' },
   { label: 'Settings', icon: 'settings' },
 ];
 

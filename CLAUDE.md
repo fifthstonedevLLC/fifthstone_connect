@@ -46,8 +46,10 @@ the decision, its jobs and an audit event in one transaction; the portal shows o
 server-confirmed state (decision 24). The Templates & AI page edits versioned templates and AI
 settings with restore (`/portal/settings`; owner-only writes, decision 27); template rules live in
 `packages/conversation/src/templates.ts` and run on the server before any version is written.
-Next: onboarding screens
-(`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+The Setup page walks the owner through onboarding (business type, details for texting
+registration, hours and calendar, template review, approvers) and a labeled simulated test call
+(decision 29); nothing is sent to a vendor. That completes the Phase 2 screens; next: Phase 3,
+the engine on mocks (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands

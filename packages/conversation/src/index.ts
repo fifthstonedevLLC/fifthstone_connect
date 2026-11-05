@@ -6,3 +6,4 @@ export * from './actions.js';
 export * from './attention.js';
 export * from './replies.js';
 export * from './templates.js';
+export * from './test-call.js';

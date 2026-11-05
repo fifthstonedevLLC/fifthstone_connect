@@ -63,6 +63,13 @@ const paths = {
       <path d="M12 10v4M12 17v.01" />
     </>
   ),
+  setup: (
+    <>
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 2.5h6v3H9z" />
+      <path d="M8.5 13l2.5 2.5 4.5-5" />
+    </>
+  ),
   signOut: (
     <>
       <path d="M15 4h4v16h-4" />

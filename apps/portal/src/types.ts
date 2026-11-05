@@ -129,3 +129,67 @@ export interface Settings {
 }
 
 export type SettingsKind = 'templates' | 'ai';
+
+export type OnboardingStep = 'business_type' | 'details' | 'hours' | 'templates' | 'team' | 'test';
+
+export interface HoursBlock {
+  days: number[];
+  open: string;
+  close: string;
+}
+
+export interface BusinessDetails {
+  legalName: string;
+  ein?: string;
+  street: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  website?: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+}
+
+export interface Onboarding {
+  canEdit: boolean;
+  steps: { key: OnboardingStep; done: boolean }[];
+  businessType: {
+    key: string;
+    name: string;
+    description: string;
+    minimumData: boolean;
+    approverChannel: 'text' | 'portal';
+    confirmedAt: string | null;
+  } | null;
+  details: (BusinessDetails & { updatedAt: string }) | null;
+  hours: HoursBlock[];
+  timezone: string;
+  calendar: {
+    provider: 'google' | 'acuity';
+    status: 'connected' | 'revoked' | 'disconnected';
+  } | null;
+  templates: { version: number | null; reviewedAt: string | null; questions: string[] };
+  team: {
+    id: string;
+    name: string;
+    role: 'owner' | 'staff';
+    mobile: string | null;
+    approvesRequests: boolean;
+  }[];
+  test: { simulatedAt: string | null };
+  connectNumber: string | null;
+}
+
+/** One step of the simulated test call (nothing was sent). */
+export type TestCallStep =
+  | { kind: 'missed_call'; to: string | null; from: string | null }
+  | { kind: 'text_to_caller'; templateKey: string; body: string | null }
+  | { kind: 'caller_replies'; body: string }
+  | {
+      kind: 'approval_request';
+      channel: 'text' | 'portal';
+      approver: string | null;
+      body: string | null;
+    }
+  | { kind: 'approver_approves'; channel: 'text' | 'portal' };

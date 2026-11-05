@@ -201,6 +201,18 @@ fixed and not editable by the AI layer.
 | OM-03 | Inbound call after offboarding: event recorded as ignored; no lead, no jobs    |
 | OM-04 | Owner sign-in attempt: blocked because the tenant is disabled                  |
 
+## Onboarding
+
+| Tenant | State                                                                                                 |
+| ------ | ----------------------------------------------------------------------------------------------------- |
+| T1     | Every step done but the test call, so the simulated test can be run; Rhett approves                   |
+| T2     | Partway: business type confirmed, hours set, Mara and Jules approve; details and template review open |
+| T3     | Done, including a simulated test call; the front desk (Tess) approves                                 |
+| T4     | None: offboarded before onboarding moved into the portal                                              |
+
+Mock EINs start with `00-`, a prefix the IRS never assigns. Mock websites use `example.com`,
+`.org` or `.net`.
+
 ## Cross-tenant and system cases
 
 | ID   | Case                                                                                                     |

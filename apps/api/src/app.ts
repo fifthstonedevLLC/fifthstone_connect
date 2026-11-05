@@ -1,6 +1,9 @@
 import {
   AiSettingsSchema,
+  BusinessHoursListSchema,
+  BusinessProfileSchema,
   HOLD_STATES,
+  ONBOARDING_STEPS,
   LEAD_SOURCES,
   LEAD_STATES,
   REQUEST_STATES,
@@ -34,6 +37,16 @@ import {
   type SettingsKind,
   type WriteResult,
 } from './repositories/settings.js';
+import {
+  confirmBusinessType,
+  getOnboarding,
+  markTemplatesReviewed,
+  runTestCall,
+  saveApprovers,
+  saveBusinessDetails,
+  saveHours,
+  type OnboardingError,
+} from './repositories/onboarding.js';
 import { getToday } from './repositories/today.js';
 
 /**
@@ -59,6 +72,9 @@ export const REDACT_PATHS = [
   '*.body',
   '*.summary',
   '*.transcript',
+  '*.ein',
+  '*.contactPhone',
+  '*.contactEmail',
 ];
 
 const ErrorSchema = z.object({ error: z.string() });
@@ -205,6 +221,111 @@ const SettingsWriteResponses = {
   409: ErrorSchema,
   422: TemplateProblemsSchema,
 };
+
+const HoursBlockSchema = z.object({
+  days: z.array(z.number().int().min(1).max(7)),
+  open: z.string(),
+  close: z.string(),
+});
+
+const OnboardingSchema = z.object({
+  canEdit: z.boolean(),
+  steps: z.array(z.object({ key: z.enum(ONBOARDING_STEPS), done: z.boolean() })),
+  businessType: z
+    .object({
+      key: z.string(),
+      name: z.string(),
+      description: z.string(),
+      minimumData: z.boolean(),
+      approverChannel: z.enum(['text', 'portal']),
+      confirmedAt: IsoDate.nullable(),
+    })
+    .nullable(),
+  details: z
+    .object({
+      legalName: z.string(),
+      ein: z.string().optional(),
+      street: z.string(),
+      city: z.string(),
+      region: z.string(),
+      postalCode: z.string(),
+      website: z.string().optional(),
+      contactName: z.string(),
+      contactEmail: z.string(),
+      contactPhone: z.string(),
+      updatedAt: IsoDate,
+    })
+    .nullable(),
+  hours: z.array(HoursBlockSchema),
+  timezone: z.string(),
+  calendar: z
+    .object({
+      provider: z.enum(['google', 'acuity']),
+      status: z.enum(['connected', 'revoked', 'disconnected']),
+    })
+    .nullable(),
+  templates: z.object({
+    version: z.number().int().nullable(),
+    reviewedAt: IsoDate.nullable(),
+    questions: z.array(z.string()),
+  }),
+  team: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      role: z.enum(['owner', 'staff']),
+      mobile: z.string().nullable(),
+      approvesRequests: z.boolean(),
+    }),
+  ),
+  test: z.object({ simulatedAt: IsoDate.nullable() }),
+  connectNumber: z.string().nullable(),
+});
+
+const TestCallStepSchema = z.union([
+  z.object({
+    kind: z.literal('missed_call'),
+    to: z.string().nullable(),
+    from: z.string().nullable(),
+  }),
+  z.object({
+    kind: z.literal('text_to_caller'),
+    templateKey: z.string(),
+    body: z.string().nullable(),
+  }),
+  z.object({ kind: z.literal('caller_replies'), body: z.string() }),
+  z.object({
+    kind: z.literal('approval_request'),
+    channel: z.enum(['text', 'portal']),
+    approver: z.string().nullable(),
+    body: z.string().nullable(),
+  }),
+  z.object({ kind: z.literal('approver_approves'), channel: z.enum(['text', 'portal']) }),
+]);
+
+/** A form the owner fills in: which fields need fixing, in plain words. */
+const FieldProblemsSchema = z.object({
+  error: z.literal('invalid_fields'),
+  fields: z.record(z.string(), z.string()),
+});
+
+const OnboardingWriteResponses = {
+  200: OnboardingSchema,
+  401: ErrorSchema,
+  403: ErrorSchema,
+  409: ErrorSchema,
+  422: FieldProblemsSchema,
+};
+
+/** Zod issues as `{ field: message }`, first message per field. */
+function fieldProblems(error: z.ZodError): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const issue of error.issues) {
+    const key = issue.path.length > 0 ? issue.path.map(String).join('.') : 'form';
+    fields[key] ??= issue.message;
+  }
+  return fields;
+}
 
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({
@@ -461,6 +582,156 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           return writeSettings(user, reply, (client) =>
             restoreSettings(client, user.tenantId, user.portalUserId, kind, request.body),
           );
+        },
+      );
+
+      // Onboarding: everyone in the business can see setup progress; only the owner changes it.
+      // Details are captured only, never sent to a vendor (Phase 4). Each write answers with
+      // the setup as it now stands (decision 24).
+      typed.get(
+        '/onboarding',
+        { schema: { response: { 200: OnboardingSchema, 401: ErrorSchema, 403: ErrorSchema } } },
+        async (request) => {
+          const user = request.portalUser!;
+          return withTenant(deps.pool, user.tenantId, (client) =>
+            getOnboarding(client, user.tenantId, user.role),
+          );
+        },
+      );
+
+      const writeOnboarding = async (
+        user: PortalUser,
+        reply: FastifyReply,
+        write: (
+          client: DbClient,
+        ) => Promise<void | { ok: true } | { ok: false; error: OnboardingError }>,
+      ) => {
+        if (user.role !== 'owner') return reply.code(403).send({ error: 'owner_only' });
+        const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+          const written = await write(client);
+          if (written && !written.ok) return written;
+          return {
+            ok: true as const,
+            onboarding: await getOnboarding(client, user.tenantId, user.role),
+          };
+        });
+        return outcome.ok ? outcome.onboarding : reply.code(409).send({ error: outcome.error });
+      };
+
+      typed.post(
+        '/onboarding/business-type',
+        { schema: { response: OnboardingWriteResponses } },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeOnboarding(user, reply, (client) =>
+            confirmBusinessType(client, user.tenantId, user.portalUserId),
+          );
+        },
+      );
+
+      // Fields arrive as typed; @fsc/core normalizes them and names any that need fixing.
+      typed.put(
+        '/onboarding/details',
+        {
+          schema: {
+            body: z.record(z.string(), z.string().max(300)),
+            response: OnboardingWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          const parsed = BusinessProfileSchema.safeParse(request.body);
+          if (!parsed.success) {
+            return reply
+              .code(422)
+              .send({ error: 'invalid_fields' as const, fields: fieldProblems(parsed.error) });
+          }
+          return writeOnboarding(user, reply, (client) =>
+            saveBusinessDetails(client, user.tenantId, user.portalUserId, parsed.data),
+          );
+        },
+      );
+
+      typed.put(
+        '/onboarding/hours',
+        {
+          schema: {
+            body: z.object({ hours: z.array(HoursBlockSchema).max(14) }).strict(),
+            response: OnboardingWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          const parsed = BusinessHoursListSchema.safeParse(request.body.hours);
+          if (!parsed.success) {
+            return reply
+              .code(422)
+              .send({ error: 'invalid_fields' as const, fields: fieldProblems(parsed.error) });
+          }
+          return writeOnboarding(user, reply, (client) =>
+            saveHours(client, user.tenantId, user.portalUserId, parsed.data),
+          );
+        },
+      );
+
+      typed.post(
+        '/onboarding/templates-reviewed',
+        { schema: { response: OnboardingWriteResponses } },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeOnboarding(user, reply, (client) =>
+            markTemplatesReviewed(client, user.tenantId, user.portalUserId),
+          );
+        },
+      );
+
+      typed.put(
+        '/onboarding/approvers',
+        {
+          schema: {
+            body: z.object({ approverIds: z.array(z.uuid()).max(50) }).strict(),
+            response: OnboardingWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeOnboarding(user, reply, (client) =>
+            saveApprovers(client, user.tenantId, user.portalUserId, request.body.approverIds),
+          );
+        },
+      );
+
+      // A simulation until texting is live: nothing is called, texted or created.
+      typed.post(
+        '/onboarding/test-call',
+        {
+          schema: {
+            response: {
+              200: z.object({
+                simulated: z.literal(true),
+                steps: z.array(TestCallStepSchema),
+                onboarding: OnboardingSchema,
+              }),
+              401: ErrorSchema,
+              403: ErrorSchema,
+              409: ErrorSchema,
+            },
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          if (user.role !== 'owner') return reply.code(403).send({ error: 'owner_only' });
+          const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+            const run = await runTestCall(client, user.tenantId, user.portalUserId);
+            if (!run.ok) return run;
+            return {
+              ok: true as const,
+              steps: run.steps,
+              onboarding: await getOnboarding(client, user.tenantId, user.role),
+            };
+          });
+          if (!outcome.ok) return reply.code(409).send({ error: outcome.error });
+          return { simulated: true as const, steps: outcome.steps, onboarding: outcome.onboarding };
         },
       );
     },

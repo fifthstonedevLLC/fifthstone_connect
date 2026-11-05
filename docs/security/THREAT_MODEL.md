@@ -21,6 +21,7 @@ pending.**
 | ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | Inquirer contact data (name, email, phone, address, message) | PII — minimize, redact from logs                                                  |
 | Tenant configuration and recipient lists                     | Confidential; cross-tenant leak is a serious incident                             |
+| Business details: legal name, EIN, address, contact          | Confidential; owner-only writes, kept out of logs and audit details; SSNs refused |
 | SES credentials / sender identities                          | High — abuse damages deliverability for every tenant                              |
 | Google service-account key                                   | High — grants access to every shared Sheet                                        |
 | Webhook signing secrets, Turnstile secret                    | High                                                                              |

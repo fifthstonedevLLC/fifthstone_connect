@@ -110,15 +110,15 @@ const SAMPLE: Record<Exclude<Placeholder, 'business'>, string> = {
   summary: 'Furnace not heating, wants this week',
 };
 
-/** The template filled with sample values and the business's name. */
-export function sampleText(body: string, businessName: string): string {
-  return body.replaceAll(/\{([a-z_]+)\}/g, (whole, name: string) =>
-    name === 'business'
-      ? businessName
-      : name in SAMPLE
-        ? SAMPLE[name as keyof typeof SAMPLE]
-        : whole,
-  );
+export type SampleValues = Partial<Record<Exclude<Placeholder, 'business'>, string>>;
+
+/** The template filled with sample values (or the ones given) and the business's name. */
+export function sampleText(body: string, businessName: string, values: SampleValues = {}): string {
+  return body.replaceAll(/\{([a-z_]+)\}/g, (whole, name: string) => {
+    if (name === 'business') return businessName;
+    const key = name as keyof typeof SAMPLE;
+    return values[key] ?? (name in SAMPLE ? SAMPLE[key] : whole);
+  });
 }
 
 export type TemplateProblem =

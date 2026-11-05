@@ -130,7 +130,8 @@ v0.1: `tenants`, `tenant_config`, `integration_connections`, `inbound_events`, `
 v0.2 adds: `contacts` (matched by phone/email), `conversations`, `messages`, `calls`,
 `voicemails` (recording reference + transcript), `ai_analyses`, `requests`, `calendar_holds`,
 `playbooks`, `tenant_templates` (versioned), `ai_settings` (versioned), `portal_users`,
-`opt_outs`, `service_registrations`, `calendar_connections`.
+`opt_outs`, `service_registrations`, `calendar_connections`, `business_profiles` and
+`onboarding_progress` (onboarding), with `portal_users.approves_requests`.
 
 All tenant-owned rows carry `tenant_id`. Secrets and OAuth tokens are referenced by name or
 stored encrypted, never in plain tenant config.
