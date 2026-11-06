@@ -33,5 +33,8 @@ export function useApi<T>(path: string, accessToken: string) {
     setAttempt((n) => n + 1);
   }, []);
 
-  return [state, reload] as const;
+  /** Show a response the server just returned (after an action), without fetching again. */
+  const replace = useCallback((data: T) => setState({ status: 'ready', data }), []);
+
+  return [state, reload, replace] as const;
 }

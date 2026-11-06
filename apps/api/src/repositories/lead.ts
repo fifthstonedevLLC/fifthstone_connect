@@ -46,6 +46,8 @@ export interface LeadDetail {
     decidedByName: string | null;
     hold: { state: HoldState; expiresAt: string } | null;
   } | null;
+  /** Work queued for this lead and not finished yet, so the page can say what is in progress. */
+  pendingWork: { actionType: string; status: 'queued' | 'running' | 'failed' | 'dead' }[];
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -85,7 +87,7 @@ export async function getLead(
   const row = lead.rows[0];
   if (!row) return null;
 
-  const [voicemail, messages, request] = await Promise.all([
+  const [voicemail, messages, request, work] = await Promise.all([
     client.query<{
       duration_seconds: number;
       transcript: string | null;
@@ -135,6 +137,12 @@ export async function getLead(
         where r.tenant_id = $1 and r.lead_id = $2
         order by r.created_at desc
         limit 1`,
+      [tenantId, leadId],
+    ),
+    client.query<{ action_type: string; status: 'queued' | 'running' | 'failed' | 'dead' }>(
+      `select action_type, status from app.jobs
+        where tenant_id = $1 and lead_id = $2 and status in ('queued', 'running', 'failed', 'dead')
+        order by created_at`,
       [tenantId, leadId],
     ),
   ]);
@@ -188,5 +196,6 @@ export async function getLead(
               : null,
         }
       : null,
+    pendingWork: work.rows.map((w) => ({ actionType: w.action_type, status: w.status })),
   };
 }

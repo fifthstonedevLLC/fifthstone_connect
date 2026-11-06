@@ -12,6 +12,48 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 2: lead actions (approve, suggest another time, nudge, close)
+
+**Change**
+
+- New workspace `packages/conversation` with `planAction`: the rules for each portal action as a
+  pure function from a lead snapshot to a plan (request decision, lead change, jobs to queue,
+  jobs to skip, audit event) or a refusal reason.
+  - **Approve:** needs a pending request with an active, unexpired hold. Records the approval and
+    queues `confirm_calendar_event`. The lead is **not** marked booked; the worker does that once
+    the event exists (decision 24).
+  - **Suggest another time:** marks the request changed, queues `release_hold` and
+    `send_slot_offer`. Refused for an opted-out contact (CLAUDE.md rule 12).
+  - **Nudge:** quiet leads only, once per lead (unique job key), never to an opted-out contact.
+  - **Close:** declines a pending request and releases its hold, closes the lead, skips queued
+    follow-ups. Refused for booked leads: the job is on the calendar, and only a person moves an
+    existing customer (rule 14).
+  - Every action skips a now-pointless approval reminder where relevant.
+- Decision 25 (owner, 2026-11-05): owners and staff can take every action; each is audited with
+  the person who took it.
+- `POST /portal/leads/:id/actions` (`apps/api/src/repositories/actions.ts`): locks the lead and
+  its request, applies the plan in one transaction (decision with who, `portal` and when; lead
+  change; jobs with `on conflict do nothing`; skipped jobs; audit event) and returns the lead page
+  as it now stands. Refusals are 409 with a short code and write nothing; another business's lead
+  is 404; an unknown action is 400.
+- Lead page now lists pending work for the lead (queued, running, retrying or failed jobs). Today
+  cards carry the request state: an approved request moves to **Booked** as "Approved ·
+  confirming … with your calendar"; a changed one to **Waiting on customer** as "Sending new
+  times".
+- Portal: action buttons that show "Approving…" (and so on) while working, then the server's
+  response; an inline "Close this lead?" confirmation; plain-language messages for refused
+  actions, after which the page reloads the latest state. Nudge disappears once a nudge is queued.
+
+**Test evidence:** `npm run check`: 140 passed (1 skipped locally without the anon key),
+including 9 rule tests in `packages/conversation`. `apps/api/src/actions.test.ts` (9 tests, on a
+test-only business created and removed by the test): approve writes the decision, queues the
+calendar job, skips the reminder and audits the staff user; a second approval and a lapsed hold
+are refused with nothing written; suggest another time, one nudge only, close, booked refused,
+404 across businesses, 400 for an unknown action, and Today lane placement. API route tests
+20/20 and `db:test` 84/84. In the in-app browser as Carla: approved Marcus ("Approved.
+Confirming with your calendar", calendar job queued, card moved to Booked), nudged Sam, closed
+Ben after the confirmation. The local database was reset afterwards. Mock data only.
+
 ## 2026-11-05 — Continuous integration (GitHub Actions)
 
 **Change**
