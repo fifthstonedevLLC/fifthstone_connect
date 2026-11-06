@@ -31,6 +31,23 @@ export class MockCalendar extends MockConnector implements CalendarProvider {
     return ref;
   }
 
+  /**
+   * Puts back a hold the database already records. The mock keeps calendars in memory only, so a
+   * worker started after the hold was placed mirrors it before confirming or releasing it. Mock
+   * only: a real calendar already has the hold.
+   */
+  restoreHold(
+    tenantId: string,
+    calendarId: string,
+    ref: string,
+    range: TimeRange,
+    title = 'Hold',
+  ): void {
+    const entries = this.list(tenantId);
+    if (entries.some((e) => e.calendarId === calendarId && e.ref === ref)) return;
+    entries.push({ ref, calendarId, kind: 'hold', range, title });
+  }
+
   /** Simulates the tenant revoking calendar access (MOCK_DATA.md case X-05). */
   revokeAccess(tenantId: string): void {
     this.revoked.add(tenantId);

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   checkTemplate,
   checkTemplateSet,
+  formatSlot,
   MAX_TEMPLATE_SEGMENTS,
+  renderTemplate,
   sampleText,
   templateRule,
 } from './templates.js';
@@ -117,5 +119,31 @@ describe('checkTemplateSet', () => {
         { key: 'slot_offer', problems: [{ code: 'missing_placeholder', placeholder: 'slots' }] },
       ],
     });
+  });
+});
+
+describe('renderTemplate', () => {
+  it('fills every placeholder for sending', () => {
+    expect(
+      renderTemplate("You're booked with {business} for {slot}.", {
+        business: 'Riverbend',
+        slot: 'Thu, Nov 12 at 2:00 PM',
+      }),
+    ).toEqual({ ok: true, body: "You're booked with Riverbend for Thu, Nov 12 at 2:00 PM." });
+  });
+
+  it('refuses to send a text with an unfilled placeholder', () => {
+    expect(renderTemplate('Booked for {slot} at {address}.', { slot: 'Thu' })).toEqual({
+      ok: false,
+      missing: ['address'],
+    });
+  });
+});
+
+describe('formatSlot', () => {
+  it('reads like the slot in a text, in the business time zone', () => {
+    expect(formatSlot(new Date('2026-11-12T20:00:00Z'), 'America/Chicago')).toBe(
+      'Thu, Nov 12 at 2:00 PM',
+    );
   });
 });

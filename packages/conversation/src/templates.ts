@@ -207,3 +207,38 @@ export function checkTemplateSet(
     content: Object.fromEntries(keys.map((key) => [key, (content[key] ?? '').trim()])),
   };
 }
+
+export type MessageValues = SampleValues & { business?: string };
+
+/**
+ * Fills a template for sending. Every placeholder must have a value: a text never goes out with
+ * a brace in it (the engine's counterpart of `sampleText`, which fills in examples).
+ */
+export function renderTemplate(
+  template: string,
+  values: MessageValues,
+): { ok: true; body: string } | { ok: false; missing: string[] } {
+  const missing = new Set<string>();
+  const body = template.replaceAll(/\{([a-z_]+)\}/g, (whole, name: string) => {
+    const value = values[name as keyof MessageValues];
+    if (value === undefined) missing.add(name);
+    return value ?? whole;
+  });
+  return missing.size > 0 ? { ok: false, missing: [...missing] } : { ok: true, body: body.trim() };
+}
+
+/** "Thu, Nov 12 at 2:00 PM" in the business's time zone, the way `{slot}` reads in a text. */
+export function formatSlot(start: Date, timeZone: string): string {
+  const day = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(start);
+  const time = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(start);
+  return `${day} at ${time}`;
+}
