@@ -12,6 +12,103 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 2: onboarding screens with a simulated test call
+
+**Change**
+
+- **New Setup page** (`/setup`, `apps/portal/src/SetupPage.tsx`). Six steps from SCOPE.md v0.2,
+  each saved on its own, with a check beside each finished step. The page opens on the first
+  unfinished one.
+  1. **Business type:** shows the playbook and how requests are approved, plus the minimum-data
+     note for clinics, and asks the owner to confirm it. Changing it goes through Fifth Stone Dev
+     (decision 28, working default).
+  2. **Business details for texting registration:**
+     - legal name, EIN (optional), address, website (optional) and a contact;
+     - normalized by `BusinessProfileSchema` in `@fsc/core`, with plain notes under any field that
+       needs a fix;
+     - a value written like a Social Security number is refused, with its own message.
+  3. **Hours and calendar:** day toggles and open/close times, in blocks. A lunch break is allowed;
+     overlapping blocks are not. The calendar connection shows its status only, because connecting
+     from the portal comes in Phase 4.
+  4. **Templates and questions:** the live template version and the AI questions, a link to
+     Templates & AI, and "I've reviewed them".
+  5. **Who approves requests:** choose approvers from the team. A note appears when a text approver
+     has no mobile number. New logins still go through Fifth Stone Dev.
+  6. **Test it:** a labeled simulation (decision 29). It plays a missed call through the tenant's
+     own live templates (`simulateTestCall` in `@fsc/conversation`), shows the approval by text or
+     in the portal, and ends with the confirmation. Nothing is called, texted or created.
+
+  Staff see Setup read-only. "Setup" is added to the sidebar.
+
+- **Migration `20261105225952_onboarding.sql`:**
+  - `app.business_profiles`, with database checks on every shape. An EIN must look like an EIN, so a
+    Social Security number can't be stored.
+  - `app.onboarding_progress`, for the acknowledged steps.
+  - `portal_users.approves_requests`.
+  - Row-level security and grants, as for every tenant table.
+- **API:**
+  - `GET /portal/onboarding`.
+  - `POST /portal/onboarding/business-type` and `PUT /portal/onboarding/details`.
+  - `PUT /portal/onboarding/hours` and `POST /portal/onboarding/templates-reviewed`.
+  - `PUT /portal/onboarding/approvers` and `POST /portal/onboarding/test-call`.
+  - Writes are owner-only and each returns the setup as it now stands. Field problems come back as
+    422 with a message per field.
+  - Every write is audited. Audit details name the changed fields but never their values, so no EIN
+    is stored there. Logs redact `ein`, `contactPhone` and `contactEmail`.
+- **Shared rules:**
+  - `onboardingSteps` decides when each step is done, from data only. Hours count as done only with
+    a connected calendar.
+  - `BusinessHoursListSchema`.
+  - US states in a Zod-free `@fsc/core/regions`.
+  - `sampleText` now takes playbook-specific sample values, so a tattoo shop's example doesn't
+    mention a furnace.
+- **Seed (`13_onboarding.sql`):**
+  - Riverbend is done except the test call.
+  - Northline is partway.
+  - Prairie Path is done.
+  - Mock EINs start with `00-`, a prefix the IRS never assigns.
+- **Docs:** decisions 28 (working default) and 29, a threat-model row for business details, the
+  ledger row, SYSTEM_OVERVIEW and MOCK_DATA.
+- No new third-party dependencies.
+
+**Test evidence:** `npm run check`: 211 passed, 1 skipped locally without the anon key. The API
+suite was also run with the anon key: 44 of 44. New tests:
+
+- **Core:** EIN normalization and the Social Security number refusal, profile normalization and
+  errors, hours overlap, step completion.
+- **Conversation:** the simulation for text and portal approval, a missing template, and clinic
+  samples with no clinical detail.
+- **API onboarding routes** (9 tests on a test-only business):
+  - staff refused;
+  - business type confirmed;
+  - field errors, including a Social Security number;
+  - details normalized and audited without values;
+  - hours, with overlap refused and the step waiting for a calendar;
+  - templates reviewed only once they exist;
+  - approvers limited to this business;
+  - the test call returns a simulation and creates no lead, message or job;
+  - the clinic shows no AI questions.
+
+`db:test`: 105 of 105, including the new `onboarding.test.sql` (9 checks):
+
+- another business's details and progress can't be read or written;
+- a Social Security number can't be stored as an EIN;
+- the anon and authenticated roles have no access.
+
+In the in-app browser:
+
+- **As Rhett:** ran the simulated test call; the page stays on the step and shows the whole
+  thread from Riverbend's templates.
+- **As Mara:**
+  - an SSN-shaped EIN and a missing ZIP each showed their own note;
+  - a valid save normalized the EIN and finished the step;
+  - Northline's simulation shows the approval waiting in the portal.
+- **As the Prairie Path front desk:** everything is read-only.
+- **At 375px:** no sideways scroll, and no control under 40px tall.
+
+The local database was reset afterwards. The portal bundle is 535 kB (519 kB before). Mock data
+only.
+
 ## 2026-11-05 — Phase 1 seed: Northline, Prairie Path and Old Mill scenarios
 
 **Change**

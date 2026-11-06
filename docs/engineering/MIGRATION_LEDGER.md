@@ -24,6 +24,7 @@ succeeds against that environment.
 | `20261105155805_leads_and_conversations.sql`   | Lead domain: contacts, inbound events, leads, calls, voicemails, AI analyses, conversations, messages, requests, calendar holds, all with RLS                                                          | active |               |         |            |
 | `20261105161651_settings_and_operations.sql`   | Playbook catalog, tenant config, versioned templates and AI settings, registrations, connections, jobs, opt-outs (with outbound guard), email and audit events; inbound-tenant and job-claim functions | active |               |         |            |
 | `20261105165057_admin_can_act_as_app_role.sql` | `grant fsc_app to postgres`, so admin connections run tenant work as the application role                                                                                                              | active |               |         |            |
+| `20261105225952_onboarding.sql`                | Onboarding: business details for texting registration, setup progress, and `portal_users.approves_requests`, with RLS                                                                                  | active |               |         |            |
 
 ## Squash record
 

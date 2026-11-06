@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { countSegments } from '@fsc/connectors';
 import { MOCK_LOCAL_PASSWORD, PORTAL_USERS, TENANTS } from './catalog.js';
 import { mockUuid } from './ids.js';
+import { ONBOARDING } from './onboarding.js';
 import { EMAIL_EVENTS, JOBS, OPT_OUTS, SETTINGS_VERSIONS, TENANT_OPS } from './operations.js';
 import { CONTACTS, IGNORED_EVENTS, LEADS } from './scenarios.js';
 import type { MockLead, MockRequest } from './schemas.js';
@@ -566,6 +567,60 @@ ${rows(holds)};
 `;
 }
 
+function onboardingFile(): string {
+  const owner = (tenant: string) => {
+    const user = PORTAL_USERS.find((u) => u.tenant === tenant && u.role === 'owner');
+    if (!user) throw new Error(`No owner for ${tenant}`);
+    return portalUserId(user.key);
+  };
+  const when = (minutes: number | undefined) => (minutes === undefined ? 'null' : ago(minutes));
+  const profiles = ONBOARDING.flatMap((o) =>
+    o.profile
+      ? [
+          [
+            lit(tenantId(o.tenant)),
+            lit(o.profile.legalName),
+            opt(o.profile.ein),
+            lit(o.profile.street),
+            lit(o.profile.city),
+            lit(o.profile.region),
+            lit(o.profile.postalCode),
+            opt(o.profile.website),
+            lit(o.profile.contactName),
+            lit(o.profile.contactEmail),
+            lit(o.profile.contactPhone),
+            lit(owner(o.tenant)),
+          ],
+        ]
+      : [],
+  );
+  const progress = ONBOARDING.map((o) => [
+    lit(tenantId(o.tenant)),
+    when(o.typeConfirmedMinutesAgo),
+    when(o.templatesReviewedMinutesAgo),
+    when(o.testSimulatedMinutesAgo),
+  ]);
+  const approvers = ONBOARDING.flatMap((o) => o.approvers.map((key) => lit(portalUserId(key))));
+  return `${GENERATED}
+-- Onboarding: Riverbend has done every step but the test call, Northline is partway through and
+-- Prairie Path is done. Mock EINs start with 00, which the IRS never assigns.
+insert into app.business_profiles (
+  tenant_id, legal_name, ein, street, city, region, postal_code, website, contact_name,
+  contact_email, contact_phone, updated_by
+) values
+${rows(profiles)};
+
+insert into app.onboarding_progress (
+  tenant_id, type_confirmed_at, templates_reviewed_at, test_simulated_at
+) values
+${rows(progress)};
+
+update app.portal_users set approves_requests = true where id in (
+  ${approvers.join(',\n  ')}
+);
+`;
+}
+
 /** Seed file name → contents, in load order. */
 export function buildSeedFiles(): Map<string, string> {
   return new Map([
@@ -581,5 +636,6 @@ export function buildSeedFiles(): Map<string, string> {
     ['10_jobs.sql', jobsFile()],
     ['11_email_events_and_opt_outs.sql', optOutsFile()],
     ['12_audit_events.sql', auditFile()],
+    ['13_onboarding.sql', onboardingFile()],
   ]);
 }

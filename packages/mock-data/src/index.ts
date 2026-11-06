@@ -8,4 +8,5 @@ export * from './schemas.js';
 export * from './catalog.js';
 export * from './scenarios.js';
 export * from './operations.js';
+export * from './onboarding.js';
 export * from './seed.js';
