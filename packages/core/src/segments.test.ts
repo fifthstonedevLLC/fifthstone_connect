@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countSegments, findNonGsmCharacters } from './sms.js';
+import { countSegments, findNonGsmCharacters } from './segments.js';
 
 describe('countSegments', () => {
   it('fits 160 GSM-7 characters in one segment and splits at 153 after that', () => {

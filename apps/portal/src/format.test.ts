@@ -11,6 +11,10 @@ import {
   whenLabel,
   workLabel,
   actionErrorMessage,
+  placeholderLabel,
+  savedAtLabel,
+  settingsErrorMessage,
+  templateProblemMessage,
 } from './format';
 import type { LeadCard } from './types';
 
@@ -137,5 +141,27 @@ describe('decided requests', () => {
     expect(workLabel('something_new', 'dead')).toBe("Working: didn't go through");
     expect(actionErrorMessage('hold_expired')).toMatch(/lapsed/);
     expect(actionErrorMessage('unknown_code')).toMatch(/Nothing was changed/);
+  });
+});
+
+describe('settings', () => {
+  it('names placeholders and template problems in plain words', () => {
+    expect(placeholderLabel('slot')).toBe('{slot} (the time)');
+    expect(templateProblemMessage({ code: 'missing_opt_out' })).toBe(
+      'Keep the opt-out line: "Reply STOP to opt out."',
+    );
+    expect(templateProblemMessage({ code: 'missing_placeholder', placeholder: 'slots' })).toBe(
+      'Keep {slots} (open times) in this text.',
+    );
+    expect(templateProblemMessage({ code: 'non_gsm', characters: ['’', '🙂'] })).toMatch(
+      /^Replace ’ 🙂:/,
+    );
+    expect(templateProblemMessage({ code: 'too_long', segments: 3 })).toMatch(/3 segments/);
+  });
+
+  it('dates versions in the business time zone and explains refusals', () => {
+    expect(savedAtLabel('2026-11-05T20:10:00Z', TZ)).toBe('Nov 5, 2:10 PM');
+    expect(settingsErrorMessage('stale_version')).toMatch(/changed since you opened them/);
+    expect(settingsErrorMessage('something_else')).toMatch(/Nothing was saved/);
   });
 });

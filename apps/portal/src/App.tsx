@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { LeadPage } from './LeadPage';
+import { SettingsPage } from './SettingsPage';
 import { Shell } from './Shell';
 import { SignIn } from './SignIn';
 import { supabase } from './supabase';
@@ -63,6 +64,10 @@ function SignedIn({ accessToken }: { accessToken: string }) {
       <Routes>
         <Route path="/" element={<TodayPage me={me.data} accessToken={accessToken} />} />
         <Route path="/leads/:id" element={<LeadPage me={me.data} accessToken={accessToken} />} />
+        <Route
+          path="/templates"
+          element={<SettingsPage me={me.data} accessToken={accessToken} />}
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

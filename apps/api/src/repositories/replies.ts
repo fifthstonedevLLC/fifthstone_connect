@@ -8,13 +8,20 @@ import type { DbClient } from '../db.js';
  * (CLAUDE.md rule 1). The client supplies the message ID, so a repeated submit records one message.
  */
 
-/** The tenant's active template version, or null if none is set up yet. */
+/** The tenant's active template version and business name, or null if none is set up yet. */
 export async function activeTemplates(
   client: DbClient,
   tenantId: string,
-): Promise<{ version: number; content: Record<string, string> } | null> {
-  const { rows } = await client.query<{ version: number; content: Record<string, string> }>(
-    `select version, content from app.tenant_templates where tenant_id = $1 and active`,
+): Promise<{ version: number; content: Record<string, string>; business: string } | null> {
+  const { rows } = await client.query<{
+    version: number;
+    content: Record<string, string>;
+    business: string;
+  }>(
+    `select tt.version, tt.content, t.name as business
+       from app.tenant_templates tt
+       join app.tenants t on t.id = tt.tenant_id
+      where tt.tenant_id = $1 and tt.active`,
     [tenantId],
   );
   return rows[0] ?? null;
@@ -64,7 +71,10 @@ export async function sendReply(
 
   const templates = await activeTemplates(client, tenantId);
   if (!templates) return { ok: false, error: 'template_not_found' };
-  const rendered = renderReply(templates.content, templateKey, { name: row.name });
+  const rendered = renderReply(templates.content, templateKey, {
+    name: row.name,
+    business: templates.business,
+  });
   if (!rendered.ok) return rendered;
 
   await client.query(

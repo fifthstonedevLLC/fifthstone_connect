@@ -1,4 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
+import { AiSettingsSchema } from '@fsc/core';
+import { checkTemplateSet } from '@fsc/conversation';
 import { describe, expect, it } from 'vitest';
 import {
   CONTACTS,
@@ -6,6 +8,7 @@ import {
   MockEmailSchema,
   MockPhoneSchema,
   PORTAL_USERS,
+  SETTINGS_VERSIONS,
   TENANTS,
   buildSeedFiles,
 } from './index.js';
@@ -51,6 +54,29 @@ describe('mock catalog', () => {
     // Messages in one thread never share a timestamp, so the thread order is always the same.
     for (const lead of LEADS) {
       expect(unique((lead.messages ?? []).map((m) => String(m.minutesAgo))), lead.key).toBe(true);
+    }
+  });
+
+  // Restoring a seeded version runs the same checks as saving one, so every version must pass.
+  it('seeds template and AI versions that pass the owner-edit rules', () => {
+    for (const v of SETTINGS_VERSIONS) {
+      const tenant = TENANTS.find((t) => t.key === v.tenant)!;
+      const templates = Object.fromEntries(
+        Object.entries(v.templates).map(([key, body]) => [
+          key,
+          body.replaceAll('{business}', tenant.name),
+        ]),
+      );
+      const label = `${v.tenant} v${v.version}`;
+      expect(checkTemplateSet(Object.keys(templates), templates, tenant.name), label).toMatchObject(
+        {
+          ok: true,
+        },
+      );
+      // Minimum-data tenants have no AI settings to edit (CLAUDE.md rule 13).
+      if (tenant.playbook !== 'clinic') {
+        expect(AiSettingsSchema.safeParse(v.ai).success, label).toBe(true);
+      }
     }
   });
 

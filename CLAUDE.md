@@ -39,12 +39,14 @@ its seed. The Phase 1 exit (`db:reset` builds cleanly, isolation tests pass) is 
 table. Remaining Phase 1 seed work: Northline, Prairie Path and Old Mill scenarios.
 
 Phase 2 in progress: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/today` and
-`/portal/leads/:id`, `POST /portal/leads/:id/actions` and `POST /portal/leads/:id/replies` with
-Supabase sign-in and tenant-scoped transactions; `apps/portal` (React + Vite) shows Today and the
+`/portal/leads/:id`, `POST /portal/leads/:id/actions`, `POST /portal/leads/:id/replies` and the
+settings routes with Supabase sign-in and tenant-scoped transactions; `apps/portal` (React + Vite) shows Today and the
 lead page, takes actions (approve, suggest another time, nudge, close; owners and staff, decision 25) and sends template-only replies (decision 26). Each action writes
 the decision, its jobs and an audit event in one transaction; the portal shows only
-server-confirmed state (decision 24). Next: settings (versioned templates and AI settings with
-restore), then other tenants' scenarios and onboarding screens
+server-confirmed state (decision 24). The Templates & AI page edits versioned templates and AI
+settings with restore (`/portal/settings`; owner-only writes, decision 27); template rules live in
+`packages/conversation/src/templates.ts` and run on the server before any version is written.
+Next: other tenants' scenarios and onboarding screens
 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
@@ -81,13 +83,13 @@ tests (which must run there, not skip). Mock data only; no secrets.
 | `packages/core`         | Domain models, Zod validation, event contracts, tenant config                                                     |
 | `packages/connectors`   | Interfaces to Twilio, SES, calendars, transcription and models; labeled mocks in `@fsc/connectors/mock`           |
 | `packages/workflow`     | Durable jobs, retries, idempotency, orchestration                                                                 |
-| `packages/conversation` | Portal actions (built); conversation state, clarifying questions, playbooks, templates (Phase 3)                  |
+| `packages/conversation` | Portal actions, reply and template rules (built); conversation state, clarifying questions, playbooks (Phase 3)   |
 | `packages/scheduling`   | Slot calculation, urgency rules, tentative holds (planned)                                                        |
 | `packages/ai`           | Prompt compiler, locked safety layer, AI output schemas (planned)                                                 |
 | `packages/mock-data`    | Mock tenants, users and scenarios (MOCK_DATA.md) and the seed generator; local only                               |
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, portal API, health                                 |
 | `apps/worker`           | Executes jobs: texts, emails, calendar writes, transcription, reminders, hold expiry                              |
-| `apps/portal`           | Owner portal (React + Vite): sign-in and Today; calls `apps/api` only, never the database                         |
+| `apps/portal`           | Owner portal (React + Vite): sign-in, Today, lead pages, Templates & AI; calls only `apps/api`, not the DB        |
 | `apps/operator`         | Guarded CLI for onboarding, status, replay, export/delete                                                         |
 | `apps/marketing`        | Static marketing page (local review only, not deployed)                                                           |
 | `supabase/migrations`   | Every schema change; the only SQL that reaches a hosted database (ledger: `docs/engineering/MIGRATION_LEDGER.md`) |

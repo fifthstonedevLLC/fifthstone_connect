@@ -1,4 +1,5 @@
 import {
+  AiSettingsSchema,
   HOLD_STATES,
   LEAD_SOURCES,
   LEAD_STATES,
@@ -7,7 +8,11 @@ import {
   URGENCIES,
 } from '@fsc/core';
 import { PORTAL_ACTIONS } from '@fsc/conversation';
-import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import Fastify, {
+  type FastifyInstance,
+  type FastifyReply,
+  type FastifyServerOptions,
+} from 'fastify';
 import {
   serializerCompiler,
   validatorCompiler,
@@ -15,12 +20,20 @@ import {
 } from 'fastify-type-provider-zod';
 import type pg from 'pg';
 import { z } from 'zod';
-import { requirePortalUser, type TokenVerifier } from './auth.js';
-import { withTenant } from './db.js';
+import { requirePortalUser, type PortalUser, type TokenVerifier } from './auth.js';
+import { withTenant, type DbClient } from './db.js';
 import { applyAction } from './repositories/actions.js';
 import { sendReply } from './repositories/replies.js';
 import { getLead } from './repositories/lead.js';
 import { getMe } from './repositories/me.js';
+import {
+  getSettings,
+  restoreSettings,
+  saveSettings,
+  SETTINGS_KINDS,
+  type SettingsKind,
+  type WriteResult,
+} from './repositories/settings.js';
 import { getToday } from './repositories/today.js';
 
 /**
@@ -144,6 +157,53 @@ const LeadDetailSchema = z.object({
   ),
   replyOptions: z.array(z.object({ key: z.string(), body: z.string() })),
 });
+
+const VersionMeta = {
+  version: z.number().int().min(1),
+  active: z.boolean(),
+  createdAt: IsoDate,
+  createdByName: z.string().nullable(),
+};
+
+const TemplateKey = z.string().regex(/^[a-z][a-z_]{1,59}$/);
+
+const SettingsSchema = z.object({
+  canEdit: z.boolean(),
+  businessName: z.string(),
+  templates: z.object({
+    versions: z.array(z.object({ ...VersionMeta, content: z.record(TemplateKey, z.string()) })),
+  }),
+  ai: z.object({
+    available: z.boolean(),
+    versions: z.array(z.object({ ...VersionMeta, content: AiSettingsSchema })),
+  }),
+});
+
+const TemplateProblemsSchema = z.object({
+  error: z.literal('template_problems'),
+  problems: z.array(
+    z.object({
+      key: z.string(),
+      problems: z.array(
+        z.object({
+          code: z.string(),
+          placeholder: z.string().optional(),
+          characters: z.array(z.string()).optional(),
+          segments: z.number().int().optional(),
+        }),
+      ),
+    }),
+  ),
+});
+
+const SettingsWriteResponses = {
+  200: SettingsSchema,
+  401: ErrorSchema,
+  403: ErrorSchema,
+  404: ErrorSchema,
+  409: ErrorSchema,
+  422: TemplateProblemsSchema,
+};
 
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({
@@ -313,6 +373,93 @@ export function buildApp(deps: AppDeps): FastifyInstance {
               .send({ error: outcome.error });
           }
           return outcome.lead ?? reply.code(404).send({ error: 'not_found' });
+        },
+      );
+
+      // Settings: everyone in the business can read them; only the owner changes them. Each write
+      // answers with the settings as they now stand (decision 24).
+      typed.get(
+        '/settings',
+        { schema: { response: { 200: SettingsSchema, 401: ErrorSchema, 403: ErrorSchema } } },
+        async (request) => {
+          const user = request.portalUser!;
+          return withTenant(deps.pool, user.tenantId, (client) =>
+            getSettings(client, user.tenantId, user.role),
+          );
+        },
+      );
+
+      const writeSettings = async (
+        user: PortalUser,
+        reply: FastifyReply,
+        write: (client: DbClient) => Promise<WriteResult>,
+      ) => {
+        if (user.role !== 'owner') return reply.code(403).send({ error: 'owner_only' });
+        const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+          const written = await write(client);
+          return written.ok
+            ? { ok: true as const, settings: await getSettings(client, user.tenantId, user.role) }
+            : written;
+        });
+        if (outcome.ok) return outcome.settings;
+        if (outcome.error === 'template_problems') return reply.code(422).send(outcome);
+        return reply.code(outcome.error === 'not_found' ? 404 : 409).send({ error: outcome.error });
+      };
+
+      // `id` comes from the client, so submitting the same save twice writes one version.
+      // `baseVersion` is the live version the editor started from.
+      const saveBody = <T extends z.ZodType>(content: T) =>
+        z
+          .object({ id: z.uuid(), baseVersion: z.number().int().min(1).nullable(), content })
+          .strict();
+
+      typed.put(
+        '/settings/templates',
+        {
+          schema: {
+            body: saveBody(z.record(TemplateKey, z.string().max(1600))),
+            response: SettingsWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeSettings(user, reply, (client) =>
+            saveSettings(client, user.tenantId, user.portalUserId, 'templates', request.body),
+          );
+        },
+      );
+
+      typed.put(
+        '/settings/ai',
+        { schema: { body: saveBody(AiSettingsSchema), response: SettingsWriteResponses } },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeSettings(user, reply, (client) =>
+            saveSettings(client, user.tenantId, user.portalUserId, 'ai', request.body),
+          );
+        },
+      );
+
+      typed.post(
+        '/settings/:kind/restore',
+        {
+          schema: {
+            params: z.object({ kind: z.enum(SETTINGS_KINDS) }),
+            body: z
+              .object({
+                version: z.number().int().min(1),
+                baseVersion: z.number().int().min(1).nullable(),
+              })
+              .strict(),
+            response: SettingsWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          const kind: SettingsKind = request.params.kind;
+          return writeSettings(user, reply, (client) =>
+            restoreSettings(client, user.tenantId, user.portalUserId, kind, request.body),
+          );
         },
       );
     },

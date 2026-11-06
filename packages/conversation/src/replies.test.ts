@@ -6,33 +6,46 @@ const templates = {
   reply_will_call: 'Thanks, {name}. Someone from Riverbend will call you shortly.',
   reply_need_address: 'Thanks, {name}. Could you text us the address for the visit?',
   reply_bad: 'Your total is {price}.',
+  reply_after_hours: '{business} is closed right now.',
 };
 
 describe('renderReply', () => {
   it('fills the first name only', () => {
-    expect(renderReply(templates, 'reply_will_call', { name: 'Marcus T.' })).toEqual({
+    expect(
+      renderReply(templates, 'reply_will_call', { name: 'Marcus T.', business: 'Riverbend' }),
+    ).toEqual({
       ok: true,
       body: 'Thanks, Marcus. Someone from Riverbend will call you shortly.',
     });
   });
 
+  it('fills the business name', () => {
+    expect(
+      renderReply(templates, 'reply_after_hours', { name: null, business: 'Riverbend' }),
+    ).toEqual({ ok: true, body: 'Riverbend is closed right now.' });
+  });
+
   it('reads naturally without a name', () => {
-    expect(renderReply(templates, 'reply_need_address', { name: null })).toEqual({
+    expect(
+      renderReply(templates, 'reply_need_address', { name: null, business: 'Riverbend' }),
+    ).toEqual({
       ok: true,
       body: 'Thanks. Could you text us the address for the visit?',
     });
   });
 
   it('refuses non-reply templates, missing ones and unknown placeholders', () => {
-    expect(renderReply(templates, 'missed_call_text_back', { name: 'A' })).toEqual({
+    expect(
+      renderReply(templates, 'missed_call_text_back', { name: 'A', business: 'Riverbend' }),
+    ).toEqual({
       ok: false,
       error: 'not_reply_template',
     });
-    expect(renderReply(templates, 'reply_missing', { name: 'A' })).toEqual({
+    expect(renderReply(templates, 'reply_missing', { name: 'A', business: 'Riverbend' })).toEqual({
       ok: false,
       error: 'template_not_found',
     });
-    expect(renderReply(templates, 'reply_bad', { name: 'A' })).toEqual({
+    expect(renderReply(templates, 'reply_bad', { name: 'A', business: 'Riverbend' })).toEqual({
       ok: false,
       error: 'unfilled_placeholder',
     });
@@ -41,10 +54,9 @@ describe('renderReply', () => {
 
 describe('replyOptions', () => {
   it('offers only renderable reply templates, in a stable order', () => {
-    expect(replyOptions(templates, { name: 'Dana M.' }).map((o) => o.key)).toEqual([
-      'reply_need_address',
-      'reply_will_call',
-    ]);
+    expect(
+      replyOptions(templates, { name: 'Dana M.', business: 'Riverbend' }).map((o) => o.key),
+    ).toEqual(['reply_after_hours', 'reply_need_address', 'reply_will_call']);
   });
 });
 

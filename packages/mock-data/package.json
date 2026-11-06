@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@fsc/connectors": "*",
+    "@fsc/conversation": "*",
     "@fsc/core": "*",
     "zod": "^4.6.7"
   }

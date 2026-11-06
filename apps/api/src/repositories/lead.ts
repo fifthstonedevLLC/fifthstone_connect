@@ -206,6 +206,8 @@ export async function getLead(
         }
       : null,
     pendingWork: work.rows.map((w) => ({ actionType: w.action_type, status: w.status })),
-    replyOptions: templates ? replyOptions(templates.content, { name: row.display_name }) : [],
+    replyOptions: templates
+      ? replyOptions(templates.content, { name: row.display_name, business: templates.business })
+      : [],
   };
 }

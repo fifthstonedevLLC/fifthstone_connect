@@ -9,7 +9,7 @@ const NAV: { label: string; icon: IconName; to?: string }[] = [
   { label: 'Today', icon: 'today', to: '/' },
   { label: 'Leads', icon: 'leads' },
   { label: 'Calendar', icon: 'calendar' },
-  { label: 'Templates & AI', icon: 'templates' },
+  { label: 'Templates & AI', icon: 'templates', to: '/templates' },
   { label: 'Settings', icon: 'settings' },
 ];
 

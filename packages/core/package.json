@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Tenant config, domain models, validation, event contracts.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./segments": "./src/segments.ts",
+    "./ai-limits": "./src/ai-limits.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"
