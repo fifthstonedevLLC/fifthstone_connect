@@ -15,6 +15,7 @@ import {
   savedAtLabel,
   settingsErrorMessage,
   templateProblemMessage,
+  urgentFlag,
 } from './format';
 import type { LeadCard } from './types';
 
@@ -30,6 +31,7 @@ const card = (over: Partial<LeadCard>): LeadCard => ({
   createdAt: '2026-11-05T14:15:00Z',
   slotStart: null,
   requestState: null,
+  urgent: false,
   ...over,
 });
 
@@ -59,9 +61,17 @@ describe('statusLine', () => {
     expect(statusLine(card({ state: 'needs_attention', reason: 'emergency' }), TZ)).toBe(
       'Emergency',
     );
+    expect(statusLine(card({ state: 'needs_attention', reason: 'crisis_message_sent' }), TZ)).toBe(
+      'Crisis message sent',
+    );
     expect(statusLine(card({ state: 'needs_attention', reason: 'something_new' }), TZ)).toBe(
       'Needs a person',
     );
+  });
+
+  it('flags a crisis lead as a crisis, and other urgent leads as emergencies', () => {
+    expect(urgentFlag(card({ urgent: true, reason: 'crisis_message_sent' }))).toBe('Crisis');
+    expect(urgentFlag(card({ urgent: true, reason: 'safety_message_sent' }))).toBe('Emergency');
   });
 
   it('says booked only with what the server reported', () => {

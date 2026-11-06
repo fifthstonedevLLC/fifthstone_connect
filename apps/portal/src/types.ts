@@ -42,6 +42,8 @@ export interface LeadCard {
   createdAt: string;
   slotStart: string | null;
   requestState: 'pending' | 'approved' | 'changed' | null;
+  /** Set by the server: an emergency, safety or crisis lead, shown first and flagged. */
+  urgent: boolean;
 }
 
 export interface Today {

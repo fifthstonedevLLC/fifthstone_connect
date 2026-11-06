@@ -144,6 +144,25 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
     expect((marcus as unknown as { slotStart: string | null }).slotStart).not.toBeNull();
   });
 
+  it('puts emergency, safety and crisis leads first in Needs you, however old', async () => {
+    const lanesFor = async (email: string) =>
+      (
+        (await get('/portal/today', email)).json() as {
+          lanes: { needsYou: { urgent: boolean; reason: string | null }[] };
+        }
+      ).lanes.needsYou;
+
+    const riverbend = await lanesFor('carla@riverbend.example.com');
+    const urgentCount = riverbend.filter((c) => c.urgent).length;
+    expect(urgentCount).toBe(2); // Dana's no-heat emergency and Greg's gas smell
+    expect(riverbend.slice(0, urgentCount).every((c) => c.urgent)).toBe(true);
+
+    // The crisis text is the oldest lead needing Prairie Path's front desk, and still comes first.
+    const prairie = await lanesFor('frontdesk@prairiepath.example.org');
+    expect(prairie[0]).toMatchObject({ urgent: true, reason: 'crisis_message_sent' });
+    expect(prairie.slice(1).some((c) => c.urgent)).toBe(false);
+  });
+
   /** A Riverbend lead's ID, looked up by contact name (seed IDs are generated). */
   async function riverbendLeadId(name: string): Promise<string> {
     const { rows } = await pool.query<{ id: string }>(

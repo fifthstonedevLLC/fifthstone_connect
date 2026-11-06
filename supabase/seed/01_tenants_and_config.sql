@@ -20,7 +20,7 @@ insert into app.tenant_config (
 insert into app.service_registrations (id, tenant_id, service, state) values
   ('d39d1697-2227-5df9-aa4a-762cc3222528', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'texting', 'approved'),
   ('f6588fa8-b22c-52c5-a81c-f42a99d214bd', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'email', 'submitted'),
-  ('7e2e8c41-a297-5848-9962-97c1173f2271', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'texting', 'submitted'),
+  ('7e2e8c41-a297-5848-9962-97c1173f2271', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'texting', 'approved'),
   ('87dffe31-d337-593f-a2b4-628fff2a74cd', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'email', 'approved'),
   ('138e82e4-3813-5586-a3ee-928d0c731d0c', '72861613-42bb-5953-b39b-a821a84d3caa', 'texting', 'approved'),
   ('4997348c-63aa-5367-abd0-5d77ccf5d063', '72861613-42bb-5953-b39b-a821a84d3caa', 'email', 'approved'),

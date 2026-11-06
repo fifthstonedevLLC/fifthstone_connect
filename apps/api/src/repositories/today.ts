@@ -1,3 +1,4 @@
+import { isUrgent, urgentFirst } from '@fsc/conversation';
 import { LANE_STATES, type LeadState, type Urgency } from '@fsc/core';
 import type { DbClient } from '../db.js';
 
@@ -16,6 +17,8 @@ export interface LeadCard {
   slotStart: string | null;
   /** State of the open, approved or changed request, if any. */
   requestState: 'pending' | 'approved' | 'changed' | null;
+  /** An emergency, safety or crisis lead: shown first and flagged. */
+  urgent: boolean;
 }
 
 export type Lanes = Record<keyof typeof LANE_STATES, LeadCard[]>;
@@ -83,7 +86,10 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
       createdAt: row.created_at.toISOString(),
       slotStart: row.slot_start?.toISOString() ?? null,
       requestState: row.request_state,
+      urgent: isUrgent({ state: row.state, urgency: row.urgency, reason: row.state_reason }),
     });
   }
+  // Someone may be at risk: these come first however long ago they came in.
+  lanes.needsYou = urgentFirst(lanes.needsYou);
   return lanes;
 }

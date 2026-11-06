@@ -12,6 +12,94 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-05 — Phase 1 seed: Northline, Prairie Path and Old Mill scenarios
+
+**Change**
+
+- **Northline Ink (T2), 12 leads (NL-01 to NL-12), tattoo playbook.**
+  - Kira's request for Mara (pending, with an active hold) and Mei's consult, approved by Jules in
+    the portal.
+  - A price question, a caller under 18, a Spanish voicemail, a request to move a booking, and a
+    call from before texting was live.
+  - Two leads waiting for details, a touch-up offer, a quiet lead, and a form that just came in
+    (the only `new` lead in the data).
+- **Prairie Path Counseling (T3), 9 leads (PP-01 to PP-09), minimum-data playbook.**
+  - Voicemails are kept as recordings with **no transcript**. No lead has a summary, category,
+    urgency or AI analysis (CLAUDE.md rule 13).
+  - Covers the front desk's pending request, a booked visit, a cancellation and a waitlist offer.
+  - Also a text with private details (stored, never echoed back) and Ray's STOP.
+  - An after-hours crisis text got the fixed crisis message, which points to 988 and 911 and is
+    not an owner template.
+- **Old Mill Roofing (T4, disabled).**
+  - A booked lead and a closed lead, both from before offboarding.
+  - A call after offboarding, recorded as an ignored inbound event with no lead and no jobs.
+- **Cross-tenant cases.**
+  - Marcus's number is also a separate Prairie Path contact (X-01).
+  - Wes's opted-out number is a Northline contact who is not opted out there (X-07).
+  - Mei's confirmation email has a complaint event (X-08).
+- **Mock-data changes.**
+  - Voicemails may have no transcript and leads may have no summary; both are absent only for
+    minimum-data tenants.
+  - New `IGNORED_EVENTS`.
+  - Seeded jobs now carry `created_at`, from when they were due.
+  - Email event IDs include the status, so one message can be both delivered and complained.
+- **Northline texting status.** Marked approved, because its scenarios include text threads; NL-08
+  is from before approval. MOCK_DATA.md is updated to match. Deposit links are dropped from it,
+  since payments are out of scope.
+- **Portal.** Plain labels for the new reasons, for example "May be under 18", "Voicemail to listen
+  to" and "Crisis message sent".
+- **Decision 27 confirmed** (owner, 2026-11-05): only the owner changes templates and AI settings;
+  staff can read them.
+
+**Test evidence:** `npm run check`: 185 passed, 1 skipped locally without the anon key.
+
+New catalog tests:
+
+- every lead, request and hold state is covered;
+- every tenant has leads;
+- minimum-data leads have no transcript, summary, category, urgency or AI jobs;
+- the disabled tenant has nothing after offboarding except ignored events;
+- shared numbers stay separate contacts.
+
+`db:test` 96/96. The new `seed_other_tenants` file has 12 checks, read as each business's own
+login:
+
+- Mara sees only Northline's 12 leads, in every Today lane;
+- X-07 opt-outs are per tenant;
+- Northline's requests and approver are right;
+- Prairie Path's 2 voicemails are untranscribed, with no summaries or AI analyses;
+- X-01 contacts are separate;
+- Owen gets no tenant context;
+- OM-03's call is ignored and starts no lead;
+- Old Mill has nothing new since offboarding.
+
+In the in-app browser:
+
+- **As Mara:** Northline's Today shows 6 / 4 / 1 / 1 leads across the four lanes, with the new
+  labels.
+- **As Prairie Path's front desk:** Today shows reasons only. A voicemail lead reads "Not
+  transcribed."
+
+Mock data only; the local database was reset with the new seed.
+
+**Urgent leads first** (owner, 2026-11-05):
+
+- New rule `isUrgent` / `urgentFirst` in `packages/conversation/src/attention.ts`: an emergency, a
+  safety message or a crisis message makes a "needs attention" lead urgent.
+- `/portal/today` puts urgent leads at the top of Needs you, however old, and marks each card
+  `urgent`.
+- The portal flags the card from that server field, "Crisis" or "Emergency", with a Call button,
+  instead of guessing from urgency. Clinic crisis leads have no urgency, so the old check missed
+  them.
+- Tests: 3 rule tests, a flag-label test, and an API test that Prairie Path's crisis lead, its
+  oldest needing attention, comes first. In the browser as the front desk, the crisis card is first
+  with its flag and Call button.
+
+**Seen but not changed here:**
+
+- Seeded slot times are relative to load time, so some fall outside business hours.
+- Every tenant shares the base reply templates, including "address for the visit" for the clinic.
+
 ## 2026-11-05 — Phase 2: versioned templates and AI settings
 
 **Change**

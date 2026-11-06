@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 import {
   displayName,
   formatPhone,
-  isEmergency,
+  urgentFlag,
   statusLine,
   summarySentence,
   whenLabel,
@@ -45,7 +45,7 @@ const LANES: {
 const STEPS = ['Missed call', 'Details gathered', 'Time picked', 'Your approval', 'Booked'];
 
 function Card({ card, timeZone }: { card: LeadCard; timeZone: string }) {
-  const emergency = isEmergency(card);
+  const emergency = card.urgent;
   return (
     <article className={emergency ? 'card card--emergency' : 'card'}>
       <div className="card__head">
@@ -57,7 +57,7 @@ function Card({ card, timeZone }: { card: LeadCard; timeZone: string }) {
       {emergency && (
         <p className="card__flag">
           <Icon name="warning" size={15} />
-          Emergency
+          {urgentFlag(card)}
         </p>
       )}
       {card.summary && <p className="card__summary">{card.summary}</p>}
