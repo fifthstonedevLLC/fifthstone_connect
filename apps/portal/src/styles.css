@@ -908,3 +908,56 @@ a {
 .decision .form-error {
   margin-top: 8px;
 }
+
+/* Template reply box ------------------------------------------------------------------------ */
+
+.reply {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 20px;
+  border-top: 1px solid var(--panel);
+}
+
+.reply__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.reply__options legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.reply__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.reply__option:has(input:checked) {
+  border-color: var(--accent-bronze);
+  background: var(--panel);
+}
+
+.reply__option input {
+  margin-top: 3px;
+  accent-color: var(--accent-bronze);
+}
+
+.reply__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}

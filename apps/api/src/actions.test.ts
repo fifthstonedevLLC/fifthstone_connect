@@ -48,6 +48,10 @@ async function removeTestTenant(pool: pg.Pool) {
      delete from app.jobs where tenant_id = $1;
      delete from app.calendar_holds where tenant_id = $1;
      delete from app.requests where tenant_id = $1;
+     delete from app.messages where tenant_id = $1;
+     delete from app.conversations where tenant_id = $1;
+     delete from app.opt_outs where tenant_id = $1;
+     delete from app.tenant_templates where tenant_id = $1;
      delete from app.leads where tenant_id = $1;
      delete from app.contacts where tenant_id = $1;
      delete from app.portal_users where tenant_id = $1;
@@ -77,6 +81,8 @@ describe.skipIf(!ready)('portal actions (local stack, test tenant)', () => {
       [4, 'needs_attention'], // close
       [5, 'booked'], // close refused
       [6, 'requested'], // approve refused: hold lapsed
+      [7, 'needs_attention'], // replies refused: opted out
+      [8, 'needs_attention'], // replies
     ];
     await pool.query(
       `insert into app.tenants (id, slug, name) values ('${T}', 'mock-test-actions', 'Actions Test Co');
@@ -106,6 +112,14 @@ describe.skipIf(!ready)('portal actions (local stack, test tenant)', () => {
                    now() + interval '${n === 6 ? '-1 hour' : '1 day'}');`,
          )
          .join('\n')}
+       insert into app.opt_outs (tenant_id, phone, source)
+         values ('${T}', '+13195550177', 'stop_keyword');
+       insert into app.tenant_templates (tenant_id, version, content, active)
+         values ('${T}', 1, '${JSON.stringify({
+           missed_call_text_back: 'Sorry we missed your call! Reply STOP to opt out.',
+           reply_will_call: 'Thanks, {name}. Someone will call you shortly.',
+           reply_need_address: 'Thanks, {name}. Could you text us the address?',
+         })}', true);
        insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key, run_at)
          values ('${T}', '${lead(1)}', 'approval_reminder', 'approval_reminder:${lead(1)}',
                  now() + interval '30 minutes');`,
@@ -227,5 +241,86 @@ describe.skipIf(!ready)('portal actions (local stack, test tenant)', () => {
       requestState: 'changed',
     });
     expect(lanes.needsYou?.find((c) => c.id === lead(1))).toBeUndefined();
+  });
+
+  const send = (leadId: string, templateKey: string, messageId: string) =>
+    buildApp({ pool, verifyToken: verify, logger: false }).inject({
+      method: 'POST',
+      url: `/portal/leads/${leadId}/replies`,
+      headers: { authorization: 'Bearer staff@actions.example.com' },
+      payload: { templateKey, messageId },
+    });
+
+  const MESSAGE = 'a7000000-0000-4000-8099-000000000001';
+
+  it('offers the reply templates, filled in for this customer', async () => {
+    const res = await buildApp({ pool, verifyToken: verify, logger: false }).inject({
+      method: 'GET',
+      url: `/portal/leads/${lead(8)}`,
+      headers: { authorization: 'Bearer staff@actions.example.com' },
+    });
+    expect(res.json().replyOptions).toEqual([
+      { key: 'reply_need_address', body: 'Thanks, Customer. Could you text us the address?' },
+      { key: 'reply_will_call', body: 'Thanks, Customer. Someone will call you shortly.' },
+    ]);
+  });
+
+  it('records a template reply as queued, with its send job and audit event', async () => {
+    const res = await send(lead(8), 'reply_will_call', MESSAGE);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.messages.at(-1)).toMatchObject({
+      id: MESSAGE,
+      direction: 'out',
+      author: 'template',
+      templateKey: 'reply_will_call',
+      body: 'Thanks, Customer. Someone will call you shortly.',
+      deliveryStatus: 'queued',
+    });
+    expect(body.pendingWork).toContainEqual({ actionType: 'send_text', status: 'queued' });
+    const audit = await pool.query(
+      `select detail->>'templateKey' as key from app.audit_events
+        where tenant_id = $1 and action = 'lead.replied'`,
+      [T],
+    );
+    expect(audit.rows).toEqual([{ key: 'reply_will_call' }]);
+  });
+
+  it('records one message when the same reply is submitted twice', async () => {
+    expect((await send(lead(8), 'reply_will_call', MESSAGE)).statusCode).toBe(200);
+    const { rows } = await pool.query(
+      `select count(*)::int as n from app.messages where tenant_id = $1`,
+      [T],
+    );
+    expect(rows[0]).toEqual({ n: 1 });
+  });
+
+  it('refuses templates that are not replies', async () => {
+    const res = await send(
+      lead(8),
+      'missed_call_text_back',
+      'a7000000-0000-4000-8099-000000000002',
+    );
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'not_reply_template' });
+  });
+
+  it('never queues a reply to someone who opted out, and offers none', async () => {
+    const res = await send(lead(7), 'reply_will_call', 'a7000000-0000-4000-8099-000000000003');
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'opted_out' });
+    const page = await buildApp({ pool, verifyToken: verify, logger: false }).inject({
+      method: 'GET',
+      url: `/portal/leads/${lead(7)}`,
+      headers: { authorization: 'Bearer staff@actions.example.com' },
+    });
+    expect(page.json().replyOptions).toEqual([]);
+  });
+
+  it('refuses replies on a closed lead', async () => {
+    // Lead 4 was closed earlier in this file.
+    const res = await send(lead(4), 'reply_will_call', 'a7000000-0000-4000-8099-000000000004');
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'lead_closed' });
   });
 });

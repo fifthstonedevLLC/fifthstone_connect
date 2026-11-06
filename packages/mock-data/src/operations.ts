@@ -79,6 +79,11 @@ const BASE_TEMPLATES = {
     'New request: {summary}. {name} picked {slot}. Reply 1 to approve, 2 to suggest another time, 3 to call.',
   out_of_scope:
     "Thanks for reaching out to {business}. That's not work we do, sorry we can't help.",
+  // Replies staff can send from the portal (decision 26). `{name}` is the customer's first name.
+  reply_will_call: 'Thanks, {name}. Someone from {business} will call you shortly.',
+  reply_need_address: 'Thanks, {name}. Could you text us the address for the visit?',
+  reply_after_hours:
+    "Thanks for reaching out to {business}. We're closed right now and will reply when we open.",
 };
 
 const SettingsVersionSchema = z

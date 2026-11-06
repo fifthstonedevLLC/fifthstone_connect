@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { requirePortalUser, type TokenVerifier } from './auth.js';
 import { withTenant } from './db.js';
 import { applyAction } from './repositories/actions.js';
+import { sendReply } from './repositories/replies.js';
 import { getLead } from './repositories/lead.js';
 import { getMe } from './repositories/me.js';
 import { getToday } from './repositories/today.js';
@@ -141,6 +142,7 @@ const LeadDetailSchema = z.object({
       status: z.enum(['queued', 'running', 'failed', 'dead']),
     }),
   ),
+  replyOptions: z.array(z.object({ key: z.string(), body: z.string() })),
 });
 
 export function buildApp(deps: AppDeps): FastifyInstance {
@@ -257,6 +259,53 @@ export function buildApp(deps: AppDeps): FastifyInstance {
             return applied.ok
               ? { ok: true as const, lead: await getLead(client, user.tenantId, id) }
               : applied;
+          });
+          if (!outcome.ok) {
+            return reply
+              .code(outcome.error === 'not_found' ? 404 : 409)
+              .send({ error: outcome.error });
+          }
+          return outcome.lead ?? reply.code(404).send({ error: 'not_found' });
+        },
+      );
+
+      // Template replies only (decision 26). `messageId` comes from the client, so submitting the
+      // same reply twice records one message. Answers with the lead as it now stands.
+      typed.post(
+        '/leads/:id/replies',
+        {
+          schema: {
+            params: z.object({ id: z.uuid() }),
+            body: z
+              .object({
+                templateKey: z.string().regex(/^[a-z][a-z_]{1,59}$/),
+                messageId: z.uuid(),
+              })
+              .strict(),
+            response: {
+              200: LeadDetailSchema,
+              401: ErrorSchema,
+              403: ErrorSchema,
+              404: ErrorSchema,
+              409: ErrorSchema,
+            },
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          const { id } = request.params;
+          const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+            const sent = await sendReply(
+              client,
+              user.tenantId,
+              user.portalUserId,
+              id,
+              request.body.templateKey,
+              request.body.messageId,
+            );
+            return sent.ok
+              ? { ok: true as const, lead: await getLead(client, user.tenantId, id) }
+              : sent;
           });
           if (!outcome.ok) {
             return reply

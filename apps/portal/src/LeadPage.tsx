@@ -229,7 +229,102 @@ function Decision({
   );
 }
 
-function Conversation({ lead, timeZone }: { lead: LeadDetail; timeZone: string }) {
+/**
+ * Template replies only (decision 26): pick one of the owner-approved replies, already filled in
+ * for this customer, and send it. Nothing typed here reaches the customer. The message ID is made
+ * once per reply, so a double click records one message.
+ */
+function ReplyBox({
+  lead,
+  onSent,
+  accessToken,
+  path,
+}: {
+  lead: LeadDetail;
+  onSent: (lead: LeadDetail) => void;
+  accessToken: string;
+  path: string;
+}) {
+  const [choice, setChoice] = useState<string | null>(null);
+  const [messageId, setMessageId] = useState(() => crypto.randomUUID());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (lead.replyOptions.length === 0) return null;
+
+  async function send() {
+    if (!choice) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await apiPost<LeadDetail>(`${path}/replies`, accessToken, {
+        templateKey: choice,
+        messageId,
+      });
+      setChoice(null);
+      setMessageId(crypto.randomUUID());
+      onSent(updated);
+    } catch (e) {
+      setError(actionErrorMessage(e instanceof ApiError ? e.code : 'error'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      className="reply"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void send();
+      }}
+    >
+      <fieldset className="reply__options">
+        <legend className="section-title">Reply with a template</legend>
+        {lead.replyOptions.map((option) => (
+          <label key={option.key} className="reply__option">
+            <input
+              type="radio"
+              name="reply"
+              value={option.key}
+              checked={choice === option.key}
+              onChange={() => setChoice(option.key)}
+            />
+            <span>{option.body}</span>
+          </label>
+        ))}
+      </fieldset>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="reply__actions">
+        <button className="button button--primary" type="submit" disabled={!choice || busy}>
+          {busy ? 'Sending…' : 'Send reply'}
+        </button>
+        <span className="meta">Only templates you approved can be sent from here.</span>
+      </div>
+    </form>
+  );
+}
+
+const DELIVERY_LABEL: Partial<Record<LeadDetail['messages'][number]['deliveryStatus'], string>> = {
+  queued: 'Queued',
+  sent: 'Sent',
+  undelivered: 'Not delivered',
+  failed: 'Not delivered',
+};
+
+function Conversation({
+  lead,
+  timeZone,
+  reply,
+}: {
+  lead: LeadDetail;
+  timeZone: string;
+  reply: ReactNode;
+}) {
   const name = lead.contact.name ?? 'Caller';
   const { voicemail } = lead;
   return (
@@ -266,14 +361,24 @@ function Conversation({ lead, timeZone }: { lead: LeadDetail; timeZone: string }
           <li key={m.id} className={m.direction === 'out' ? 'message message--out' : 'message'}>
             <p className="meta">
               {authorLabel(m.author, name)} · {whenLabel(m.occurredAt, timeZone)}
-              {(m.deliveryStatus === 'undelivered' || m.deliveryStatus === 'failed') && (
-                <span className="message__failed"> · Not delivered</span>
+              {DELIVERY_LABEL[m.deliveryStatus] && (
+                <span
+                  className={
+                    m.deliveryStatus === 'undelivered' || m.deliveryStatus === 'failed'
+                      ? 'message__failed'
+                      : undefined
+                  }
+                >
+                  {' '}
+                  · {DELIVERY_LABEL[m.deliveryStatus]}
+                </span>
               )}
             </p>
             <p className="message__body">{m.body}</p>
           </li>
         ))}
       </ol>
+      {reply}
     </section>
   );
 }
@@ -438,7 +543,13 @@ export function LeadPage({ me, accessToken }: { me: Me; accessToken: string }) {
           />
 
           <div className="lead-columns">
-            <Conversation lead={lead.data} timeZone={timeZone} />
+            <Conversation
+              lead={lead.data}
+              timeZone={timeZone}
+              reply={
+                <ReplyBox lead={lead.data} onSent={replace} accessToken={accessToken} path={path} />
+              }
+            />
             <Details lead={lead.data} />
           </div>
         </>
