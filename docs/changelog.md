@@ -12,6 +12,54 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-09 — Phase 3: the clarify step, and the loop with no step done by hand
+
+**Change:** SCOPE.md v0.2, step 2. A customer's texts are read, only what is missing is asked
+(one question per text, three at most), and times are offered once everything is answered. With
+this, the loop runs from a missed call to a booking with no person stepping in, on mocks.
+
+- **`packages/ai`** (new; depends on `@fsc/core` and `zod`, already in the repo):
+  - `SAFETY_LAYER`, compiled first into every prompt and not editable by owners (rule 11):
+    customer content is data, never instructions; no prices, times or commitments; JSON only.
+  - `compileClarifyPrompt`: the safety layer, then the owner's AI settings (what they do and don't
+    do, their emergency definition, their questions, numbered).
+  - `clarifyInput` fences the customer's messages as data; a customer cannot close the fence.
+  - `ClarifyOutputSchema` / `parseClarifyOutput`: which questions are answered, a summary,
+    category, urgency, address, and emergency, out-of-scope and price flags. Anything else,
+    including extra fields or questions that do not exist, is rejected.
+- **What the model does and does not do** (rule 10): it only reads. The questions sent are the
+  owner's own, word for word from their AI settings (`ai_question` messages); the model writes
+  nothing a customer sees.
+- **Rules** (`packages/conversation/src/clarify.ts`): `planClarify` asks the first unanswered
+  question, never the same one twice and never more than three, and offers times when all are
+  answered. Someone at risk, a price question or work they don't do goes to a person first.
+- **`clarify_lead`** (worker), queued by intake for a text while a lead is new or being clarified
+  (and for a first text from a new number):
+  - Two quick texts are read once, together. Every reading is stored in `app.ai_analyses` (valid
+    or not, with tokens); the lead keeps the validated summary, category, urgency and address.
+  - A missing, failing or out-of-shape model puts the lead in front of a person, never a guess.
+  - Clinics never reach the model (rule 13): intake does not queue it for them, and the handler
+    refuses if it is queued anyway.
+- **Front Desk:** `out_of_scope` is Reply, with plain wording.
+- **`MockRulesModel`** (mock only, rule 5): fixed rules standing in for a model on local runs, in
+  the same strict JSON shape, named `mock-rules`. No customer text goes to an AI provider until the
+  owner approves one (decision 15).
+
+**Not yet:** voicemail transcription into the same step (the text-back's `{need}` and
+`{question}`), and the fixed safety and crisis messages before a person calls.
+
+**Test evidence:** `npm run check` and `npm run db:test` pass (counts in the PR). New: the AI layer
+(5: the safety layer first, kept with empty settings; the fence; strict parsing), clarify rules
+(5), intake routing (2 more), the rules mock (2), webhook routing (1 more), and the clarify job with
+a scripted model (5: asks only what is missing in the owner's words, then offers times; customer
+text inside the safety layer as data; every reading recorded; price, gas and an unreadable answer
+go to a person; two quick texts read once). End to end through the running API and worker, with
+nothing done by hand: a missed call to Riverbend; "AC is blowing warm air" → "What is the
+address?"; "9941 Elm St, Cedar Falls" → "How soon: 1 today, 2 this week, 3 flexible?"; "2" → three
+times within the week; "1" → requested, and Rhett got "New request: AC is blowing warm air. (319)
+555-0153 picked Tue, Nov 10 at 9:00 AM. …"; Rhett "1" → booked with the customer's confirmation.
+Mock connectors and the rules mock only; nothing reached an AI provider or a carrier.
+
 ## 2026-11-09 — Phase 3: approving by text, and the loop end to end on mocks
 
 **Change:** SCOPE.md v0.2, step 4. When a customer picks a time, each approver gets one text and

@@ -69,9 +69,13 @@ call, voicemail and text with its lead in one transaction (`planInbound` in
 goes to `handle_offer_reply`, STOP and START are honored at once, and any other text goes to a
 person. Approving by text: a pick queues `send_approval_request` (the owner's `approval_request`
 template to each approver, playbooks that approve by text), recorded in `app.approver_texts`; an
-approver's 1, 2 or 3 goes through the same `applyAction` as the portal (decided by text). The loop
-runs end to end on mocks. Next: the clarify step (voicemail transcription and questions), then
-approval reminders and hold expiry (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+approver's 1, 2 or 3 goes through the same `applyAction` as the portal (decided by text). The clarify step:
+a customer's text queues `clarify_lead`; the model (via `packages/ai`: locked safety layer, prompt
+compiler, Zod-validated output) only says which of the owner's questions are answered, and
+`planClarify` asks the next one word for word, offers times, or hands the lead to a person.
+Clinics never reach the model. Locally the worker uses `MockRulesModel` (fixed rules, not AI). The
+loop runs end to end on mocks with no step done by hand. Next: voicemail transcription into the
+same step, then approval reminders and hold expiry (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands
@@ -111,7 +115,7 @@ and worker tests (which must run there, not skip). Mock data only; no secrets.
 | `packages/workflow`     | Durable jobs: how a run settles (retry with backoff and jitter, dead-letter)                                      |
 | `packages/conversation` | Portal actions, reply and template rules (built); conversation state, clarifying questions, playbooks (Phase 3)   |
 | `packages/scheduling`   | Open windows from business hours, open slots, day capacity (built); urgency rules, tentative holds (Phase 3)      |
-| `packages/ai`           | Prompt compiler, locked safety layer, AI output schemas (planned)                                                 |
+| `packages/ai`           | Prompt compiler, locked safety layer, AI output schemas (built: the clarify step)                                 |
 | `packages/mock-data`    | Mock tenants, users and scenarios (MOCK_DATA.md) and the seed generator; local only                               |
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, portal API, health                                 |
 | `apps/worker`           | Runs jobs (built: calendar event, send text, release hold; mocks until Phase 4); reminders, hold expiry next      |

@@ -44,8 +44,29 @@ describe('planInbound', () => {
     });
   });
 
-  it('puts any other text in front of a person, keeping an existing reason', () => {
+  it('sends a text while the lead is being clarified to the clarify step', () => {
+    expect(planInbound('text_received', 'clarifying')).toEqual({
+      create: null,
+      move: null,
+      job: 'clarify_lead',
+    });
     expect(planInbound('text_received', null)).toEqual({
+      create: 'text',
+      move: null,
+      job: 'clarify_lead',
+    });
+  });
+
+  it("never sends a clinic's texts to the clarify step", () => {
+    expect(planInbound('text_received', 'clarifying', { clinic: true })).toEqual({
+      create: null,
+      move: { state: 'needs_attention', reason: 'new_message' },
+      job: null,
+    });
+  });
+
+  it('puts any other text in front of a person, keeping an existing reason', () => {
+    expect(planInbound('text_received', null, { clinic: true })).toEqual({
       create: 'text',
       move: { state: 'needs_attention', reason: 'new_message' },
       job: null,

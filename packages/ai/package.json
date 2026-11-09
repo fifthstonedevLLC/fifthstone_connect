@@ -1,0 +1,14 @@
+{
+  "name": "@fsc/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AI layer: prompt compiler with the locked safety layer, and validated output schemas.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@fsc/core": "*",
+    "zod": "^4.6.7"
+  }
+}

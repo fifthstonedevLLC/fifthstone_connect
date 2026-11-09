@@ -1,5 +1,6 @@
 import type { JobHandler } from '../handler.js';
 import { sendApprovalRequest, sendApproverText } from './approver-texts.js';
+import { clarifyLead } from './clarify-lead.js';
 import { confirmCalendarEvent } from './confirm-calendar-event.js';
 import { handleOfferReply } from './handle-offer-reply.js';
 import { releaseHold } from './release-hold.js';
@@ -22,4 +23,5 @@ export const HANDLERS: Record<string, JobHandler> = {
   send_text_back: sendTextBack,
   send_approval_request: sendApprovalRequest,
   send_approver_text: sendApproverText,
+  clarify_lead: clarifyLead,
 };

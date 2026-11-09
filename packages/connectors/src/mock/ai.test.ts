@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MockLanguageModel, MockTranscriptionProvider } from './index.js';
+import { MockLanguageModel, MockRulesModel, MockTranscriptionProvider } from './index.js';
 
 const T1 = 'tenant-mock-riverbend';
 
@@ -65,5 +65,37 @@ describe('MockLanguageModel', () => {
       error: { kind: 'transient' },
     });
     expect((await model.complete(request)).ok).toBe(true);
+  });
+});
+
+describe('MockRulesModel', () => {
+  const system =
+    '0: What is the problem?\n1: What is the address?\n2: How soon: 1 today, 2 this week, 3 flexible?';
+  const read = async (...messages: string[]) => {
+    const result = await new MockRulesModel().complete({
+      tenantId: 'mock-tenant',
+      system,
+      input: `<customer>\n${messages.join('\n---\n')}\n</customer>`,
+      maxOutputTokens: 400,
+    });
+    if (!result.ok) throw new Error(result.error.code);
+    return { ...result.value, output: JSON.parse(result.value.text) };
+  };
+
+  it('answers in the same shape a real model must, and says it is a mock', async () => {
+    const { model, output } = await read('AC blowing warm air', '9941 Elm St, Cedar Falls', '2');
+    expect(model).toBe('mock-rules');
+    expect(output).toMatchObject({
+      answered: [0, 1, 2],
+      address: '9941 Elm St, Cedar Falls',
+      urgency: 'this_week',
+      emergency: false,
+    });
+  });
+
+  it('flags prices and gas, and answers nothing it cannot see', async () => {
+    expect((await read('How much is a tune-up?')).output.price_question).toBe(true);
+    expect((await read('I smell gas')).output.emergency).toBe(true);
+    expect((await read('hi')).output.answered).toEqual([]);
   });
 });

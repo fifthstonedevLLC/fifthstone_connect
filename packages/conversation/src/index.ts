@@ -4,6 +4,7 @@
  */
 export * from './actions.js';
 export * from './approvals.js';
+export * from './clarify.js';
 export * from './attention.js';
 export * from './replies.js';
 export * from './templates.js';

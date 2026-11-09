@@ -12,6 +12,7 @@
     "once": "tsx --env-file-if-exists=../../.env src/main.ts --once"
   },
   "dependencies": {
+    "@fsc/ai": "*",
     "@fsc/connectors": "*",
     "@fsc/conversation": "*",
     "@fsc/core": "*",

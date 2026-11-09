@@ -29,6 +29,7 @@ const REASON_LABEL: Record<string, string> = {
   private_details: 'Shared private details',
   crisis_message_sent: 'Crisis message sent',
   new_message: 'New text to read',
+  out_of_scope: "Asked for work you don't do",
   unclear_reply: 'Replied to the open times, but not with a number',
   no_open_times: 'No open times to offer',
   calendar_unavailable: "Calendar isn't connected",
@@ -364,6 +365,8 @@ const GUIDANCE: Record<string, string> = {
   calendar_unavailable:
     "Times couldn't be offered because your calendar isn't connected. Call to agree a time.",
   new_message: 'They sent a text that needs a person. Read it, then reply or call.',
+  out_of_scope:
+    "It sounds like work you don't do. Send your out-of-scope reply, or call if you'd take it.",
   unclear_reply:
     'They answered the open times with something other than a number. Read it, then reply or call.',
 };
