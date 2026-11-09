@@ -356,6 +356,11 @@ const GUIDANCE: Record<string, string> = {
   private_details: 'They shared private details. Call; nothing they wrote is repeated in a text.',
   complaint: "They're upset. A call works better than a text.",
   delivery_failed: "The text didn't arrive. Call instead.",
+  no_open_times: 'No open times fit in the next two weeks. Call to agree a time.',
+  calendar_unavailable:
+    "Times couldn't be offered because your calendar isn't connected. Call to agree a time.",
+  unclear_reply:
+    'They answered the open times with something other than a number. Read it, then reply or call.',
 };
 
 /** What to do about a lead that needs a person, in one sentence; null when there is no advice. */

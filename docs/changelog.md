@@ -12,6 +12,53 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-09 — Phase 3: the offer step on mocks
+
+**Change:** the middle of the core loop (SCOPE.md v0.2, step 3). A customer is texted two or
+three numbered open times; a numbered reply becomes a request with a calendar hold, waiting for
+approval on the Front Desk. Never a booking.
+
+- **Offer rules** (`packages/conversation/src/offers.ts`, tested):
+  - `chooseOffer`: the earliest open time on each of the first three days that have one, then
+    the next earliest if fewer days are open.
+  - `offerHorizonDays`: 7 days for "this week", 14 for flexible; an emergency is never offered
+    times (a person calls). Nothing sooner than two hours away.
+  - `parseChoice`: "2", "2.", "#2", "option 2" are understood; anything else ("2 or 3",
+    "Saturday?") goes to a person, never guessed.
+  - `holdExpiry`: after the business's hold time, or two hours before the slot, whichever is
+    sooner (decision 19).
+- **Migration `20261109191515_slot_offers`:** the numbered times in each offer text, so "2" means
+  the second time in the text the customer received. One open time per number per lead; a new
+  offer withdraws the old one. RLS and pgTAP `slot_offers.test.sql`.
+- **`send_slot_offer`** (already queued by "Suggest another time"; now handled):
+  - Reads open times from the database: business hours, minus synced busy time, minus every
+    held or approved request.
+  - Records the offer and queues the `slot_offer` text through the shared `queueTemplateText`,
+    which the confirmation text now uses too. The lead becomes `offered`.
+  - No connected calendar, no open time, or texting not live: the lead goes to a person
+    ("Call back") with a reason, and times are never invented.
+- **`handle_offer_reply`** (for the inbound text step to queue):
+  - Places the hold on the calendar first. If the time was taken since the offer, it records
+    that time as busy and offers fresh times (MOCK_DATA.md RB-20).
+  - Otherwise, in one transaction: the request (pending), the hold with its expiry, the offer
+    marked picked, the lead `requested` (the Approve queue), an audit event, and the
+    `request_received` text.
+  - A reply that is not a number from the offer: the lead goes to Reply with "unclear_reply".
+- **Front Desk:** `no_open_times` and `calendar_unavailable` are Call back; `unclear_reply` is
+  Reply, each with a plain sentence of guidance.
+
+**Not yet:** customer texts do not arrive until the inbound step (next), so for now
+`handle_offer_reply` is queued only by tests. The approver's text is the step after that; the
+request already shows in the Approve queue.
+
+**Test evidence:** `npm run check` and `npm run db:test` pass (counts in the PR). New: offer rules
+(8), next-step reasons (1), worker offer tests (4: three times on three days and never an
+emergency; "2" becomes a pending request with an active hold that expires before the slot, and
+the confirmation-of-request text; a question goes to Reply; a taken time is re-offered without
+repeating it) and pgTAP `slot_offers` (6). `npm run once -w @fsc/worker` on the sample data:
+Northline's queued offer for Tia F. sent "1) Tue, Nov 10 at 1:00 PM 2) Wed, Nov 11 at 11:00 AM 3) Thu, Nov 12 at 11:00 AM", inside Northline's hours and after its busy time. Mock connectors
+only; no text or calendar left this machine.
+
 ## 2026-11-09 — Phase 3: calendar sync on the mock calendar
 
 **Change:** the worker keeps each connected calendar's busy times current, so the Calendar page
