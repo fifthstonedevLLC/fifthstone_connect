@@ -19,6 +19,25 @@ const paths = {
       <path d="M18 14.8c1.9.7 3.1 2.5 3.5 5.2" />
     </>
   ),
+  contacts: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="9" cy="10.5" r="2.5" />
+      <path d="M5.5 16.5c.6-1.8 1.9-2.8 3.5-2.8s2.9 1 3.5 2.8M15 9.5h3M15 13h3" />
+    </>
+  ),
+  reporting: (
+    <>
+      <path d="M3 20.5h18" />
+      <path d="M6 16.5v-5M11 16.5v-9M16 16.5v-6.5" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+      <circle cx="12" cy="10" r="2.3" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
@@ -70,6 +89,37 @@ const paths = {
       <path d="M8.5 13l2.5 2.5 4.5-5" />
     </>
   ),
+  phone: (
+    <path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 4 1.5V19a1.5 1.5 0 0 1-1.6 1.5C10.6 20 4 13.4 3.5 5.6A1.5 1.5 0 0 1 5 4z" />
+  ),
+  reply: (
+    <>
+      <path d="M10 8l-5 4 5 4" />
+      <path d="M5 12h9a5 5 0 0 1 5 5v1" />
+    </>
+  ),
+  reschedule: (
+    <>
+      <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
+      <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+      <path d="M9 15.5a3 3 0 0 1 5.2-2M15 13v2.2h-2.2" />
+    </>
+  ),
+  voicemail: (
+    <>
+      <circle cx="7" cy="12" r="3.5" />
+      <circle cx="17" cy="12" r="3.5" />
+      <path d="M7 15.5h10" />
+    </>
+  ),
+  send: (
+    <>
+      <path d="M4 12l16-7-6 16-3-6.5z" />
+      <path d="M11 14.5L20 5" />
+    </>
+  ),
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  close: <path d="M6 6l12 12M18 6L6 18" />,
   signOut: (
     <>
       <path d="M15 4h4v16h-4" />

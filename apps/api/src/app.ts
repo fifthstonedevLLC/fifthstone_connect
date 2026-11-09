@@ -10,7 +10,9 @@ import {
   SERVICE_REGISTRATION_STATES,
   URGENCIES,
 } from '@fsc/core';
-import { PORTAL_ACTIONS } from '@fsc/conversation';
+import { CALENDAR_PROVIDERS } from '@fsc/core/calendar-providers';
+import { NEEDS, NEXT_ACTIONS, PORTAL_ACTIONS } from '@fsc/conversation';
+import { isLocalDate, localDate, weekStart } from '@fsc/scheduling';
 import Fastify, {
   type FastifyInstance,
   type FastifyReply,
@@ -47,6 +49,7 @@ import {
   saveHours,
   type OnboardingError,
 } from './repositories/onboarding.js';
+import { APPOINTMENT_STATUSES, getCalendar } from './repositories/calendar.js';
 import { getToday } from './repositories/today.js';
 
 /**
@@ -79,6 +82,41 @@ export const REDACT_PATHS = [
 
 const ErrorSchema = z.object({ error: z.string() });
 
+const IsoSpan = z.object({ start: z.string(), end: z.string() });
+
+const CalendarSchema = z.object({
+  timeZone: z.string(),
+  from: z.string(),
+  days: z.number().int(),
+  hours: z.array(
+    z.object({ days: z.array(z.number().int()), open: z.string(), close: z.string() }),
+  ),
+  jobMinutes: z.number().int(),
+  connection: z
+    .object({
+      provider: z.enum(CALENDAR_PROVIDERS),
+      status: z.enum(['connected', 'revoked', 'disconnected']),
+      lastSyncedAt: z.string().nullable(),
+    })
+    .nullable(),
+  appointments: z.array(
+    IsoSpan.extend({
+      leadId: z.uuid(),
+      name: z.string().nullable(),
+      phone: z.string().nullable(),
+      summary: z.string().nullable(),
+      address: z.string().nullable(),
+      status: z.enum(APPOINTMENT_STATUSES),
+      holdExpiresAt: z.string().nullable(),
+    }),
+  ),
+  busy: z.array(IsoSpan),
+  open: z.array(IsoSpan),
+  capacity: z.array(
+    z.object({ date: z.string(), openMinutes: z.number(), freeMinutes: z.number() }),
+  ),
+});
+
 const LeadCardSchema = z.object({
   id: z.uuid(),
   name: z.string().nullable(),
@@ -91,6 +129,8 @@ const LeadCardSchema = z.object({
   slotStart: z.iso.datetime().nullable(),
   requestState: z.enum(['pending', 'approved', 'changed']).nullable(),
   urgent: z.boolean(),
+  waitingSince: z.iso.datetime(),
+  next: z.object({ need: z.enum(NEEDS), action: z.enum(NEXT_ACTIONS).nullable() }),
 });
 
 const TodaySchema = z.object({
@@ -112,7 +152,7 @@ const MeSchema = z.object({
   }),
   calendar: z
     .object({
-      provider: z.enum(['google', 'acuity']),
+      provider: z.enum(CALENDAR_PROVIDERS),
       status: z.enum(['connected', 'revoked', 'disconnected']),
     })
     .nullable(),
@@ -130,6 +170,11 @@ const LeadDetailSchema = z.object({
   summary: z.string().nullable(),
   address: z.string().nullable(),
   createdAt: IsoDate,
+  next: z.object({
+    need: z.enum(NEEDS),
+    action: z.enum(NEXT_ACTIONS).nullable(),
+    urgent: z.boolean(),
+  }),
   contact: z.object({
     name: z.string().nullable(),
     phone: z.string().nullable(),
@@ -260,7 +305,7 @@ const OnboardingSchema = z.object({
   timezone: z.string(),
   calendar: z
     .object({
-      provider: z.enum(['google', 'acuity']),
+      provider: z.enum(CALENDAR_PROVIDERS),
       status: z.enum(['connected', 'revoked', 'disconnected']),
     })
     .nullable(),
@@ -383,6 +428,35 @@ export function buildApp(deps: AppDeps): FastifyInstance {
             getToday(client, user.tenantId),
           );
           return { lanes };
+        },
+      );
+
+      // The calendar for a run of days (a week by default, starting Monday in the business's
+      // time zone). Read-only: busy time is what the last sync stored.
+      typed.get(
+        '/calendar',
+        {
+          schema: {
+            querystring: z.object({
+              from: z.string().refine(isLocalDate, 'Use YYYY-MM-DD').optional(),
+              days: z.coerce.number().int().min(1).max(14).default(7),
+            }),
+            response: { 200: CalendarSchema, 401: ErrorSchema, 403: ErrorSchema, 404: ErrorSchema },
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          const view = await withTenant(deps.pool, user.tenantId, async (client) => {
+            const tz = await client.query<{ timezone: string }>(
+              'select timezone from app.tenants where id = $1',
+              [user.tenantId],
+            );
+            const timeZone = tz.rows[0]?.timezone;
+            if (!timeZone) return null;
+            const from = request.query.from ?? weekStart(localDate(new Date(), timeZone));
+            return getCalendar(client, user.tenantId, { from, days: request.query.days });
+          });
+          return view ?? reply.code(404).send({ error: 'not_found' });
         },
       );
 

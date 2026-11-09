@@ -142,9 +142,24 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
     const marcus = lanes.needsYou?.find((l) => l.name === 'Marcus T.');
     expect(marcus).toMatchObject({ state: 'requested' });
     expect((marcus as unknown as { slotStart: string | null }).slotStart).not.toBeNull();
+
+    // Every card says what it needs and which one action fits, decided on the server.
+    const byName = (name: string) =>
+      Object.values(lanes)
+        .flat()
+        .find((l) => l.name === name) as unknown as {
+        next: { need: string; action: string | null };
+        waitingSince: string;
+      };
+    expect(byName('Marcus T.').next).toEqual({ need: 'approve', action: 'approve' });
+    expect(byName('Dana M.').next).toEqual({ need: 'call_now', action: 'call' });
+    expect(byName('Ivy L.').next).toEqual({ need: 'reply', action: 'reply' });
+    expect(byName('Sam W.').next).toEqual({ need: 'follow_up', action: 'nudge' });
+    expect(byName('Priya K.').next).toEqual({ need: 'their_move', action: null });
+    expect(Date.parse(byName('Marcus T.').waitingSince)).not.toBeNaN();
   });
 
-  it('puts emergency, safety and crisis leads first in Needs you, however old', async () => {
+  it('puts emergency, safety and crisis leads first among leads needing a person, however old', async () => {
     const lanesFor = async (email: string) =>
       (
         (await get('/portal/today', email)).json() as {
@@ -187,6 +202,7 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
       contact: { name: 'Marcus T.', phone: '+13195550142', earlierLeads: 0 },
       voicemail: { durationSeconds: 24 },
       request: { state: 'pending', hold: { state: 'active' }, decidedAt: null },
+      next: { need: 'approve', action: 'approve', urgent: false },
     });
     expect(lead.voicemail.transcript).toContain('This is Marcus');
     expect(
@@ -211,6 +227,82 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
     const res = await get('/portal/leads/not-a-uuid', 'rhett@riverbend.example.com');
     expect(res.statusCode).toBe(400);
     expect(res.json()).toEqual({ error: 'invalid_request' });
+  });
+
+  describe('calendar', () => {
+    interface Span {
+      start: string;
+      end: string;
+    }
+    interface Calendar {
+      timeZone: string;
+      from: string;
+      hours: { days: number[]; open: string; close: string }[];
+      connection: { provider: string; status: string; lastSyncedAt: string | null } | null;
+      appointments: (Span & { name: string | null; status: string; address: string | null })[];
+      busy: Span[];
+      open: Span[];
+      capacity: { date: string; openMinutes: number; freeMinutes: number }[];
+    }
+    const calendar = async (email: string, query = '') => {
+      const res = await get(`/portal/calendar${query}`, email);
+      expect(res.statusCode).toBe(200);
+      return res.json() as Calendar;
+    };
+    const overlaps = (a: Span, b: Span) =>
+      Date.parse(a.start) < Date.parse(b.end) && Date.parse(b.start) < Date.parse(a.end);
+
+    it("returns Riverbend's week from Monday, with synced busy time and its appointments", async () => {
+      const week = await calendar('carla@riverbend.example.com');
+      expect(week.timeZone).toBe('America/Chicago');
+      expect(new Date(`${week.from}T12:00:00Z`).getUTCDay()).toBe(1);
+      expect(week.capacity).toHaveLength(7);
+      expect(week.connection).toMatchObject({ provider: 'google', status: 'connected' });
+      expect(week.connection?.lastSyncedAt).not.toBeNull();
+      expect(week.busy.length).toBeGreaterThan(0);
+      // Each day's open minutes follow the stored hours (Riverbend never opens on Sunday).
+      const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
+      week.capacity.forEach((day, i) => {
+        const weekday = i + 1;
+        const expected = week.hours
+          .filter((h) => h.days.includes(weekday))
+          .reduce((sum, h) => sum + minutes(h.close) - minutes(h.open), 0);
+        expect(day.openMinutes, day.date).toBe(expected);
+      });
+      expect(week.capacity[6]).toMatchObject({ openMinutes: 0, freeMinutes: 0 });
+    });
+
+    it('offers only future slots that clear busy time and appointments', async () => {
+      const week = await calendar('carla@riverbend.example.com', '?days=14');
+      expect(week.open.length).toBeGreaterThan(0);
+      const taken = [...week.busy, ...week.appointments];
+      for (const slot of week.open) {
+        expect(Date.parse(slot.start)).toBeGreaterThan(Date.now() - 60_000);
+        expect(taken.some((t) => overlaps(slot, t))).toBe(false);
+      }
+    });
+
+    it('shows each business only its own calendar, Outlook included', async () => {
+      const riverbend = await calendar('carla@riverbend.example.com', '?days=14');
+      const prairie = await calendar('helen@prairiepath.example.org', '?days=14');
+      expect(prairie.connection?.provider).toBe('microsoft');
+      const names = new Set(riverbend.appointments.map((a) => a.name));
+      expect(prairie.appointments.some((a) => names.has(a.name) && a.name !== null)).toBe(false);
+    });
+
+    it('gives each job its address for directions, when the customer gave one', async () => {
+      const week = await calendar('carla@riverbend.example.com', '?days=14');
+      const withAddress = week.appointments.filter((a) => a.address);
+      expect(withAddress.length).toBeGreaterThan(0);
+      // A clinic keeps no address (minimum data), so its appointments have none.
+      const prairie = await calendar('helen@prairiepath.example.org', '?days=14');
+      expect(prairie.appointments.every((a) => a.address === null)).toBe(true);
+    });
+
+    it('rejects a date that is not a real day', async () => {
+      const res = await get('/portal/calendar?from=2026-02-30', 'carla@riverbend.example.com');
+      expect(res.statusCode).toBe(400);
+    });
   });
 
   it('keeps tokens and customer details out of the logs', async () => {

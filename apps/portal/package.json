@@ -18,6 +18,7 @@
   "dependencies": {
     "@fsc/conversation": "*",
     "@fsc/core": "*",
+    "@fsc/scheduling": "*",
     "@supabase/supabase-js": "^2.119.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

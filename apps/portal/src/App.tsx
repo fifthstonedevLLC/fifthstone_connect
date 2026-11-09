@@ -2,12 +2,14 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { LeadPage } from './LeadPage';
+import { CalendarPage } from './CalendarPage';
+import { FrontDeskPage } from './FrontDeskPage';
 import { SettingsPage } from './SettingsPage';
 import { SetupPage } from './SetupPage';
 import { Shell } from './Shell';
 import { SignIn } from './SignIn';
 import { supabase } from './supabase';
-import { TodayPage } from './TodayPage';
+
 import type { Me } from './types';
 import { useApi } from './useApi';
 
@@ -63,8 +65,9 @@ function SignedIn({ accessToken }: { accessToken: string }) {
   return (
     <Shell me={me.data} onSignOut={signOut}>
       <Routes>
-        <Route path="/" element={<TodayPage me={me.data} accessToken={accessToken} />} />
+        <Route path="/" element={<FrontDeskPage me={me.data} accessToken={accessToken} />} />
         <Route path="/leads/:id" element={<LeadPage me={me.data} accessToken={accessToken} />} />
+        <Route path="/calendar" element={<CalendarPage me={me.data} accessToken={accessToken} />} />
         <Route path="/setup" element={<SetupPage me={me.data} accessToken={accessToken} />} />
         <Route
           path="/templates"

@@ -1,4 +1,5 @@
 import { JOB_STATUSES, SERVICE_REGISTRATION_STATES } from '@fsc/core';
+import { CALENDAR_PROVIDERS } from '@fsc/core/calendar-providers';
 import { z } from 'zod';
 import { MockEmailSchema, MockPhoneSchema } from './schemas.js';
 
@@ -16,7 +17,7 @@ const TenantOpsSchema = z
     email: z.enum(SERVICE_REGISTRATION_STATES),
     calendar: z
       .object({
-        provider: z.enum(['google', 'acuity']),
+        provider: z.enum(CALENDAR_PROVIDERS),
         status: z.enum(['connected', 'revoked', 'disconnected']),
       })
       .strict(),
@@ -32,6 +33,21 @@ const TenantOpsSchema = z
           .strict(),
       )
       .min(1),
+    /**
+     * Busy times on the connected calendar (the owner's own events), as the worker's sync would
+     * store them: days from today in the business's time zone, a local start and a length.
+     */
+    busy: z
+      .array(
+        z
+          .object({
+            day: z.number().int().min(-7).max(21),
+            at: z.string().regex(/^\d\d:\d\d$/),
+            minutes: z.number().int().min(15).max(600),
+          })
+          .strict(),
+      )
+      .default([]),
   })
   .strict();
 
@@ -45,6 +61,15 @@ export const TENANT_OPS = [
       { days: [1, 2, 3, 4, 5], open: '07:00', close: '18:00' },
       { days: [6], open: '08:00', close: '12:00' },
     ],
+    busy: [
+      { day: 0, at: '12:00', minutes: 60 },
+      { day: 1, at: '07:00', minutes: 90 },
+      { day: 2, at: '13:00', minutes: 120 },
+      { day: 3, at: '16:00', minutes: 60 },
+      { day: 4, at: '07:00', minutes: 240 },
+      { day: 7, at: '09:00', minutes: 120 },
+      { day: 9, at: '14:00', minutes: 60 },
+    ],
   },
   {
     tenant: 'T2',
@@ -53,13 +78,22 @@ export const TENANT_OPS = [
     email: 'approved',
     calendar: { provider: 'acuity', status: 'connected' },
     hours: [{ days: [2, 3, 4, 5, 6], open: '11:00', close: '19:00' }],
+    busy: [
+      { day: 1, at: '11:00', minutes: 120 },
+      { day: 3, at: '15:00', minutes: 60 },
+    ],
   },
   {
     tenant: 'T3',
     texting: 'approved',
     email: 'approved',
-    calendar: { provider: 'google', status: 'connected' },
+    calendar: { provider: 'microsoft', status: 'connected' },
     hours: [{ days: [1, 2, 3, 4, 5], open: '08:00', close: '17:00' }],
+    busy: [
+      { day: 0, at: '12:00', minutes: 60 },
+      { day: 2, at: '08:00', minutes: 60 },
+      { day: 4, at: '13:00', minutes: 180 },
+    ],
   },
   {
     tenant: 'T4',

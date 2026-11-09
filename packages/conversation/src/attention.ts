@@ -2,8 +2,8 @@ import type { LeadState, Urgency } from '@fsc/core';
 
 /**
  * Which leads a person must see first. An emergency, a safety message or a crisis message means
- * someone may be at risk, so those leads sit at the top of "Needs you" however long ago they came
- * in. Nothing here acts on a lead; it only orders what a person sees.
+ * someone may be at risk, so those leads sit at the top of every queue they are in, however long ago
+ * they came in. Nothing here acts on a lead; it only orders what a person sees.
  */
 
 /** Reasons that mean a fixed safety or crisis message already went out and a person must follow up. */

@@ -1,3 +1,4 @@
+import type { CalendarProviderKey } from '@fsc/core/calendar-providers';
 import {
   BusinessHoursListSchema,
   onboardingSteps,
@@ -31,7 +32,7 @@ export interface Onboarding {
   hours: BusinessHoursList | [];
   timezone: string;
   calendar: {
-    provider: 'google' | 'acuity';
+    provider: CalendarProviderKey;
     status: 'connected' | 'revoked' | 'disconnected';
   } | null;
   templates: { version: number | null; reviewedAt: string | null; questions: string[] };
@@ -83,7 +84,7 @@ export async function getOnboarding(
   if (!b) throw new Error('tenant not visible in its own context');
 
   const calendar = await client.query<{
-    provider: 'google' | 'acuity';
+    provider: CalendarProviderKey;
     status: 'connected' | 'revoked' | 'disconnected';
   }>(
     `select provider, status from app.calendar_connections

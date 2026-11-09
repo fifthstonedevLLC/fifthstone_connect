@@ -35,6 +35,14 @@ function rows(values: string[][]): string {
 
 const opt = (value: string | undefined) => (value === undefined ? 'null' : lit(value));
 const ago = (minutes: number) => `now() - interval '${minutes} minutes'`;
+/** Mock calendar IDs say which provider they stand in for, and are never real IDs. */
+const CALENDAR_PREFIX = { google: 'MOCK-GCAL', microsoft: 'MOCK-OUTLOOK', acuity: 'MOCK-ACUITY' };
+const calendarIdOf = (tenant: string) => {
+  const ops = TENANT_OPS.find((o) => o.tenant === tenant);
+  if (!ops) throw new Error(`Unknown tenant ${tenant}`);
+  return `${CALENDAR_PREFIX[ops.calendar.provider]}-${tenant}`;
+};
+
 /** Slot starts land on the hour so the calendar views look like real bookings. */
 const slotAt = (hours: number, plus = 0) =>
   `date_trunc('hour', now()) + interval '${hours + plus} hours'`;
@@ -159,10 +167,11 @@ function connectionsFile(): string {
     lit(mockUuid('calendar-connection', o.tenant)),
     lit(tenantId(o.tenant)),
     lit(o.calendar.provider),
-    lit(`MOCK-GCAL-${o.tenant}`),
+    lit(calendarIdOf(o.tenant)),
     lit(o.calendar.status),
     lit(`mock-calendar-${o.tenant.toLowerCase()}`),
     o.calendar.status === 'disconnected' ? 'null' : ago(20000),
+    o.calendar.status === 'connected' ? ago(3) : 'null',
   ]);
   return `${GENERATED}
 -- Vendor configuration (secret names only, all mock) and calendar connections.
@@ -170,7 +179,7 @@ insert into app.integration_connections (id, tenant_id, type, config, secret_ref
 ${rows(integrations)};
 
 insert into app.calendar_connections (
-  id, tenant_id, provider, calendar_id, status, secret_ref, connected_at
+  id, tenant_id, provider, calendar_id, status, secret_ref, connected_at, last_synced_at
 ) values
 ${rows(calendars)};
 `;
@@ -520,6 +529,16 @@ ${rows(messages)};
 }
 
 function requestsFile(): string {
+  // Local wall-clock times on days counted from today in the tenant's own time zone.
+  const busy = TENANT_OPS.filter((o) => o.calendar.status === 'connected').flatMap((o) =>
+    o.busy.map((b) => [
+      lit(tenantId(o.tenant)),
+      lit(mockUuid('calendar-connection', o.tenant)),
+      String(b.day),
+      lit(b.at),
+      String(b.minutes),
+    ]),
+  );
   const withRequest = LEADS.flatMap((l) => (l.request ? [{ lead: l, request: l.request }] : []));
   const decided = (r: MockRequest) => r.decidedBy !== undefined;
   const requests = withRequest.map(({ lead, request: r }) => [
@@ -541,7 +560,7 @@ function requestsFile(): string {
             lit(mockUuid('hold', lead.key)),
             lit(tenantId(lead.tenant)),
             lit(requestId(lead.key)),
-            lit(`MOCK-GCAL-${lead.tenant}`),
+            lit(calendarIdOf(lead.tenant)),
             lit(`MOCK-CAL-${lead.key}`),
             slotAt(r.slotInHours),
             slotAt(r.slotInHours, 1),
@@ -564,6 +583,27 @@ insert into app.calendar_holds (
   expires_at
 ) values
 ${rows(holds)};
+
+-- Busy times read from each connected calendar (start and end only), as the sync would store
+-- them. The sync skips events and holds this service wrote itself, so nothing here overlaps a
+-- held or booked request.
+insert into app.calendar_busy (tenant_id, connection_id, starts_at, ends_at, synced_at)
+select v.tenant_id::uuid, v.connection_id::uuid, s.starts_at, s.starts_at + v.minutes * interval '1 minute',
+       now() - interval '3 minutes'
+  from (values
+${rows(busy)}
+  ) as v (tenant_id, connection_id, day, at, minutes)
+  join app.tenants t on t.id = v.tenant_id::uuid
+  cross join lateral (
+    select (date_trunc('day', now() at time zone t.timezone) + v.day * interval '1 day'
+            + v.at::time) at time zone t.timezone as starts_at
+  ) s
+ where not exists (
+   select 1 from app.requests r
+    where r.tenant_id = v.tenant_id::uuid and r.state in ('pending', 'approved')
+      and r.slot_start < s.starts_at + v.minutes * interval '1 minute'
+      and r.slot_end > s.starts_at
+ );
 `;
 }
 
