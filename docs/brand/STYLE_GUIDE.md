@@ -90,6 +90,18 @@ Fonts: Archivo (headings 700, body 400) and Space Mono (labels, code).
 white text. Bronze buttons carry Charcoal text (about 5.6:1). This differs from
 `fifth-stone-brand.css`, which pairs Bronze with white; owner to confirm.
 
+**Priority colours (owner, 2026-11-08).** Functional only, for how urgently a lead needs a
+person in the portal; never decoration, marketing or customer messages. Always shown with its
+words ("Act now", "Soon", "On track"), never colour alone.
+
+| Level    | Meaning                                             | Colour                   |
+| -------- | --------------------------------------------------- | ------------------------ |
+| Act now  | Someone may be at risk, or it has waited over a day | Red `#FF8A80`            |
+| Soon     | The owner's move                                    | Amber `#F2C14E`          |
+| On track | Waiting on the customer, confirming or booked       | Sage `#7D9D8E` (palette) |
+
+Red and amber are tuned for the dark portal and pass 4.5:1 as text on Stone Slate.
+
 ## Missing brand assets
 
 - [ ] Fifth Stone Dev logo as SVG (PNG supplied 2026-11-03; SVGs listed in the brand README were

@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./segments": "./src/segments.ts",
     "./ai-limits": "./src/ai-limits.ts",
-    "./regions": "./src/regions.ts"
+    "./regions": "./src/regions.ts",
+    "./calendar-providers": "./src/calendar-providers.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"

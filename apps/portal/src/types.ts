@@ -1,3 +1,4 @@
+import type { CalendarProviderKey } from '@fsc/core/calendar-providers';
 /**
  * Response shapes of the portal API (apps/api/src/app.ts, where they are Zod schemas validated on
  * the way out). Kept in step by hand for now; the portal never invents fields the API does not
@@ -26,7 +27,7 @@ export interface Me {
   tenant: { name: string; slug: string; timezone: string };
   services: { texting: ServiceState; email: ServiceState };
   calendar: {
-    provider: 'google' | 'acuity';
+    provider: CalendarProviderKey;
     status: 'connected' | 'revoked' | 'disconnected';
   } | null;
 }
@@ -44,7 +45,28 @@ export interface LeadCard {
   requestState: 'pending' | 'approved' | 'changed' | null;
   /** Set by the server: an emergency, safety or crisis lead, shown first and flagged. */
   urgent: boolean;
+  /** When the lead entered its current state. */
+  waitingSince: string;
+  /** What it needs from a person and the one action that fits, decided by the server. */
+  next: { need: Need; action: NextAction | null };
 }
+
+export type Need =
+  | 'call_now'
+  | 'approve'
+  | 'call_back'
+  | 'reply'
+  | 'reschedule'
+  | 'cancel'
+  | 'listen'
+  | 'review'
+  | 'confirming'
+  | 'their_move'
+  | 'booked'
+  | 'follow_up'
+  | 'nudged';
+
+export type NextAction = 'call' | 'approve' | 'nudge' | 'reply' | 'reschedule' | 'listen' | 'open';
 
 export interface Today {
   lanes: {
@@ -69,6 +91,8 @@ export interface LeadDetail {
   summary: string | null;
   address: string | null;
   createdAt: string;
+  /** What it needs from a person and the one action that fits, decided by the server. */
+  next: { need: Need; action: NextAction | null; urgent: boolean };
   contact: {
     name: string | null;
     phone: string | null;
@@ -166,7 +190,7 @@ export interface Onboarding {
   hours: HoursBlock[];
   timezone: string;
   calendar: {
-    provider: 'google' | 'acuity';
+    provider: CalendarProviderKey;
     status: 'connected' | 'revoked' | 'disconnected';
   } | null;
   templates: { version: number | null; reviewedAt: string | null; questions: string[] };
@@ -193,3 +217,36 @@ export type TestCallStep =
       body: string | null;
     }
   | { kind: 'approver_approves'; channel: 'text' | 'portal' };
+
+/** GET /portal/calendar: a run of days in the business's time zone. */
+export interface CalendarView {
+  timeZone: string;
+  from: string;
+  days: number;
+  hours: { days: number[]; open: string; close: string }[];
+  jobMinutes: number;
+  connection: {
+    provider: CalendarProviderKey;
+    status: 'connected' | 'revoked' | 'disconnected';
+    lastSyncedAt: string | null;
+  } | null;
+  appointments: Appointment[];
+  /** Busy time synced from the connected calendar: start and end only. */
+  busy: { start: string; end: string }[];
+  /** Slots still open for a job of `jobMinutes`, from now on. */
+  open: { start: string; end: string }[];
+  capacity: { date: string; openMinutes: number; freeMinutes: number }[];
+}
+
+export interface Appointment {
+  leadId: string;
+  name: string | null;
+  phone: string | null;
+  summary: string | null;
+  /** Where the job is, if the customer gave one. */
+  address: string | null;
+  start: string;
+  end: string;
+  status: 'held' | 'confirming' | 'booked';
+  holdExpiresAt: string | null;
+}

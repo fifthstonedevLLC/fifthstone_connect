@@ -1,3 +1,4 @@
+import type { CalendarProviderKey } from '@fsc/core/calendar-providers';
 import type { ServiceRegistrationState } from '@fsc/core';
 import type { DbClient } from '../db.js';
 
@@ -8,7 +9,7 @@ export interface Me {
   /** Portal status cards; a service with no registration row reads `not_started`. */
   services: { texting: ServiceRegistrationState; email: ServiceRegistrationState };
   calendar: {
-    provider: 'google' | 'acuity';
+    provider: CalendarProviderKey;
     status: 'connected' | 'revoked' | 'disconnected';
   } | null;
 }
@@ -30,7 +31,7 @@ export async function getMe(
     timezone: string;
     texting: ServiceRegistrationState | null;
     email: ServiceRegistrationState | null;
-    calendar_provider: 'google' | 'acuity' | null;
+    calendar_provider: CalendarProviderKey | null;
     calendar_status: 'connected' | 'revoked' | 'disconnected' | null;
   }>(
     `select pu.display_name, pu.role, t.name as tenant_name, t.slug, t.timezone,

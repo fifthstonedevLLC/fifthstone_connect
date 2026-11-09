@@ -397,7 +397,7 @@ function TeamStep({ data, save, token }: { data: Onboarding; save: Save; token: 
       <p className="meta">
         {byText
           ? 'Approvers get a text for each request and reply 1 to approve. They can also approve here.'
-          : 'Requests wait on Today for an approver to approve.'}
+          : 'Requests wait in the Approve queue on the Front Desk for an approver.'}
       </p>
       <ul className="team-list">
         {data.team.map((u) => (
@@ -488,7 +488,7 @@ function TestStepLine({ step, data }: { step: TestCallStep; data: Onboarding }):
         </>
       ) : (
         <>
-          <p className="sim__who">Request waits on Today</p>
+          <p className="sim__who">Request waits in the Approve queue</p>
           <p>For {step.approver ?? 'an approver'} to approve in the portal.</p>
         </>
       );

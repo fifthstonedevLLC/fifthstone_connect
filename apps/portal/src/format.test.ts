@@ -6,7 +6,6 @@ import {
   leadProgress,
   slotLabel,
   statusLine,
-  summarySentence,
   urgencyLabel,
   whenLabel,
   workLabel,
@@ -16,6 +15,10 @@ import {
   settingsErrorMessage,
   templateProblemMessage,
   urgentFlag,
+  guidanceFor,
+  needLine,
+  waitingLabel,
+  sentence,
 } from './format';
 import type { LeadCard } from './types';
 
@@ -32,6 +35,8 @@ const card = (over: Partial<LeadCard>): LeadCard => ({
   slotStart: null,
   requestState: null,
   urgent: false,
+  waitingSince: '2026-11-05T14:15:00Z',
+  next: { need: 'their_move', action: null },
   ...over,
 });
 
@@ -79,18 +84,7 @@ describe('statusLine', () => {
   });
 });
 
-describe('summarySentence', () => {
-  it('names who needs the owner', () => {
-    expect(summarySentence([])).toBe('Nothing needs you right now.');
-    expect(summarySentence([card({})])).toBe('Marcus T. needs you.');
-    expect(summarySentence([card({ name: 'Dana M.' }), card({})])).toBe(
-      'Dana M. and Marcus T. need you.',
-    );
-    expect(summarySentence([card({ name: 'A' }), card({ name: 'B' }), card({}), card({})])).toBe(
-      'A, B and 2 others need you.',
-    );
-  });
-
+describe('displayName', () => {
   it('falls back to the phone number for unknown callers', () => {
     expect(displayName(card({ name: null }))).toBe('(319) 555-0142');
   });
@@ -173,5 +167,33 @@ describe('settings', () => {
     expect(savedAtLabel('2026-11-05T20:10:00Z', TZ)).toBe('Nov 5, 2:10 PM');
     expect(settingsErrorMessage('stale_version')).toMatch(/changed since you opened them/);
     expect(settingsErrorMessage('something_else')).toMatch(/Nothing was saved/);
+  });
+});
+
+describe('the work list', () => {
+  it('says how long a lead has waited, in plain units', () => {
+    const now = new Date('2026-11-05T18:00:00Z');
+    expect(waitingLabel('2026-11-05T17:35:00Z', now)).toBe('Waiting 25 min');
+    expect(waitingLabel('2026-11-05T15:00:00Z', now)).toBe('Waiting 3 h');
+    expect(waitingLabel('2026-11-04T17:00:00Z', now)).toBe('Waiting 1 day');
+    expect(waitingLabel('2026-11-01T18:00:00Z', now)).toBe('Waiting 4 days');
+  });
+
+  it('describes a nudged lead without guessing whether the text arrived', () => {
+    expect(needLine(card({ state: 'quiet', next: { need: 'nudged', action: null } }), TZ)).toBe(
+      'Nudged. Waiting for a reply.',
+    );
+  });
+
+  it('says a booking is moved by a person, never automatically', () => {
+    expect(guidanceFor('reschedule')).toMatch(/never moved automatically/);
+    expect(guidanceFor('something_new')).toBeNull();
+  });
+});
+
+describe('sentence', () => {
+  it('never doubles the period after an initial', () => {
+    expect(sentence('Next: Ben C.')).toBe('Next: Ben C.');
+    expect(sentence('Next: Ivy')).toBe('Next: Ivy.');
   });
 });

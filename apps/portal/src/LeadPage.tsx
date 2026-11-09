@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link, useLocation, useParams } from 'react-router';
 import { ApiError, apiPost } from './api';
 import {
   authorLabel,
   durationLabel,
   formatPhone,
+  guidanceFor,
   leadProgress,
   longSlotLabel,
   reasonLabel,
@@ -39,7 +40,7 @@ const ACTION_LABEL: Record<PortalAction, { idle: string; busy: string }> = {
   approve: { idle: 'Approve', busy: 'Approving…' },
   suggest_time: { idle: 'Suggest another time', busy: 'Sending…' },
   nudge: { idle: 'Nudge', busy: 'Nudging…' },
-  close: { idle: 'Close lead', busy: 'Closing…' },
+  close: { idle: 'Close out', busy: 'Closing…' },
 };
 
 /** Which actions make sense for the lead as the server reported it. */
@@ -67,12 +68,14 @@ function Actions({
 }) {
   const [confirmingClose, setConfirmingClose] = useState(false);
   const actions = availableActions(lead);
+  // The next step already offers the call when that is what the lead needs.
+  const callIsNext = lead.next.action === 'call' || lead.next.action === 'reschedule';
 
   if (confirmingClose) {
     return (
-      <div className="decision__actions" role="group" aria-label="Confirm closing this lead">
+      <div className="decision__actions" role="group" aria-label="Confirm closing out this contact">
         <p className="decision__confirm">
-          Close this lead? Follow-ups stop, and any held time is released.
+          Close out this contact? Follow-ups stop, and any held time is released.
         </p>
         <button
           className="button button--primary"
@@ -96,6 +99,7 @@ function Actions({
 
   return (
     <div className="decision__actions">
+      <NextControl lead={lead} />
       {actions.map((action, i) => (
         <button
           key={action}
@@ -107,9 +111,62 @@ function Actions({
           {busy === action ? ACTION_LABEL[action].busy : ACTION_LABEL[action].idle}
         </button>
       ))}
-      <CallLink lead={lead} />
+      {!callIsNext && <CallLink lead={lead} />}
     </div>
   );
+}
+
+/** Moves to a part of this lead (the reply box, the voicemail) and puts keyboard focus there. */
+function goTo(id: string) {
+  const target = document.getElementById(id);
+  if (!target) return;
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  target.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+  const focusable = target.querySelector<HTMLElement>('input, button, a[href]');
+  (id === 'reply' && focusable ? focusable : target).focus({ preventScroll: true });
+}
+
+/**
+ * The lead's next step as the leading button, matched to what it needs (the server's `next`):
+ * a call, a reply, the voicemail. Approve and Nudge are already the leading actions.
+ */
+function NextControl({ lead }: { lead: LeadDetail }) {
+  const { name, phone } = lead.contact;
+  const who = name ?? (phone ? formatPhone(phone) : 'them');
+  switch (lead.next.action) {
+    case 'call':
+    case 'reschedule':
+      return phone ? (
+        <a className="button button--primary button--cta" href={`tel:${phone}`}>
+          <Icon name="phone" size={16} />
+          {lead.next.action === 'reschedule' ? `Call ${who} to reschedule` : `Call ${who}`}
+        </a>
+      ) : null;
+    case 'reply':
+      return lead.replyOptions.length > 0 ? (
+        <button
+          className="button button--primary button--cta"
+          type="button"
+          onClick={() => goTo('reply')}
+        >
+          <Icon name="reply" size={16} />
+          Reply
+        </button>
+      ) : null;
+    case 'listen':
+      return lead.voicemail ? (
+        <button
+          className="button button--primary button--cta"
+          type="button"
+          onClick={() => goTo('voicemail')}
+        >
+          <Icon name="voicemail" size={16} />
+          Listen to the voicemail
+        </button>
+      ) : null;
+    default:
+      return null;
+  }
 }
 
 function PendingWork({ lead }: { lead: LeadDetail }) {
@@ -179,6 +236,7 @@ function Decision({
   } else if (lead.state === 'needs_attention') {
     eyebrow = 'This one needs a person';
     headline = reasonLabel(lead.reason);
+    detail = guidanceFor(lead.reason);
   } else if (lead.state === 'closed') {
     eyebrow = 'Closed';
     headline = lead.reason === 'closed_in_portal' ? 'Closed in the portal' : 'Closed';
@@ -205,6 +263,8 @@ function Decision({
     <section
       className={done ? 'decision decision--done' : 'decision'}
       aria-labelledby="decision-heading"
+      id="decision"
+      tabIndex={-1}
     >
       <div className="decision__body">
         <h2 id="decision-heading" className="decision__eyebrow">
@@ -274,6 +334,7 @@ function ReplyBox({
   return (
     <form
       className="reply"
+      id="reply"
       onSubmit={(e) => {
         e.preventDefault();
         void send();
@@ -334,7 +395,7 @@ function Conversation({
       </h2>
 
       {voicemail && (
-        <div className="voicemail">
+        <div className="voicemail" id="voicemail" tabIndex={-1}>
           <p className="meta">
             Voicemail from {name} · {durationLabel(voicemail.durationSeconds)} ·{' '}
             {whenLabel(voicemail.receivedAt, timeZone)}
@@ -455,13 +516,45 @@ function firstContact(lead: LeadDetail, timeZone: string): string {
   return `First contact ${when === 'Yesterday' ? 'yesterday' : when} by ${ARRIVED[lead.source]}`;
 }
 
-export function LeadPage({ me, accessToken }: { me: Me; accessToken: string }) {
-  const { id = '' } = useParams();
+export interface LeadWorkspaceProps {
+  id: string;
+  me: Me;
+  accessToken: string;
+  /** The full page uses a page title; the work list's side pane uses a section heading. */
+  heading?: 'h1' | 'h2';
+  /** Follow `#reply`, `#voicemail` or `#decision` in the address once the lead loads. */
+  followHash?: boolean;
+  /** Called after an action or reply the server accepted, so a list beside it can refresh. */
+  onChanged?: (leadId: string) => void;
+}
+
+/**
+ * One lead, all of it: progress, the decision and its actions, the conversation with template
+ * replies, and the details. Used by the lead page and by the work list's side pane.
+ */
+export function LeadWorkspace({
+  id,
+  me,
+  accessToken,
+  heading = 'h1',
+  followHash = false,
+  onChanged,
+}: LeadWorkspaceProps) {
   const path = `/portal/leads/${encodeURIComponent(id)}`;
   const [lead, reload, replace] = useApi<LeadDetail>(path, accessToken);
+  const location = useLocation();
+
+  // A deep link (#reply, #voicemail, #decision) lands on that part of the lead with keyboard
+  // focus there, once the lead has loaded.
+  const ready = lead.status === 'ready';
+  useEffect(() => {
+    if (!followHash || !ready || !location.hash) return;
+    goTo(location.hash.slice(1));
+  }, [followHash, ready, location.hash]);
   const [busy, setBusy] = useState<PortalAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const timeZone = me.tenant.timezone;
+  const Title = heading;
 
   // Show the server's answer, never an assumed result: on success the response is the lead as it
   // now stands; on a refusal nothing was written, so reload to show the latest.
@@ -470,6 +563,7 @@ export function LeadPage({ me, accessToken }: { me: Me; accessToken: string }) {
     setActionError(null);
     try {
       replace(await apiPost<LeadDetail>(`${path}/actions`, accessToken, { action }));
+      onChanged?.(id);
     } catch (error) {
       const code = error instanceof ApiError ? error.code : 'error';
       setActionError(actionErrorMessage(code));
@@ -479,81 +573,89 @@ export function LeadPage({ me, accessToken }: { me: Me; accessToken: string }) {
     }
   }
 
+  if (lead.status === 'loading') {
+    return (
+      <p className="page__note" role="status">
+        Loading this contact…
+      </p>
+    );
+  }
+
+  if (lead.status === 'error') {
+    return (
+      <div className="notice" role="alert">
+        <p>
+          {lead.error.status === 404 || lead.error.status === 400
+            ? "We couldn't find this contact. It may belong to a different business, or the link is wrong."
+            : "We couldn't load this contact. Nothing has changed; this is only the view."}
+        </p>
+        {lead.error.status !== 404 && lead.error.status !== 400 && (
+          <button className="button" type="button" onClick={reload}>
+            Try again
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const steps = leadProgress(lead.data.source, lead.data.state);
+  return (
+    <>
+      <header className="page__header">
+        <Title className={heading === 'h1' ? 'page__title' : 'pane__title'}>
+          {lead.data.contact.name ??
+            (lead.data.contact.phone ? formatPhone(lead.data.contact.phone) : 'Unknown caller')}
+        </Title>
+        <p className="page__lede">{firstContact(lead.data, timeZone)}</p>
+      </header>
+
+      {steps && (
+        <ol className="steps__list steps__list--lead" aria-label="Progress">
+          {steps.map((step) => (
+            <li
+              key={step.label}
+              className={`step step--${step.status}`}
+              aria-current={step.status === 'current' ? 'step' : undefined}
+            >
+              <span className="step__dot" aria-hidden="true" />
+              {step.label}
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <Decision lead={lead.data} timeZone={timeZone} run={run} busy={busy} error={actionError} />
+
+      <div className="lead-columns">
+        <Conversation
+          lead={lead.data}
+          timeZone={timeZone}
+          reply={
+            <ReplyBox
+              lead={lead.data}
+              onSent={(updated) => {
+                replace(updated);
+                onChanged?.(id);
+              }}
+              accessToken={accessToken}
+              path={path}
+            />
+          }
+        />
+        <Details lead={lead.data} />
+      </div>
+    </>
+  );
+}
+
+export function LeadPage({ me, accessToken }: { me: Me; accessToken: string }) {
+  const { id = '' } = useParams();
   return (
     <div className="page page--narrow">
       <Link className="back-link" to="/">
-        ← Back to Today
+        ← Back to Front Desk
       </Link>
-
-      {lead.status === 'loading' && (
-        <p className="page__note" role="status">
-          Loading this lead…
-        </p>
-      )}
-
-      {lead.status === 'error' && (
-        <div className="notice" role="alert">
-          <p>
-            {lead.error.status === 404 || lead.error.status === 400
-              ? "We couldn't find this lead. It may belong to a different business, or the link is wrong."
-              : "We couldn't load this lead. Nothing has changed; this is only the view."}
-          </p>
-          {lead.error.status !== 404 && lead.error.status !== 400 && (
-            <button className="button" type="button" onClick={reload}>
-              Try again
-            </button>
-          )}
-        </div>
-      )}
-
-      {lead.status === 'ready' && (
-        <>
-          <header className="page__header">
-            <h1 className="page__title">
-              {lead.data.contact.name ??
-                (lead.data.contact.phone ? formatPhone(lead.data.contact.phone) : 'Unknown caller')}
-            </h1>
-            <p className="page__lede">{firstContact(lead.data, timeZone)}</p>
-          </header>
-
-          {(() => {
-            const steps = leadProgress(lead.data.source, lead.data.state);
-            return steps ? (
-              <ol className="steps__list steps__list--lead" aria-label="Progress">
-                {steps.map((step) => (
-                  <li
-                    key={step.label}
-                    className={`step step--${step.status}`}
-                    aria-current={step.status === 'current' ? 'step' : undefined}
-                  >
-                    <span className="step__dot" aria-hidden="true" />
-                    {step.label}
-                  </li>
-                ))}
-              </ol>
-            ) : null;
-          })()}
-
-          <Decision
-            lead={lead.data}
-            timeZone={timeZone}
-            run={run}
-            busy={busy}
-            error={actionError}
-          />
-
-          <div className="lead-columns">
-            <Conversation
-              lead={lead.data}
-              timeZone={timeZone}
-              reply={
-                <ReplyBox lead={lead.data} onSent={replace} accessToken={accessToken} path={path} />
-              }
-            />
-            <Details lead={lead.data} />
-          </div>
-        </>
-      )}
+      <LeadWorkspace key={id} id={id} me={me} accessToken={accessToken} followHash />
     </div>
   );
 }
