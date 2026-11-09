@@ -1,7 +1,8 @@
-import { formatSlot, renderTemplate } from '@fsc/conversation';
+import { formatSlot } from '@fsc/conversation';
 import { withTenant, type DbClient } from '../db.js';
 import { keyId, type JobHandler } from '../handler.js';
 import { holdFor, mirrorHoldIntoMock } from './holds.js';
+import { queueTemplateText } from './texts.js';
 
 /**
  * `confirm_calendar_event:<request id>`, queued when someone approves a request (planAction).
@@ -127,60 +128,20 @@ export const confirmCalendarEvent: JobHandler = async (job, ctx) => {
  * as queued with its own `send_text` job. Not queued when texting is not live, the customer opted
  * out (rule 12), or the template cannot be filled; the booking stands either way.
  */
+/** The confirmation text, from the business's `confirmation` template (none while texting is off). */
 async function queueConfirmationText(
   client: DbClient,
   tenantId: string,
   leadId: string,
   slotStart: Date,
 ): Promise<void> {
-  const { rows } = await client.query<{
-    template: string | null;
-    business: string;
-    timezone: string;
-    texting: string | null;
-    opted_out: boolean;
-  }>(
-    `select tt.content ->> 'confirmation' as template, t.name as business, t.timezone,
-            (select state from app.service_registrations
-              where tenant_id = $1 and service = 'texting') as texting,
-            exists (select 1 from app.opt_outs o
-                     where o.tenant_id = $1 and o.phone = c.phone and o.opted_in_at is null)
-              as opted_out
-       from app.leads l
-       join app.contacts c on c.tenant_id = l.tenant_id and c.id = l.contact_id
-       join app.tenants t on t.id = l.tenant_id
-       left join app.tenant_templates tt on tt.tenant_id = l.tenant_id and tt.active
-      where l.tenant_id = $1 and l.id = $2`,
-    [tenantId, leadId],
+  const tz = await client.query<{ timezone: string }>(
+    'select timezone from app.tenants where id = $1',
+    [tenantId],
   );
-  const f = rows[0];
-  if (!f?.template || f.texting !== 'approved' || f.opted_out) return;
-  const rendered = renderTemplate(f.template, {
-    business: f.business,
-    slot: formatSlot(slotStart, f.timezone),
+  const timeZone = tz.rows[0]?.timezone;
+  if (!timeZone) return;
+  await queueTemplateText(client, tenantId, leadId, 'confirmation', {
+    slot: formatSlot(slotStart, timeZone),
   });
-  if (!rendered.ok) return;
-
-  await client.query(
-    `insert into app.conversations (tenant_id, lead_id, channel) values ($1, $2, 'sms')
-     on conflict (tenant_id, lead_id, channel) do nothing`,
-    [tenantId, leadId],
-  );
-  const message = await client.query<{ id: string }>(
-    `insert into app.messages
-       (tenant_id, conversation_id, direction, author, template_key, body, delivery_status)
-     select $1, c.id, 'out', 'template', 'confirmation', $3, 'queued'
-       from app.conversations c
-      where c.tenant_id = $1 and c.lead_id = $2 and c.channel = 'sms'
-     returning id`,
-    [tenantId, leadId, rendered.body],
-  );
-  const messageId = message.rows[0]?.id;
-  if (!messageId) return;
-  await client.query(
-    `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key)
-     values ($1, $2, 'send_text', $3)
-     on conflict (tenant_id, idempotency_key) do nothing`,
-    [tenantId, leadId, `send_text:${messageId}`],
-  );
 }

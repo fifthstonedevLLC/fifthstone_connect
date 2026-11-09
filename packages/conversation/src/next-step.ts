@@ -75,6 +75,9 @@ const CALL_BACK_REASONS = new Set([
   'private_details',
   'complaint',
   'delivery_failed',
+  // The offer step could not offer times: a person calls to agree one.
+  'no_open_times',
+  'calendar_unavailable',
 ]);
 
 export function nextStep(lead: NextStepFacts): NextStep {
@@ -89,7 +92,9 @@ export function nextStep(lead: NextStepFacts): NextStep {
           return { need: 'reschedule', action: 'reschedule', urgent };
         case 'cancellation':
           return { need: 'cancel', action: call, urgent };
+        // A price question, or an answer to the offered times that is not a number from it.
         case 'price_question':
+        case 'unclear_reply':
           return { need: 'reply', action: 'reply', urgent };
         case 'voicemail_to_review':
           return { need: 'listen', action: 'listen', urgent };

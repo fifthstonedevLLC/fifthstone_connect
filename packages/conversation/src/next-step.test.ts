@@ -65,6 +65,15 @@ describe('nextStep', () => {
     });
   });
 
+  it('sends offer-step problems to the right person action', () => {
+    expect(nextStep(lead({ reason: 'no_open_times' }))).toMatchObject({ need: 'call_back' });
+    expect(nextStep(lead({ reason: 'calendar_unavailable' }))).toMatchObject({ need: 'call_back' });
+    expect(nextStep(lead({ reason: 'unclear_reply' }))).toMatchObject({
+      need: 'reply',
+      action: 'reply',
+    });
+  });
+
   it('opens the lead instead of offering a call when there is no number', () => {
     expect(nextStep(lead({ reason: 'complaint', hasPhone: false })).action).toBe('open');
   });

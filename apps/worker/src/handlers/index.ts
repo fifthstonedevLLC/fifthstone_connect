@@ -1,6 +1,8 @@
 import type { JobHandler } from '../handler.js';
 import { confirmCalendarEvent } from './confirm-calendar-event.js';
+import { handleOfferReply } from './handle-offer-reply.js';
 import { releaseHold } from './release-hold.js';
+import { sendSlotOffer } from './send-slot-offer.js';
 import { sendText } from './send-text.js';
 import { syncCalendar } from './sync-calendar.js';
 
@@ -13,4 +15,6 @@ export const HANDLERS: Record<string, JobHandler> = {
   send_text: sendText,
   release_hold: releaseHold,
   sync_calendar: syncCalendar,
+  send_slot_offer: sendSlotOffer,
+  handle_offer_reply: handleOfferReply,
 };
