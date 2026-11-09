@@ -2,6 +2,7 @@ import type { PhoneEvent } from '@fsc/connectors';
 import { isOptIn, isOptOut, planInbound } from '@fsc/conversation';
 import type { LeadState } from '@fsc/core';
 import type { DbClient } from '../db.js';
+import { recordApproverReply } from './approver-replies.js';
 
 /**
  * Records one inbound phone event for a business and does what `planInbound` says, inside the
@@ -36,6 +37,21 @@ export async function recordPhoneEvent(
   );
   const eventId = inserted.rows[0]?.id;
   if (!eventId) return 'duplicate';
+
+  // A text from one of the business's approvers is an answer to an approval request, not a
+  // customer: it never starts a lead.
+  if (event.kind === 'text_received') {
+    const approver = await client.query<{ id: string }>(
+      `select id from app.portal_users
+        where tenant_id = $1 and mobile = $2 and approves_requests and disabled_at is null`,
+      [tenantId, event.from],
+    );
+    const approverId = approver.rows[0]?.id;
+    if (approverId) {
+      await recordApproverReply(client, tenantId, approverId, event);
+      return 'recorded';
+    }
+  }
 
   const contact = await client.query<{ id: string }>(
     `insert into app.contacts (tenant_id, phone) values ($1, $2)

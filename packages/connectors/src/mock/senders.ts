@@ -1,7 +1,7 @@
 import type { EmailSendInput, EmailSender } from '../email.js';
 import { fail, ok } from '../result.js';
 import { countSegments, type SmsSendInput, type SmsSendResult, type SmsSender } from '../sms.js';
-import { MockConnector } from './base.js';
+import { MockConnector, type MockOptions } from './base.js';
 import { assertMockEmail, assertMockPhone } from './guards.js';
 
 export type SentText = SmsSendInput & SmsSendResult;
@@ -10,8 +10,8 @@ export type SentText = SmsSendInput & SmsSendResult;
 export class MockSmsSender extends MockConnector implements SmsSender {
   readonly sent: SentText[] = [];
 
-  constructor() {
-    super('SM');
+  constructor(options: MockOptions = {}) {
+    super('SM', options);
   }
 
   async send(input: SmsSendInput) {
@@ -32,8 +32,8 @@ export type SentEmail = EmailSendInput & { messageRef: string };
 export class MockEmailSender extends MockConnector implements EmailSender {
   readonly sent: SentEmail[] = [];
 
-  constructor() {
-    super('EM');
+  constructor(options: MockOptions = {}) {
+    super('EM', options);
   }
 
   async send(input: EmailSendInput) {

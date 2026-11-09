@@ -17,7 +17,11 @@ const log = pino({ level: config.LOG_LEVEL });
 const pool = createPool(config.DATABASE_URL);
 const ctx = {
   pool,
-  connectors: { sms: new MockSmsSender(), calendar: new MockCalendar() },
+  // A run token keeps mock message and calendar references unique across worker restarts.
+  connectors: (() => {
+    const runId = Date.now().toString(36);
+    return { sms: new MockSmsSender({ runId }), calendar: new MockCalendar({ runId }) };
+  })(),
   now: () => new Date(),
 };
 const once = process.argv.includes('--once');
