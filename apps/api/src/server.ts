@@ -1,3 +1,4 @@
+import { MockPhoneEvents } from '@fsc/connectors/mock';
 import { buildApp, REDACT_PATHS } from './app.js';
 import { supabaseTokenVerifier } from './auth.js';
 import { loadConfig } from './config.js';
@@ -9,6 +10,8 @@ const pool = createPool(config.DATABASE_URL);
 const app = buildApp({
   pool,
   verifyToken: supabaseTokenVerifier(config.SUPABASE_URL),
+  // MOCK until Phase 4: accepts only mock-signed webhooks with 555-01xx numbers (rule 5).
+  phoneEvents: new MockPhoneEvents(),
   logger: { level: config.LOG_LEVEL, redact: { paths: REDACT_PATHS, censor: '[redacted]' } },
 });
 

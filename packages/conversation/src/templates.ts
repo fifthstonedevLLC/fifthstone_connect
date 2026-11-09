@@ -227,6 +227,27 @@ export function renderTemplate(
   return missing.size > 0 ? { ok: false, missing: [...missing] } : { ok: true, body: body.trim() };
 }
 
+/**
+ * Leaves out the sentences that use AI-filled placeholders (`need`, `question`) when no analysis
+ * has filled them yet, so the owner's other sentences still go out unchanged. Nothing is added
+ * or reworded; a required placeholder is never dropped this way.
+ */
+export function withoutUnfilled(
+  template: string,
+  values: MessageValues,
+  optional: readonly Placeholder[] = ['need', 'question'],
+): string {
+  const unfilled = optional.filter((name) => values[name as keyof MessageValues] === undefined);
+  if (unfilled.length === 0) return template;
+  return (
+    template
+      // Sentences end in punctuation, or after a placeholder that is a sentence itself ("{question}").
+      .split(/(?<=[.!?])\s+|(?<=\})\s+(?=[A-Z])/)
+      .filter((sentence) => !unfilled.some((name) => sentence.includes(`{${name}}`)))
+      .join(' ')
+  );
+}
+
 /** "Thu, Nov 12 at 2:00 PM" in the business's time zone, the way `{slot}` reads in a text. */
 export function formatSlot(start: Date, timeZone: string): string {
   const day = new Intl.DateTimeFormat('en-US', {

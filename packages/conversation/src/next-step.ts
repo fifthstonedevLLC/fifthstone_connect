@@ -92,9 +92,11 @@ export function nextStep(lead: NextStepFacts): NextStep {
           return { need: 'reschedule', action: 'reschedule', urgent };
         case 'cancellation':
           return { need: 'cancel', action: call, urgent };
-        // A price question, or an answer to the offered times that is not a number from it.
+        // A price question, an answer to the offered times that is not a number from it, or a
+        // new text a person has not read yet.
         case 'price_question':
         case 'unclear_reply':
+        case 'new_message':
           return { need: 'reply', action: 'reply', urgent };
         case 'voicemail_to_review':
           return { need: 'listen', action: 'listen', urgent };

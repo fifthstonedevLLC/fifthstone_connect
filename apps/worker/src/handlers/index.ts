@@ -4,6 +4,7 @@ import { handleOfferReply } from './handle-offer-reply.js';
 import { releaseHold } from './release-hold.js';
 import { sendSlotOffer } from './send-slot-offer.js';
 import { sendText } from './send-text.js';
+import { sendTextBack } from './send-text-back.js';
 import { syncCalendar } from './sync-calendar.js';
 
 /**
@@ -17,4 +18,5 @@ export const HANDLERS: Record<string, JobHandler> = {
   sync_calendar: syncCalendar,
   send_slot_offer: sendSlotOffer,
   handle_offer_reply: handleOfferReply,
+  send_text_back: sendTextBack,
 };

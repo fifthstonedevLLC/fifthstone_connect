@@ -1,4 +1,4 @@
-import { renderTemplate, type MessageValues } from '@fsc/conversation';
+import { renderTemplate, withoutUnfilled, type MessageValues } from '@fsc/conversation';
 import type { DbClient } from '../db.js';
 
 export type QueuedText =
@@ -17,6 +17,8 @@ export async function queueTemplateText(
   leadId: string,
   templateKey: string,
   values: Omit<MessageValues, 'business'>,
+  /** Leave out sentences whose AI-filled placeholders have no value yet (`withoutUnfilled`). */
+  options: { leaveOutUnfilled?: boolean } = {},
 ): Promise<QueuedText> {
   const { rows } = await client.query<{
     template: string | null;
@@ -41,7 +43,8 @@ export async function queueTemplateText(
   if (!f?.template) return { ok: false, reason: 'no_template' };
   if (f.texting !== 'approved') return { ok: false, reason: 'texting_not_live' };
   if (f.opted_out) return { ok: false, reason: 'opted_out' };
-  const rendered = renderTemplate(f.template, { ...values, business: f.business });
+  const template = options.leaveOutUnfilled ? withoutUnfilled(f.template, values) : f.template;
+  const rendered = renderTemplate(template, { ...values, business: f.business });
   if (!rendered.ok) return { ok: false, reason: 'missing_values' };
 
   await client.query(
