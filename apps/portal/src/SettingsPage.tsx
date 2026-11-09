@@ -45,8 +45,8 @@ const GROUPS: { title: string; note: string; keys: (keys: string[]) => string[] 
         .sort((a, b) => order(a) - order(b) || a.localeCompare(b)),
   },
   {
-    title: 'Replies you can send from a lead',
-    note: 'You or your staff pick one on a lead page.',
+    title: 'Replies you can send to a contact',
+    note: 'You or your staff pick one on a contact page.',
     keys: (keys) => keys.filter((k) => k.startsWith(REPLY_PREFIX)).sort(),
   },
   {

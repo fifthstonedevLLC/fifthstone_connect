@@ -1,0 +1,10 @@
+{
+  "name": "@fsc/scheduling",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scheduling rules: open windows from business hours, busy time, open slots and day capacity.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

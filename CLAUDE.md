@@ -40,13 +40,16 @@ every table.
 
 Phase 2 in progress: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/today` and
 `/portal/leads/:id`, `POST /portal/leads/:id/actions`, `POST /portal/leads/:id/replies` and the
-settings routes with Supabase sign-in and tenant-scoped transactions; `apps/portal` (React + Vite) shows Today and the
-lead page, takes actions (approve, suggest another time, nudge, close; owners and staff, decision 25) and sends template-only replies (decision 26). Each action writes
+settings routes with Supabase sign-in and tenant-scoped transactions; `apps/portal` (React + Vite) shows the Front Desk (work queues)
+with counts (`nextStep` and `QUEUES` in `packages/conversation`), the selected lead open beside
+the list, and the full lead page, takes actions (approve, suggest another time, nudge, close; owners and staff, decision 25) and sends template-only replies (decision 26). Each action writes
 the decision, its jobs and an audit event in one transaction; the portal shows only
 server-confirmed state (decision 24). The Templates & AI page edits versioned templates and AI
 settings with restore (`/portal/settings`; owner-only writes, decision 27); template rules live in
 `packages/conversation/src/templates.ts` and run on the server before any version is written.
-The Setup page walks the owner through onboarding (business type, details for texting
+The Calendar page shows the week: business hours, held and booked appointments, busy time synced
+from the connected calendar (Google, Outlook or Acuity; start and end only) and the open time left
+(`/portal/calendar`, `packages/scheduling`; the sync itself is mocked until Phase 4). The Setup page walks the owner through onboarding (business type, details for texting
 registration, hours and calendar, template review, approvers) and a labeled simulated test call
 (decision 29); nothing is sent to a vendor. That completes the Phase 2 screens; next: Phase 3,
 the engine on mocks (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
@@ -86,12 +89,12 @@ tests (which must run there, not skip). Mock data only; no secrets.
 | `packages/connectors`   | Interfaces to Twilio, SES, calendars, transcription and models; labeled mocks in `@fsc/connectors/mock`           |
 | `packages/workflow`     | Durable jobs, retries, idempotency, orchestration                                                                 |
 | `packages/conversation` | Portal actions, reply and template rules (built); conversation state, clarifying questions, playbooks (Phase 3)   |
-| `packages/scheduling`   | Slot calculation, urgency rules, tentative holds (planned)                                                        |
+| `packages/scheduling`   | Open windows from business hours, open slots, day capacity (built); urgency rules, tentative holds (Phase 3)      |
 | `packages/ai`           | Prompt compiler, locked safety layer, AI output schemas (planned)                                                 |
 | `packages/mock-data`    | Mock tenants, users and scenarios (MOCK_DATA.md) and the seed generator; local only                               |
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, portal API, health                                 |
 | `apps/worker`           | Executes jobs: texts, emails, calendar writes, transcription, reminders, hold expiry                              |
-| `apps/portal`           | Owner portal (React + Vite): sign-in, Today, lead pages, Templates & AI; calls only `apps/api`, not the DB        |
+| `apps/portal`           | Owner portal (React + Vite): sign-in, Front Desk, lead pages, Templates & AI, Setup; calls only `apps/api`        |
 | `apps/operator`         | Guarded CLI for onboarding, status, replay, export/delete                                                         |
 | `apps/marketing`        | Static marketing page (local review only, not deployed)                                                           |
 | `supabase/migrations`   | Every schema change; the only SQL that reaches a hosted database (ledger: `docs/engineering/MIGRATION_LEDGER.md`) |
@@ -120,7 +123,7 @@ functions, return output.
 8. **Docs change with code.** Update `docs/changelog.md` and affected docs in the same change.
 9. **Out of scope → `docs/product/BACKLOG.md`**, not code. SCOPE.md v0.2 is the list of what
    is in. Excluded: automatic rescheduling of existing customers, multi-technician routing,
-   billing/payments, quoting, Outlook and field-service sync (Jobber, Housecall Pro), full
+   billing/payments, quoting, field-service sync (Jobber, Housecall Pro), full
    mailbox access, texting from a tenant's existing number, clinical or other regulated data,
    promotional texts, visual workflow editor.
 10. **AI understands; templates promise.** AI may transcribe, summarize, classify, find

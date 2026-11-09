@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router';
 import { serviceLabel } from './format';
 import { Icon, type IconName } from './icons';
@@ -6,11 +6,12 @@ import type { Me, ServiceState } from './types';
 
 /** Screens not built yet are listed but disabled, with a reason, rather than hidden. */
 const NAV: { label: string; icon: IconName; to?: string }[] = [
-  { label: 'Today', icon: 'today', to: '/' },
-  { label: 'Leads', icon: 'leads' },
-  { label: 'Calendar', icon: 'calendar' },
+  { label: 'Front Desk', icon: 'leads', to: '/' },
+  { label: 'Contacts', icon: 'contacts' },
+  { label: 'Calendar', icon: 'calendar', to: '/calendar' },
   { label: 'Templates & AI', icon: 'templates', to: '/templates' },
   { label: 'Setup', icon: 'setup', to: '/setup' },
+  { label: 'Reporting', icon: 'reporting' },
   { label: 'Settings', icon: 'settings' },
 ];
 
@@ -58,64 +59,86 @@ export function Shell({
     .join('')
     .slice(0, 2)
     .toUpperCase();
+  // On a phone the menu folds behind one button, so the work list is the first thing on screen.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const close = () => setMenuOpen(false);
 
   return (
     <div className="shell">
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <aside className="sidebar" aria-label="Sidebar">
-        <div className="brand">
-          <span className="brand__tile">
-            <img src="/fifth-stone-dev-icon.png" alt="" width={427} height={355} />
-          </span>
-          <span className="brand__text">
-            <span className="brand__name">Fifth Stone Connect</span>
-            <span className="brand__sub">{me.tenant.name}</span>
-          </span>
+      <aside className={menuOpen ? 'sidebar sidebar--open' : 'sidebar'} aria-label="Sidebar">
+        <div className="sidebar__top">
+          <div className="brand">
+            <span className="brand__tile">
+              <img src="/fifth-stone-dev-icon.png" alt="" width={427} height={355} />
+            </span>
+            <span className="brand__text">
+              <span className="brand__name">Fifth Stone Connect</span>
+              <span className="brand__sub">{me.tenant.name}</span>
+            </span>
+          </div>
+          <button
+            className="menu-toggle"
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls="sidebar-menu"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <Icon name={menuOpen ? 'close' : 'menu'} size={18} />
+            {menuOpen ? 'Close' : 'Menu'}
+          </button>
         </div>
 
-        <nav aria-label="Portal">
-          <ul className="nav">
-            {NAV.map((item) =>
-              item.to ? (
-                <li key={item.label}>
-                  <NavLink to={item.to} end className="nav__link">
-                    <Icon name={item.icon} />
-                    {item.label}
-                  </NavLink>
-                </li>
-              ) : (
-                <li key={item.label}>
-                  <span className="nav__link nav__link--soon" aria-disabled="true">
-                    <Icon name={item.icon} />
-                    {item.label}
-                    <span className="nav__soon">Soon</span>
-                  </span>
-                </li>
-              ),
-            )}
-          </ul>
-        </nav>
+        <div id="sidebar-menu" className="sidebar__menu">
+          <nav aria-label="Portal">
+            <ul className="nav">
+              {NAV.map((item) =>
+                item.to ? (
+                  <li key={item.label}>
+                    <NavLink to={item.to} end className="nav__link" onClick={close}>
+                      <Icon name={item.icon} />
+                      {item.label}
+                    </NavLink>
+                  </li>
+                ) : (
+                  <li key={item.label}>
+                    <span className="nav__link nav__link--soon" aria-disabled="true">
+                      <Icon name={item.icon} />
+                      {item.label}
+                      <span className="nav__soon">Soon</span>
+                    </span>
+                  </li>
+                ),
+              )}
+            </ul>
+          </nav>
 
-        <div className="sidebar__footer">
-          <h2 className="sidebar__heading">Services</h2>
-          <ul className="services">
-            <ServiceRow label="Texting" state={me.services.texting} />
-            <ServiceRow label="Email" state={me.services.email} />
-            <ServiceRow label="Calendar" state={me.calendar?.status ?? 'disconnected'} />
-          </ul>
-          <div className="account">
-            <span className="account__avatar" aria-hidden="true">
-              {initials}
-            </span>
-            <span className="account__text">
-              <span className="account__name">{me.displayName}</span>
-              <span className="account__role">{me.role === 'owner' ? 'Owner' : 'Staff'}</span>
-            </span>
-            <button className="icon-button" type="button" onClick={onSignOut} aria-label="Sign out">
-              <Icon name="signOut" />
-            </button>
+          <div className="sidebar__footer">
+            <h2 className="sidebar__heading">Services</h2>
+            <ul className="services">
+              <ServiceRow label="Texting" state={me.services.texting} />
+              <ServiceRow label="Email" state={me.services.email} />
+              <ServiceRow label="Calendar" state={me.calendar?.status ?? 'disconnected'} />
+            </ul>
+            <div className="account">
+              <span className="account__avatar" aria-hidden="true">
+                {initials}
+              </span>
+              <span className="account__text">
+                <span className="account__name">{me.displayName}</span>
+                <span className="account__role">{me.role === 'owner' ? 'Owner' : 'Staff'}</span>
+              </span>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={onSignOut}
+                aria-label="Sign out"
+              >
+                <Icon name="signOut" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>

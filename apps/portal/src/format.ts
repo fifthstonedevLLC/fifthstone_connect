@@ -76,7 +76,10 @@ export function urgentFlag(card: LeadCard): string {
 }
 
 /** The one-line status under each card. */
-export function statusLine(card: Omit<LeadCard, 'urgent'>, timeZone: string): string {
+export function statusLine(
+  card: Omit<LeadCard, 'urgent' | 'waitingSince' | 'next'>,
+  timeZone: string,
+): string {
   const urgency = card.urgency ? ` · ${URGENCY_LABEL[card.urgency]}` : '';
   const slot = card.slotStart ? slotLabel(card.slotStart, timeZone) : null;
   const byState: Partial<Record<LeadState, string>> = {
@@ -121,15 +124,7 @@ export function serviceLabel(state: ServiceState): string {
   return SERVICE_LABEL[state];
 }
 
-/** The sentence under "Today": who needs the owner, by name, in plain words. */
-export function summarySentence(needsYou: LeadCard[]): string {
-  if (needsYou.length === 0) return 'Nothing needs you right now.';
-  const names = needsYou.map(displayName);
-  if (names.length === 1) return `${names[0]} needs you.`;
-  if (names.length <= 3) return `${names.slice(0, -1).join(', ')} and ${names.at(-1)} need you.`;
-  return `${names.slice(0, 2).join(', ')} and ${names.length - 2} others need you.`;
-}
-
+/** The sentence under "Front Desk": who needs the owner, by name, in plain words. */
 const FIRST_STEP: Record<LeadSource, string> = {
   missed_call: 'Missed call',
   text: 'Text received',
@@ -235,12 +230,12 @@ const ACTION_ERROR: Record<string, string> = {
     'This request was already decided, maybe by someone else. Showing the latest.',
   hold_expired:
     "The held time has lapsed, so it can't be approved. Suggest another time or call them.",
-  not_quiet: "This lead isn't quiet anymore. Showing the latest.",
-  already_nudged: 'A nudge has already gone to this person. Each lead gets one.',
+  not_quiet: "This contact isn't quiet anymore. Showing the latest.",
+  already_nudged: 'A nudge has already gone to this person. Only one is sent per request.',
   opted_out: 'This person replied STOP, so no more texts can go to them. Call them instead.',
-  already_closed: 'This lead is already closed.',
+  already_closed: 'This contact is already closed out.',
   booked: "A booked job can't be closed here; it is on your calendar.",
-  lead_closed: 'This lead is closed, so no replies can go out.',
+  lead_closed: 'This contact is closed out, so no replies can go out.',
   not_reply_template: "That template can't be sent as a reply.",
   template_not_found: 'That reply template no longer exists. Pick another.',
   unfilled_placeholder: "That template has a blank we can't fill for this customer.",
@@ -322,4 +317,53 @@ const SETTINGS_ERROR: Record<string, string> = {
 /** Plain words for a refused settings save or restore. Nothing was written when one is refused. */
 export function settingsErrorMessage(code: string): string {
   return SETTINGS_ERROR[code] ?? "That didn't work. Nothing was saved; try again.";
+}
+
+/** "Waiting 25 min", "Waiting 3 h", "Waiting 2 days": how long a lead has waited on a person. */
+export function waitingLabel(iso: string, now = new Date()): string {
+  const minutes = Math.max(1, Math.round((now.getTime() - new Date(iso).getTime()) / 60_000));
+  if (minutes < 60) return `Waiting ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Waiting ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `Waiting ${days} ${days === 1 ? 'day' : 'days'}`;
+}
+
+/** The tile's need line: the status in plain words, from what the server reported. */
+export function needLine(card: LeadCard, timeZone: string): string {
+  if (card.next.need === 'nudged') return 'Nudged. Waiting for a reply.';
+  return statusLine(card, timeZone);
+}
+
+const GUIDANCE: Record<string, string> = {
+  emergency: 'Call now.',
+  safety_message_sent: 'The fixed safety message went out first. Call now.',
+  crisis_message_sent:
+    'A fixed crisis message pointing to 988 and 911 went out. Call as soon as you can.',
+  reschedule:
+    'Call to agree a new time, then move it on your calendar. Bookings are never moved automatically.',
+  cancellation:
+    'Call to confirm, then take it off your calendar. Nothing is cancelled automatically.',
+  price_question: 'Prices only ever come from you. Call, or send one of your reply templates.',
+  voicemail_to_review: "Listen to the voicemail and call back. It wasn't transcribed.",
+  unsure: "We couldn't tell what they need. Listen to the voicemail, or call.",
+  minor: 'They may be under 18. Call to check before booking anything.',
+  not_english: 'Your templates are in English, so a call works best.',
+  hold_expired: 'The held time lapsed before anyone approved it. Call to agree a time.',
+  booking_failed:
+    "The calendar event couldn't be made. Check your calendar connection, then call to confirm the time.",
+  texting_not_live: "No text went out because texting wasn't live yet. Call them.",
+  private_details: 'They shared private details. Call; nothing they wrote is repeated in a text.',
+  complaint: "They're upset. A call works better than a text.",
+  delivery_failed: "The text didn't arrive. Call instead.",
+};
+
+/** What to do about a lead that needs a person, in one sentence; null when there is no advice. */
+export function guidanceFor(reason: string | null): string | null {
+  return (reason && GUIDANCE[reason]) ?? null;
+}
+
+/** Ends text with one period, even when it already ends in an initial ("Next: Ben C."). */
+export function sentence(text: string): string {
+  return text.endsWith('.') ? text : `${text}.`;
 }

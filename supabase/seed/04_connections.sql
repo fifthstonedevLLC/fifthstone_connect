@@ -13,9 +13,9 @@ insert into app.integration_connections (id, tenant_id, type, config, secret_ref
   ('09d81e3a-99e2-56dc-892c-30cbbb9e2e17', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'ses', '{"fromName":"Old Mill Roofing","fromAddress":"hello@mock-old-mill-roofing.example.com"}'::jsonb, null, false);
 
 insert into app.calendar_connections (
-  id, tenant_id, provider, calendar_id, status, secret_ref, connected_at
+  id, tenant_id, provider, calendar_id, status, secret_ref, connected_at, last_synced_at
 ) values
-  ('c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'google', 'MOCK-GCAL-T1', 'connected', 'mock-calendar-t1', now() - interval '20000 minutes'),
-  ('9c7c6d8e-cc79-5571-9599-868f5b2237e1', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'acuity', 'MOCK-GCAL-T2', 'connected', 'mock-calendar-t2', now() - interval '20000 minutes'),
-  ('228fc62f-82ee-57bf-9a05-da58e6f7cb61', '72861613-42bb-5953-b39b-a821a84d3caa', 'google', 'MOCK-GCAL-T3', 'connected', 'mock-calendar-t3', now() - interval '20000 minutes'),
-  ('53903fa0-314b-54a1-8e53-51b19f7e9fcc', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'google', 'MOCK-GCAL-T4', 'disconnected', 'mock-calendar-t4', null);
+  ('c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'google', 'MOCK-GCAL-T1', 'connected', 'mock-calendar-t1', now() - interval '20000 minutes', now() - interval '3 minutes'),
+  ('9c7c6d8e-cc79-5571-9599-868f5b2237e1', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'acuity', 'MOCK-ACUITY-T2', 'connected', 'mock-calendar-t2', now() - interval '20000 minutes', now() - interval '3 minutes'),
+  ('228fc62f-82ee-57bf-9a05-da58e6f7cb61', '72861613-42bb-5953-b39b-a821a84d3caa', 'microsoft', 'MOCK-OUTLOOK-T3', 'connected', 'mock-calendar-t3', now() - interval '20000 minutes', now() - interval '3 minutes'),
+  ('53903fa0-314b-54a1-8e53-51b19f7e9fcc', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'google', 'MOCK-GCAL-T4', 'disconnected', 'mock-calendar-t4', null, null);

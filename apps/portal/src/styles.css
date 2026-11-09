@@ -23,7 +23,15 @@
   --action: var(--accent-bronze);
   --action-text: var(--stone-charcoal);
 
+  /* Priority (owner, 2026-11-08): functional only, always shown with its words. Red and amber
+     are tuned for the dark shell (both pass 4.5:1 as text on Stone Slate); green is Sage. */
+  --priority-now: #ff8a80;
+  --priority-soon: #f2c14e;
+  --priority-ok: var(--accent-sage);
+
   --font: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  /* Space Mono is the brand's label face: times and small labels. */
+  --font-mono: 'Space Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
   --radius: 8px;
 }
 
@@ -277,6 +285,35 @@ a {
   border-right: 1px solid var(--panel);
 }
 
+.sidebar__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar__menu {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.menu-toggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
 .nav {
   display: flex;
   flex-direction: column;
@@ -418,8 +455,24 @@ a {
 
 @media (max-width: 879px) {
   .sidebar {
+    gap: 16px;
+    padding: 12px 16px;
     border-right: 0;
     border-bottom: 1px solid var(--panel);
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  .sidebar__menu {
+    display: none;
+    gap: 24px;
+    padding-bottom: 8px;
+  }
+
+  .sidebar--open .sidebar__menu {
+    display: flex;
   }
 
   .main {
@@ -554,122 +607,446 @@ a {
   border: 2px solid var(--accent-bronze);
 }
 
-/* Lanes ------------------------------------------------------------------------------------ */
+/* Queues: the board, the list and the lead beside it -------------------------------------- */
 
-.lanes {
+.page--work {
+  max-width: 1480px;
+}
+
+.board {
   display: flex;
   flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+.board__group {
+  display: flex;
+  flex: 999 1 560px;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.board__group--other {
+  flex: 1 1 240px;
+}
+
+.board__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.queue {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 92px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.queue:hover {
+  border-color: var(--rule);
+}
+
+.queue[aria-pressed='true'] {
+  box-shadow: inset 0 -3px 0 var(--stone-light);
+}
+
+/* A tile takes the colour of its most urgent lead. */
+.queue--now {
+  border-color: var(--priority-now);
+}
+
+.queue--soon {
+  border-color: var(--priority-soon);
+}
+
+.queue--on_track {
+  border-color: var(--priority-ok);
+}
+
+.queue__alert {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--priority-now);
+}
+
+.queue__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.queue__icon {
+  color: var(--accent-bronze);
+}
+
+.queue__count {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.queue__label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.queue__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Act now: the roll-up of every red lead, whatever its task. */
+.queue--lead {
+  grid-column: span 2;
+}
+
+/* An empty queue stays in place, quietly, so the board never jumps around. */
+.queue--empty {
+  background: transparent;
+  border-color: var(--panel);
+}
+
+.queue--empty .queue__icon,
+.queue--empty .queue__count {
+  color: var(--text-muted);
+}
+
+.work {
+  display: flex;
   gap: 24px;
   align-items: flex-start;
 }
 
-.lane {
+.work__list {
   display: flex;
-  flex: 1 1 230px;
+  flex: 1 1 360px;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
 }
 
-.lane__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--rule);
-}
-
-.lane--bronze .lane__head {
-  border-color: var(--accent-bronze);
-}
-
-.lane--sage .lane__head {
-  border-color: var(--accent-sage);
-}
-
-.lane__icon {
-  color: var(--text-muted);
-}
-
-.lane--bronze .lane__icon {
-  color: var(--accent-bronze);
-}
-
-.lane--sage .lane__icon {
-  color: var(--accent-sage);
-}
-
-.lane__title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.lane__empty {
-  padding: 4px 0;
-  font-size: 15px;
-  color: var(--text-muted);
-}
-
-.card {
+.work__head {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+}
+
+.work__count {
+  margin-left: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.work__empty {
   padding: 16px;
+  border: 1px dashed var(--rule);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+}
+
+.work__keys {
+  padding-left: 4px;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-left-width: 4px;
   border-radius: var(--radius);
   background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.card--emergency {
-  border-top: 3px solid var(--accent-bronze);
+.row:hover {
+  border-color: var(--rule);
 }
 
-.card__head {
+.row[aria-current='true'] {
+  outline: 2px solid var(--stone-light);
+  outline-offset: 2px;
+}
+
+/* Priority: a coloured edge on every row, and a full outline when it is red. */
+.row--now {
+  border-color: var(--priority-now);
+}
+
+.row--soon {
+  border-left-color: var(--priority-soon);
+}
+
+.row--on_track {
+  border-left-color: var(--priority-ok);
+}
+
+.priority {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.priority--now {
+  color: var(--priority-now);
+}
+
+.priority--soon {
+  color: var(--priority-soon);
+}
+
+.priority--on_track {
+  color: var(--priority-ok);
+}
+
+.priority--wide {
+  font-size: 13px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.legend li {
+  display: block;
+}
+
+.legend strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.legend__dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.legend__dot--now {
+  background: var(--priority-now);
+}
+
+.legend__dot--soon {
+  background: var(--priority-soon);
+}
+
+.legend__dot--on_track {
+  background: var(--priority-ok);
+}
+
+.row__head {
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
 
-.card__name {
-  font-size: 16px;
+.row__name {
+  font-size: 15px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.card__when {
-  margin-left: auto;
+.row__when {
   flex-shrink: 0;
+  margin-left: auto;
   font-size: 13px;
   color: var(--text-muted);
 }
 
-.card__flag {
+.row__need {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
   font-size: 14px;
-  font-weight: 500;
 }
 
-.card__flag svg {
+.row__need svg {
+  flex: none;
+  margin-top: 3px;
   color: var(--accent-bronze);
 }
 
-.card__summary {
-  font-size: 15px;
-}
-
-.card__status {
+.row__summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
   font-size: 13px;
   color: var(--text-muted);
 }
 
-.card .button {
-  margin-top: 4px;
+.pane {
+  display: flex;
+  flex: 1.6 1 560px;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  padding: 20px 24px 28px;
+  border: 1px solid var(--panel);
+  border-radius: var(--radius);
+}
+
+.pane__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--panel);
+}
+
+.pane__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pane__title {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+@media (min-width: 1100px) {
+  .pane {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 879px) {
+  .board__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* On a phone only queues with work show; Act now always does. */
+  .queue--empty:not(.queue--lead) {
+    display: none;
+  }
+
+  .queue {
+    min-height: 76px;
+  }
+}
+
+.button--cta {
+  gap: 8px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+/* Confirmations after a tap, announced politely and gone after a few seconds. */
+.toast-region {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  z-index: 20;
+  width: min(560px, calc(100% - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 16px;
+  border-radius: var(--radius);
+  background: var(--stone-light);
+  color: var(--stone-charcoal);
+  font-size: 15px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  animation: toast-in 180ms ease-out;
+}
+
+.toast > span {
+  flex: 1;
+}
+
+.toast--error {
+  border: 1px solid var(--accent-bronze);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.toast__link {
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.toast .icon-button {
+  color: inherit;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+  }
+
+  .toast {
+    animation: none;
   }
 }
 
@@ -691,15 +1068,6 @@ a {
 
 .back-link:hover {
   color: var(--text);
-}
-
-.card__name a {
-  text-decoration: none;
-}
-
-.card__name a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 /* Per-lead progress: each dot shows its own status, so the fixed Bronze segment is off. */
@@ -1055,9 +1423,23 @@ a {
   font-weight: 600;
 }
 
-.template__edited {
+.template__edited,
+.field__problem {
   font-size: 13px;
-  color: var(--accent-bronze);
+  color: var(--text);
+}
+
+/* Bronze marks these as decoration only; the words stay white for contrast (brand rule). */
+.template__edited::before,
+.field__problem::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--accent-bronze);
+  vertical-align: middle;
 }
 
 .template__input {
@@ -1315,11 +1697,6 @@ a {
   grid-column: 1 / -1;
 }
 
-.field__problem {
-  font-size: 14px;
-  color: var(--accent-bronze);
-}
-
 .setup-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1473,4 +1850,927 @@ a {
   align-self: flex-start;
   border: 1px solid var(--rule);
   background: transparent;
+}
+
+/* Calendar: the week as the business works it ------------------------------------------- */
+
+.page--calendar {
+  max-width: 1480px;
+  gap: 20px;
+}
+
+.cal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.cal-head__title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-head__range {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.cal-head__nav {
+  display: flex;
+  gap: 8px;
+}
+
+.cal-head__nav .button {
+  min-width: 44px;
+  min-height: 40px;
+}
+
+/* The connected calendar, in one quiet line. */
+.cal-sync {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.cal-sync strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.cal-sync a {
+  color: var(--text);
+}
+
+.cal-sync__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-sage);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-sage) 22%, transparent);
+}
+
+.cal-sync--off .cal-sync__dot {
+  background: var(--stone-river);
+  box-shadow: none;
+}
+
+.cal-sync--warn .cal-sync__dot {
+  background: var(--priority-soon);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--priority-soon) 22%, transparent);
+}
+
+.cal-sync__when,
+.cal-sync__mock {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.cal-sync__mock {
+  padding: 1px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+}
+
+/* The week strip: each day's name, date and how full it is. */
+.week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day-tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'name jobs'
+    'date date'
+    'meter meter'
+    'free free';
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 12px 10px;
+  border: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.day-tile:hover {
+  border-color: var(--rule);
+}
+
+.day-tile[aria-pressed='true'] {
+  border-color: var(--stone-light);
+}
+
+.day-tile:focus-visible {
+  outline: 2px solid var(--stone-light);
+  outline-offset: 2px;
+}
+
+/* Today wears the bronze edge, as a fill, never as text. */
+.day-tile--today::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--accent-bronze);
+}
+
+.day-tile--closed,
+.day-tile--past {
+  background: transparent;
+}
+
+.day-tile__name {
+  grid-area: name;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.day-tile__jobs {
+  grid-area: jobs;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.day-tile__date {
+  grid-area: date;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-tile--past .day-tile__date,
+.day-tile--closed .day-tile__date {
+  color: var(--text-muted);
+}
+
+.day-tile__meter {
+  grid-area: meter;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--stone-light) 10%, transparent);
+  overflow: hidden;
+}
+
+.day-tile__taken {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-sage);
+}
+
+.day-tile__free {
+  grid-area: free;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cal-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* The week grid. Open hours are lit; the rest of the day stays dark. */
+.cal-grid {
+  border: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--panel) 55%, var(--page));
+  overflow: hidden;
+}
+
+.cal-grid__head,
+.cal-grid__body {
+  display: grid;
+  grid-template-columns: 72px repeat(7, minmax(0, 1fr));
+}
+
+.cal-grid__head {
+  border-bottom: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
+}
+
+.cal-grid__day {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 10px 8px;
+  border-left: 1px solid color-mix(in srgb, var(--rule) 35%, transparent);
+}
+
+.cal-grid__dayname {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.cal-grid__daynum {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-grid__day--today .cal-grid__daynum {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border-radius: 14px;
+  background: var(--accent-bronze);
+  color: var(--stone-charcoal);
+}
+
+.cal-grid__body {
+  height: calc(var(--cal-height) + 24px);
+  padding: 12px 0;
+}
+
+.cal-grid__spine {
+  position: relative;
+}
+
+.cal-grid__hour {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.cal-col {
+  position: relative;
+  border-left: 1px solid color-mix(in srgb, var(--rule) 35%, transparent);
+}
+
+.cal-col__rule {
+  position: absolute;
+  inset-inline: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--rule) 22%, transparent);
+}
+
+.cal-col__lit {
+  position: absolute;
+  inset-inline: 0;
+  background: color-mix(in srgb, var(--stone-light) 6%, transparent);
+}
+
+/* The part of today that has gone by. */
+.cal-col__gone {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  background: color-mix(in srgb, var(--page) 45%, transparent);
+  pointer-events: none;
+}
+
+.cal-col__closed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  writing-mode: vertical-rl;
+}
+
+.cal-col__items {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cal-block {
+  position: absolute;
+  inset-inline: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.3;
+  overflow: hidden;
+}
+
+.cal-col--past .cal-block {
+  opacity: 0.55;
+}
+
+.cal-block__link {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: calc(100% + 16px);
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  height: calc(100% + 10px);
+  margin: -5px -8px;
+  padding: 5px 8px;
+  border-radius: inherit;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cal-block__link:focus-visible {
+  outline: 2px solid var(--stone-light);
+  outline-offset: -2px;
+}
+
+.cal-block__time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.cal-block__title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-block__meta {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-muted);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.cal-block__state {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--stone-light);
+}
+
+.cal-block--short .cal-block__link {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* Booked: solid, with the sage edge. */
+.cal-block--booked {
+  background: color-mix(in srgb, var(--accent-sage) 30%, var(--panel));
+  box-shadow: inset 3px 0 0 var(--accent-sage);
+}
+
+.cal-block--booked:hover,
+.cal-block--confirming:hover,
+.cal-block--held:hover {
+  filter: brightness(1.12);
+}
+
+.cal-block--selected {
+  outline: 2px solid var(--stone-light);
+  outline-offset: 1px;
+  z-index: 3;
+}
+
+/* Approved, the calendar event still being written. */
+.cal-block--confirming {
+  background: color-mix(in srgb, var(--accent-sage) 16%, var(--panel));
+  box-shadow: inset 0 0 0 1px var(--accent-sage);
+}
+
+/* Pencilled in: a customer's pick held until someone approves it. */
+.cal-block--held {
+  border: 1.5px dashed var(--accent-bronze);
+  background: color-mix(in srgb, var(--accent-bronze) 10%, var(--page));
+}
+
+/* The owner's own events: busy time only, never their titles. */
+.cal-block--busy {
+  border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--stone-sand) 14%, transparent) 0 5px,
+    transparent 5px 11px
+  );
+  color: var(--text-muted);
+}
+
+.cal-block--busy .cal-block__title {
+  color: var(--stone-light);
+  font-weight: 500;
+}
+
+/* Open stretches: the time customers can be offered. */
+.cal-block--open {
+  border: 1px dotted color-mix(in srgb, var(--accent-sage) 75%, transparent);
+  background: color-mix(in srgb, var(--accent-sage) 7%, transparent);
+}
+
+.cal-block--open .cal-block__title {
+  color: var(--accent-sage);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Now: a bronze line across today. */
+.cal-now {
+  position: absolute;
+  inset-inline: -1px 0;
+  z-index: 2;
+  height: 2px;
+  background: var(--accent-bronze);
+  pointer-events: none;
+}
+
+.cal-now::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-bronze);
+}
+
+/* The time sits in the hour column, beside the line. */
+.cal-now__label {
+  position: absolute;
+  right: 4px;
+  z-index: 2;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent-bronze);
+  color: var(--stone-charcoal);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cal-block {
+    animation: cal-in 220ms ease-out both;
+  }
+
+  @keyframes cal-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+}
+
+/* The rail beside the week. */
+.cal-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.rail-card__kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.rail-card__empty {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.rail-card--next {
+  box-shadow: inset 0 3px 0 var(--accent-sage);
+}
+
+.rail-next__until {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.rail-next__when {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rail-next__name {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.rail-next__summary {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Navigate, Call and Open contact. */
+.appt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.appt-actions .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  text-decoration: none;
+}
+
+.appt-actions__alt {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.appt-actions__alt:hover {
+  color: var(--text);
+}
+
+/* The chosen job, at the top of the rail. */
+.appt-detail {
+  box-shadow: inset 0 0 0 1px var(--stone-light);
+}
+
+.appt-detail--held {
+  box-shadow: none;
+  border: 1.5px dashed var(--accent-bronze);
+}
+
+.appt-detail__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -6px -8px -2px 0;
+}
+
+.appt-detail__name {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.appt-detail__address {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.appt-detail__address svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.appt-detail__address--none {
+  color: var(--text-muted);
+}
+
+.rail-held {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail-held__link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1.5px dashed var(--accent-bronze);
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.rail-held__link:hover {
+  background: color-mix(in srgb, var(--accent-bronze) 8%, transparent);
+}
+
+.rail-held__name {
+  font-weight: 600;
+}
+
+.rail-held__when {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rail-held__expires {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.rail-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.rail-stats dt {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rail-stats dd {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 4px 0 0;
+  padding: 0 4px;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cal-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-legend__swatch {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.cal-legend__swatch--booked {
+  background: color-mix(in srgb, var(--accent-sage) 30%, var(--panel));
+  box-shadow: inset 3px 0 0 var(--accent-sage);
+}
+
+.cal-legend__swatch--held {
+  border: 1.5px dashed var(--accent-bronze);
+}
+
+.cal-legend__swatch--busy {
+  border: 1px solid var(--rule);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--stone-sand) 30%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.cal-legend__swatch--open {
+  border: 1px dotted var(--accent-sage);
+  background: color-mix(in srgb, var(--accent-sage) 10%, transparent);
+}
+
+/* One day as a list, on phones. */
+.agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agenda__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.agenda__hours {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.agenda__empty {
+  color: var(--text-muted);
+}
+
+.agenda__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agenda__item {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.agenda__time {
+  padding-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.agenda__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.agenda__title {
+  font-weight: 600;
+}
+
+.agenda__toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: -10px -12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agenda__toggle:focus-visible {
+  outline: 2px solid var(--stone-light);
+  outline-offset: -2px;
+}
+
+.agenda__more {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--rule) 60%, transparent);
+}
+
+.agenda__meta {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.agenda__state {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--stone-light);
+}
+
+.agenda__item--booked .agenda__body {
+  background: color-mix(in srgb, var(--accent-sage) 30%, var(--panel));
+  box-shadow: inset 3px 0 0 var(--accent-sage);
+}
+
+.agenda__item--confirming .agenda__body {
+  background: color-mix(in srgb, var(--accent-sage) 16%, var(--panel));
+  box-shadow: inset 0 0 0 1px var(--accent-sage);
+}
+
+.agenda__item--held .agenda__body {
+  border: 1.5px dashed var(--accent-bronze);
+}
+
+.agenda__item--busy .agenda__body {
+  border: 1px solid var(--rule);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--stone-sand) 14%, transparent) 0 5px,
+    transparent 5px 11px
+  );
+}
+
+.agenda__item--open .agenda__body {
+  border: 1px dotted var(--accent-sage);
+  background: color-mix(in srgb, var(--accent-sage) 7%, transparent);
+}
+
+.agenda__item--open .agenda__title {
+  color: var(--accent-sage);
+}
+
+@media (max-width: 1099px) {
+  .cal-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cal-rail {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 879px) {
+  .week-strip {
+    gap: 4px;
+  }
+
+  .day-tile {
+    grid-template-areas:
+      'name'
+      'date'
+      'meter';
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding: 8px 4px;
+    text-align: center;
+  }
+
+  .day-tile__name {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+
+  .day-tile__date {
+    font-size: 20px;
+  }
+
+  .day-tile__meter {
+    width: 100%;
+  }
+
+  .day-tile__free,
+  .day-tile__jobs {
+    display: none;
+  }
 }

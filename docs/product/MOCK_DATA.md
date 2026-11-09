@@ -50,20 +50,20 @@ ranges.
 Planned seed files, in load order (reference data such as the playbook catalog lives in
 migrations, not here):
 
-| File                               | Contents                                                     |
-| ---------------------------------- | ------------------------------------------------------------ |
-| `01_tenants_and_config.sql`        | Tenants, tenant config, service registrations                |
-| `02_portal_users.sql`              | Local Auth users and `portal_users` (local sign-in only)     |
-| `03_templates_and_ai_settings.sql` | Template and AI settings versions, including history         |
-| `04_connections.sql`               | Integration and calendar connections (mock secret names)     |
-| `05_contacts.sql`                  | Contacts                                                     |
-| `06_inbound_events.sql`            | Inbound events, including duplicates and ignored events      |
-| `07_leads_calls_voicemails.sql`    | Leads, calls, voicemails, AI analyses                        |
-| `08_conversations_messages.sql`    | Conversations and messages                                   |
-| `09_requests_and_holds.sql`        | Requests and calendar holds                                  |
-| `10_jobs.sql`                      | Jobs and attempts in every status                            |
-| `11_email_events_and_opt_outs.sql` | Delivery, bounce and complaint events; opt-outs              |
-| `12_audit_events.sql`              | Audit trail for settings changes, approvals and provisioning |
+| File                               | Contents                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `01_tenants_and_config.sql`        | Tenants, tenant config, service registrations                                |
+| `02_portal_users.sql`              | Local Auth users and `portal_users` (local sign-in only)                     |
+| `03_templates_and_ai_settings.sql` | Template and AI settings versions, including history                         |
+| `04_connections.sql`               | Integration and calendar connections (mock secret names)                     |
+| `05_contacts.sql`                  | Contacts                                                                     |
+| `06_inbound_events.sql`            | Inbound events, including duplicates and ignored events                      |
+| `07_leads_calls_voicemails.sql`    | Leads, calls, voicemails, AI analyses                                        |
+| `08_conversations_messages.sql`    | Conversations and messages                                                   |
+| `09_requests_and_holds.sql`        | Requests, calendar holds, and busy times synced from each connected calendar |
+| `10_jobs.sql`                      | Jobs and attempts in every status                                            |
+| `11_email_events_and_opt_outs.sql` | Delivery, bounce and complaint events; opt-outs                              |
+| `12_audit_events.sql`              | Audit trail for settings changes, approvals and provisioning                 |
 
 ## Volume
 
@@ -83,12 +83,12 @@ migrations, not here):
 
 ## Tenants
 
-| ID  | Slug                    | Name                    | Playbook   | Status   | Connect number  | Texting  | Email     | Calendar          |
-| --- | ----------------------- | ----------------------- | ---------- | -------- | --------------- | -------- | --------- | ----------------- |
-| T1  | `mock-riverbend`        | Riverbend Heating & Air | HVAC       | active   | +1 319 555-0100 | approved | submitted | Google, connected |
-| T2  | `mock-northline-ink`    | Northline Ink           | Tattoo     | active   | +1 319 555-0101 | approved | approved  | Acuity, connected |
-| T3  | `mock-prairie-path`     | Prairie Path Counseling | Clinic     | active   | +1 319 555-0102 | approved | approved  | Google, connected |
-| T4  | `mock-old-mill-roofing` | Old Mill Roofing        | Contractor | disabled | +1 319 555-0103 | released | disabled  | disconnected      |
+| ID  | Slug                    | Name                    | Playbook   | Status   | Connect number  | Texting  | Email     | Calendar           |
+| --- | ----------------------- | ----------------------- | ---------- | -------- | --------------- | -------- | --------- | ------------------ |
+| T1  | `mock-riverbend`        | Riverbend Heating & Air | HVAC       | active   | +1 319 555-0100 | approved | submitted | Google, connected  |
+| T2  | `mock-northline-ink`    | Northline Ink           | Tattoo     | active   | +1 319 555-0101 | approved | approved  | Acuity, connected  |
+| T3  | `mock-prairie-path`     | Prairie Path Counseling | Clinic     | active   | +1 319 555-0102 | approved | approved  | Outlook, connected |
+| T4  | `mock-old-mill-roofing` | Old Mill Roofing        | Contractor | disabled | +1 319 555-0103 | released | disabled  | disconnected       |
 
 - **T1** is the main demo tenant: hours Mon–Fri 7:00–18:00 and Sat 8:00–12:00 (America/Chicago);
   approvals by text from the owner; emergency definition covers no heat, gas smell and active

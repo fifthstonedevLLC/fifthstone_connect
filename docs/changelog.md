@@ -12,6 +12,192 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-09 — Calendar: the week as the business works it (on mocks)
+
+**Change** (owner: a calendar of events that syncs with Google, Outlook and other popular
+calendars, read and write; build the concept before the connections):
+
+- **Outlook is in scope** (decision 30). Google Calendar, Outlook / Microsoft 365 and Acuity,
+  read and write. SCOPE.md, CLAUDE.md rule 9 and BACKLOG.md are updated; Apple iCloud and other
+  calendars are a backlog line until Google and Outlook work. Real connections stay in Phase 4.
+- **`packages/scheduling`** (new, no dependencies):
+  - `openWindows` turns weekly business hours into open time, day by day, in the business's time
+    zone, through daylight-saving changes;
+  - `subtractBusy` takes busy time out; `openSlots` cuts whole jobs on the hour grid, never in the
+    past; `dayCapacity` says how full each day is.
+  - Business hours decide what can ever be offered; the connected calendar can only close time.
+- **Migration `20261109181751_calendar_sync`:** `microsoft` as a calendar provider,
+  `calendar_connections.last_synced_at`, and `app.calendar_busy`, the busy times the worker's sync
+  will store. Only start and end are kept, never titles, attendees or descriptions of the owner's
+  events. RLS and grants like every tenant table; pgTAP `calendar_sync.test.sql`.
+- **`GET /portal/calendar?from=&days=`:** a week from Monday by default. Hours, held and booked
+  appointments, synced busy time, open slots (from now) and day capacity. It reads only the
+  database; no calendar provider is called (rule 1).
+- **The Calendar page** (`/calendar`, in the sidebar):
+  - **Week strip:** each day's date, a meter of how full it is, and the free time left. Today
+    wears the bronze edge.
+  - **Week grid:** open hours are lit and the rest of the day stays dark. Booked jobs are solid
+    with a Sage edge; times a customer picked but nobody has approved are pencilled in with a
+    dashed Bronze outline; the owner's own events are hatched "Busy" blocks; what is left shows
+    as open stretches ("Open 9 AM–2 PM, 5 times to offer"). A Bronze line marks now, and the part
+    of today that has gone by is dimmed. Times are set in Space Mono, the brand's label face.
+  - **Rail:** Next up (with a countdown, Call and Open contact), Pencilled in (each hold with when
+    it is released, linking to the Approve queue), the week's totals, and a key.
+  - **Phones:** the strip becomes seven day buttons and the chosen day is an agenda list.
+  - **Choosing a job** (owner request) outlines it and shows its details at the top of the rail:
+    when, what, the address, and **Navigate**, Call and Open contact. Navigate opens driving
+    directions in the phone's maps app: Apple Maps on an iPhone or Mac (with a "Use Google Maps"
+    link beside it), Google Maps everywhere else. It uses the maps apps' public links, so nothing
+    is set up and only the address is sent, when the person taps. Jobs without an address (studio
+    and clinic visits) show no Navigate. Next up has the same buttons. On a phone the job opens in
+    place in the day list. Escape or choosing the job again closes it.
+  - The sync line names the calendar, says it is two-way and when it last synced, and is labelled
+    "Sample sync" (rule 5). Nothing on the page moves a job (rule 14).
+- **Mock data:** Prairie Path now uses Outlook. Riverbend, Northline and Prairie Path have busy
+  times on their calendars, seeded after requests and skipping any that overlap an appointment,
+  as the real sync must skip events and holds this service wrote itself (a Phase 4 rule).
+- **Fonts:** Space Mono (owner-supplied brand font) is now loaded with Archivo from Google Fonts.
+  No new npm dependencies; `@fsc/scheduling` is a workspace package.
+
+**Test evidence:** `npm run check`: 259 passed (1 skipped locally without the anon key);
+`npm run db:test`: 114 passed across 9 files; portal build 569 kB. New tests: scheduling (12),
+calendar display rules and directions links (10), API calendar routes (5) and pgTAP `calendar_sync` (9). In the in-app
+browser as Carla: the week of 9–15 November with Tom H. booked Monday, Ana G. Tuesday and Marcus
+T. pencilled in Wednesday; next and previous week; at 375 px the agenda for Wednesday, with no
+sideways scroll. Mock data only; the sync is simulated.
+
+## 2026-11-09 — Portal: the Leads board is now the Front Desk
+
+**Change** (owner: "Leads" reads like sales opportunities, not service requests; the name should
+be relevant and not "Dashboard"):
+
+- The main page and its sidebar item are named **Front Desk**: where calls, texts and emails land
+  and get worked. It fits every playbook (HVAC, contractors, tattoo, clinics).
+- `LeadsPage.tsx` is renamed `FrontDeskPage.tsx` (component `FrontDeskPage`), so it no longer
+  sits next to `LeadPage.tsx` (one lead) with a one-letter difference. `App.tsx` imports it.
+- The lead page's back link reads "Back to Front Desk"; Setup says requests wait "in the Approve
+  queue on the Front Desk".
+- On screen, "lead" is now **contact** everywhere (owner: "lead" sounds like sales). The close
+  button reads "Close out" ("Close contact" reads like proximity), and the one-nudge message says
+  "Only one is sent per request".
+- **Tiles sort by priority** (owner): Act now stays first, then every queue holding a red
+  (urgent) contact, then amber, then quiet queues, each group in its usual order. Tiles reorder
+  as priorities change. As Carla at 1400 px: Act now, Call back, Review and Follow up on the first
+  row; Approve, Reply and Listen next.
+- The route stays `/`, and code, API routes and database names keep "lead" as the domain noun.
+- **Contacts and Reporting** are in the sidebar as "Soon" (owner, 2026-11-09), like Calendar and
+  Settings. Both are in `docs/product/BACKLOG.md` with what they should hold and what to settle
+  first (call-recording consent, clinic minimum data, which measures to report).
+
+**Test evidence:** typecheck, format and tests pass (232 passed, 1 skipped locally without the anon
+key); portal build 548 kB. In the in-app browser as Carla: the sidebar and title read Front Desk,
+and a lead page links "Back to Front Desk". Mock data only.
+
+## 2026-11-08 — Portal: Leads as work queues, with the lead open beside the list
+
+**Change** (owner feedback, in two rounds: the dashboard should not read as "today only", should
+say exactly what each lead needs, and should work like a queue-based workflow tool with counts;
+then: drop informal copy such as "Your move" and merge redundant queues):
+
+- **"Today" is now "Leads", a queue board.**
+  - One tile per queue, each with a count.
+  - **Act now** comes first and opens by default: every red lead (someone may be at risk, or it
+    has waited over a day), whatever its task. If it is empty, the first queue with work opens.
+  - **Task queues:** Approve, Reply, Call back (urgent calls included, at the top), Reschedule or
+    cancel, Listen, Review, Follow up; then Waiting on customer and Booked, set apart. Every lead
+    is in exactly one task queue.
+  - An earlier draft had a "Needs you" roll-up and a separate "Call now" queue beside the red
+    level, which said the same thing three ways; both were folded into Act now. The "Your move /
+    Not your move" headings are gone (the groups keep plain screen-reader labels, "Needs action"
+    and "No action needed").
+  - Empty queues stay in place but dimmed, so the board doesn't jump around. On a phone they are
+    hidden.
+  - The disabled "Leads (Soon)" item is gone.
+- **List and lead side by side.** Choosing a queue lists its leads in working order. Choosing a
+  lead opens all of it beside the list without leaving the page: progress, the decision and every
+  action, template replies, the conversation and details.
+  - The pane shows "1 of 4 in Act now", with Previous, Next and Full page.
+  - The lead page is now `LeadWorkspace`, shared by the full page and the pane.
+- **Working order** (`orderForQueue`):
+  - **Queues that need action:** most urgent first, then longest waiting.
+  - **Waiting on customer:** the most recent first.
+  - **Booked:** the soonest appointment first.
+- **Rows** show each lead's need with an icon, how long it has waited, and a one-line summary.
+  Emergency and crisis leads carry the bronze top edge.
+- **The lead's next step leads its decision box,** matched to what it needs: "Call Ava T. to
+  reschedule", "Reply" (to the reply templates), "Listen to the voicemail". Approve and Nudge
+  remain the leading actions where they apply. A lead that needs a person also says what to do
+  (`guidanceFor`), for example "Bookings are never moved automatically" (CLAUDE.md rule 14).
+- **Working faster:**
+  - **Keyboard:** ↑ ↓ (or j/k) move through the list, and Home/End jump to either end.
+  - **Counts:** they update after every action.
+  - **Auto-advance:** when a lead leaves the queue (approved, nudged, closed), the next one opens
+    with a short message: "Dee H. is closed. Next: Ben C."
+  - **Refresh:** the list refreshes quietly every 30 s while visible, and when the tab comes back
+    into view. A lead the worker books moves to Booked by itself.
+  - **Deep links:** the queue and lead are in the address (`?queue=approve&lead=…`), so links
+    and Back work.
+- **Shared, tested rules** (`packages/conversation`):
+  - `nextStep`: each lead's need and its one fitting action.
+  - `QUEUES`, `inQueue` (Act now asks `priorityOf`; the rest match needs), `queueFor`,
+    `isOwnerQueue` and `orderForQueue`. `OWNER_NEEDS` in `next-step.ts` lists the needs that are
+    the business's to act on.
+  - The API returns `next` on every list card and on the lead page, with `waitingSince` and
+    whether a nudge is queued. The portal never guesses (decision 24).
+- **Phones:**
+  - The sidebar folds behind a Menu button.
+  - Queues show two to a row.
+  - Choosing a queue brings its list into view.
+  - Tapping a lead opens its full page.
+- **Priority colours** (owner request: red, yellow, green outlines that get the owner's
+  attention). `priorityOf` in `packages/conversation/src/priority.ts` decides each lead's level
+  from its need, whether someone may be at risk, and how long it has waited:
+  - **Act now (red):** someone may be at risk, or a lead needing action has waited over a day.
+    The row is fully outlined in red, and a task tile shows "2 urgent". Inside the Act now queue
+    the rows drop the repeated chip.
+  - **Soon (amber):** any other lead that needs a response. The row has an amber edge.
+  - **On track (green, the brand Sage):** waiting on the customer, confirming or booked.
+  - Tiles take the colour of their most urgent lead, and the side pane shows the level and why
+    ("Act now · Someone may be at risk", "Soon · Needs a response", "On track · No action
+    needed").
+  - A legend explains the three levels, and every level is shown with its words, never colour
+    alone. Screen readers hear "Call back, 4 leads, 2 urgent".
+  - A lead turns red on its own once it has waited too long; the list refreshes every 30 s.
+  - Selection is now a light ring, so it can't be confused with a priority colour.
+  - The colours are recorded in the style guide as functional only.
+- **Brand fixes:**
+  - The template "Edited" tag and the Setup field notes used bronze text, which the brand guide
+    reserves for fills and decoration. They are now white with a bronze dot.
+  - The unused lane and card styles are removed, as are the five-step strip and the summary
+    sentence under the title (owner: cleaner without them; both are in git history).
+- Setup now says requests wait "in the Approve queue".
+
+**Test evidence:** `npm run check`: 232 passed (1 skipped locally without the anon key). New tests:
+
+- `nextStep` (7), the queue rules (7): every need in exactly one task queue, Act now holds only
+  red leads, urgent calls file under Call back, links, and the three working orders; and the
+  priority rule (4).
+- Portal wording: waiting labels, the nudged line, guidance, single periods after initials.
+
+API suite with the anon key, 44 of 44. The list test checks the next step for Marcus (approve),
+Dana (call now), Ivy (reply), Sam (nudge) and Priya (their move). The lead test checks Marcus's
+next step.
+
+In the in-app browser as Rhett:
+
+- **Approve queue:** approved Marcus from the pane. Approve went to 0 and Booked to 3, with
+  "Marcus T. moved to Booked. Approve is clear."
+- **Needs you** (before the merge): ↓ ↓ moved the list and pane to "3 of 9".
+- **After the merge, as Carla:** Act now opened first with Dana, Greg, Rosa and Sam; Call back
+  showed "2 urgent"; no "Your move" or "Their move" text anywhere on the page.
+- **Follow up:** Nudge moved Sam to Waiting on customer.
+- **Call back:** closing Dee opened Ben.
+- **At 375 px:** no sideways scroll, empty queues hidden, and tapping a lead opens its page.
+
+The smooth scroll to the list on phones could not be watched in the test pane; the instant
+scroll works. The local database was reset afterwards. The portal bundle is 547 kB. Mock data
+only.
+
 ## 2026-11-05 — Phase 2: onboarding screens with a simulated test call
 
 **Change**

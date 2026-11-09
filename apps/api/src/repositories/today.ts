@@ -1,4 +1,4 @@
-import { isUrgent, urgentFirst } from '@fsc/conversation';
+import { nextStep, urgentFirst, type Need, type NextAction } from '@fsc/conversation';
 import { LANE_STATES, type LeadState, type Urgency } from '@fsc/core';
 import type { DbClient } from '../db.js';
 
@@ -19,6 +19,10 @@ export interface LeadCard {
   requestState: 'pending' | 'approved' | 'changed' | null;
   /** An emergency, safety or crisis lead: shown first and flagged. */
   urgent: boolean;
+  /** When the lead entered its current state: how long it has been waiting (ISO 8601). */
+  waitingSince: string;
+  /** What it needs from a person, and the one action that fits (`nextStep`). */
+  next: { need: Need; action: NextAction | null };
 }
 
 export type Lanes = Record<keyof typeof LANE_STATES, LeadCard[]>;
@@ -34,6 +38,9 @@ interface Row {
   created_at: Date;
   slot_start: Date | null;
   request_state: 'pending' | 'approved' | 'changed' | null;
+  state_changed_at: Date;
+  nudged: boolean;
+  has_voicemail: boolean;
 }
 
 /**
@@ -44,7 +51,13 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
   const laneStates = Object.values(LANE_STATES).flat();
   const { rows } = await client.query<Row>(
     `select l.id, c.display_name, c.phone, l.summary, l.state, l.state_reason, l.urgency,
-            l.created_at, r.slot_start, r.state as request_state
+            l.created_at, l.state_changed_at, r.slot_start, r.state as request_state,
+            exists (select 1 from app.jobs j
+                     where j.tenant_id = l.tenant_id and j.lead_id = l.id
+                       and j.action_type = 'send_nudge' and j.status <> 'skipped') as nudged,
+            exists (select 1 from app.voicemails v
+                      join app.calls k on k.tenant_id = v.tenant_id and k.id = v.call_id
+                     where v.tenant_id = l.tenant_id and k.lead_id = l.id) as has_voicemail
        from app.leads l
        join app.contacts c on c.tenant_id = l.tenant_id and c.id = l.contact_id
        left join lateral (
@@ -75,6 +88,15 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
         (LANE_STATES[k] as readonly LeadState[]).includes(row.state),
       );
     if (!lane) continue;
+    const step = nextStep({
+      state: row.state,
+      reason: row.state_reason,
+      urgency: row.urgency,
+      requestState: row.request_state,
+      hasPhone: row.phone !== null,
+      hasVoicemail: row.has_voicemail,
+      nudged: row.nudged,
+    });
     lanes[lane].push({
       id: row.id,
       name: row.display_name,
@@ -86,7 +108,9 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
       createdAt: row.created_at.toISOString(),
       slotStart: row.slot_start?.toISOString() ?? null,
       requestState: row.request_state,
-      urgent: isUrgent({ state: row.state, urgency: row.urgency, reason: row.state_reason }),
+      urgent: step.urgent,
+      waitingSince: row.state_changed_at.toISOString(),
+      next: { need: step.need, action: step.action },
     });
   }
   // Someone may be at risk: these come first however long ago they came in.

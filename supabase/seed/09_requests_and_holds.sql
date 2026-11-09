@@ -27,9 +27,41 @@ insert into app.calendar_holds (
   ('4298670a-e842-5f36-8db1-70bc6d8e8e38', 'b1cc670c-e099-5600-93ef-793a69d710b0', '67835cc0-ef89-536d-a498-3c67dbd72b1b', 'MOCK-GCAL-T1', 'MOCK-CAL-RB-07', date_trunc('hour', now()) + interval '26 hours', date_trunc('hour', now()) + interval '27 hours', 'converted', now() - interval '60 minutes'),
   ('3813436a-0d1c-55f9-b85f-f3be15d3c6e0', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'a19a09d4-3e4f-587c-9763-894a4b1d7a00', 'MOCK-GCAL-T1', 'MOCK-CAL-RB-14', date_trunc('hour', now()) + interval '28 hours', date_trunc('hour', now()) + interval '29 hours', 'released', now() - interval '60 minutes'),
   ('21a02410-1a11-5c09-9414-86ef338680f8', 'b1cc670c-e099-5600-93ef-793a69d710b0', '5051a67a-8caf-5960-b674-53f615741140', 'MOCK-GCAL-T1', 'MOCK-CAL-RB-15', date_trunc('hour', now()) + interval '20 hours', date_trunc('hour', now()) + interval '21 hours', 'released', now() - interval '60 minutes'),
-  ('e65cad74-950c-57bd-ad09-4b18913174ed', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', '2a3f20ca-beb8-5634-86fd-cead541139f0', 'MOCK-GCAL-T2', 'MOCK-CAL-NL-01', date_trunc('hour', now()) + interval '52 hours', date_trunc('hour', now()) + interval '53 hours', 'active', now() + interval '22 hours'),
-  ('72ed314e-75f4-5898-94b3-eea698691e6e', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', '4fc44351-cb5f-599e-92d2-f72def9063ca', 'MOCK-GCAL-T2', 'MOCK-CAL-NL-07', date_trunc('hour', now()) + interval '30 hours', date_trunc('hour', now()) + interval '31 hours', 'converted', now() - interval '60 minutes'),
-  ('a1509b95-c9bb-5c4c-ab7e-16952c957e09', '72861613-42bb-5953-b39b-a821a84d3caa', 'f93539f6-c65e-5e13-bbf2-d0a04791f3fe', 'MOCK-GCAL-T3', 'MOCK-CAL-PP-02', date_trunc('hour', now()) + interval '44 hours', date_trunc('hour', now()) + interval '45 hours', 'active', now() + interval '22 hours'),
-  ('5ee5ce7e-0973-567b-9e96-16cfd95042c8', '72861613-42bb-5953-b39b-a821a84d3caa', '84c58cf3-6a7e-509c-b285-d14cfb2e92cf', 'MOCK-GCAL-T3', 'MOCK-CAL-PP-05', date_trunc('hour', now()) + interval '20 hours', date_trunc('hour', now()) + interval '21 hours', 'converted', now() - interval '60 minutes'),
+  ('e65cad74-950c-57bd-ad09-4b18913174ed', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', '2a3f20ca-beb8-5634-86fd-cead541139f0', 'MOCK-ACUITY-T2', 'MOCK-CAL-NL-01', date_trunc('hour', now()) + interval '52 hours', date_trunc('hour', now()) + interval '53 hours', 'active', now() + interval '22 hours'),
+  ('72ed314e-75f4-5898-94b3-eea698691e6e', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', '4fc44351-cb5f-599e-92d2-f72def9063ca', 'MOCK-ACUITY-T2', 'MOCK-CAL-NL-07', date_trunc('hour', now()) + interval '30 hours', date_trunc('hour', now()) + interval '31 hours', 'converted', now() - interval '60 minutes'),
+  ('a1509b95-c9bb-5c4c-ab7e-16952c957e09', '72861613-42bb-5953-b39b-a821a84d3caa', 'f93539f6-c65e-5e13-bbf2-d0a04791f3fe', 'MOCK-OUTLOOK-T3', 'MOCK-CAL-PP-02', date_trunc('hour', now()) + interval '44 hours', date_trunc('hour', now()) + interval '45 hours', 'active', now() + interval '22 hours'),
+  ('5ee5ce7e-0973-567b-9e96-16cfd95042c8', '72861613-42bb-5953-b39b-a821a84d3caa', '84c58cf3-6a7e-509c-b285-d14cfb2e92cf', 'MOCK-OUTLOOK-T3', 'MOCK-CAL-PP-05', date_trunc('hour', now()) + interval '20 hours', date_trunc('hour', now()) + interval '21 hours', 'converted', now() - interval '60 minutes'),
   ('fb423868-c827-52bc-8892-649ccd444be0', '056fbffc-9435-54ec-8428-ce0b343f1db9', '5cadbf9b-d89a-549a-9006-d35e5e9b0783', 'MOCK-GCAL-T4', 'MOCK-CAL-OM-01', date_trunc('hour', now()) + interval '-590 hours', date_trunc('hour', now()) + interval '-589 hours', 'converted', now() - interval '60 minutes'),
   ('8d2d8700-0b89-52c4-99d7-ce3b960e19b8', '056fbffc-9435-54ec-8428-ce0b343f1db9', '3f7f91ff-7e88-54e9-8e1e-7bf78edc4d59', 'MOCK-GCAL-T4', 'MOCK-CAL-OM-02', date_trunc('hour', now()) + interval '-540 hours', date_trunc('hour', now()) + interval '-539 hours', 'released', now() - interval '60 minutes');
+
+-- Busy times read from each connected calendar (start and end only), as the sync would store
+-- them. The sync skips events and holds this service wrote itself, so nothing here overlaps a
+-- held or booked request.
+insert into app.calendar_busy (tenant_id, connection_id, starts_at, ends_at, synced_at)
+select v.tenant_id::uuid, v.connection_id::uuid, s.starts_at, s.starts_at + v.minutes * interval '1 minute',
+       now() - interval '3 minutes'
+  from (values
+  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 0, '12:00', 60),
+  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 1, '07:00', 90),
+  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 2, '13:00', 120),
+  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 3, '16:00', 60),
+  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 4, '07:00', 240),
+  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 7, '09:00', 120),
+  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 9, '14:00', 60),
+  ('1e61deb3-3314-5971-aa2e-a5c01f91acf5', '9c7c6d8e-cc79-5571-9599-868f5b2237e1', 1, '11:00', 120),
+  ('1e61deb3-3314-5971-aa2e-a5c01f91acf5', '9c7c6d8e-cc79-5571-9599-868f5b2237e1', 3, '15:00', 60),
+  ('72861613-42bb-5953-b39b-a821a84d3caa', '228fc62f-82ee-57bf-9a05-da58e6f7cb61', 0, '12:00', 60),
+  ('72861613-42bb-5953-b39b-a821a84d3caa', '228fc62f-82ee-57bf-9a05-da58e6f7cb61', 2, '08:00', 60),
+  ('72861613-42bb-5953-b39b-a821a84d3caa', '228fc62f-82ee-57bf-9a05-da58e6f7cb61', 4, '13:00', 180)
+  ) as v (tenant_id, connection_id, day, at, minutes)
+  join app.tenants t on t.id = v.tenant_id::uuid
+  cross join lateral (
+    select (date_trunc('day', now() at time zone t.timezone) + v.day * interval '1 day'
+            + v.at::time) at time zone t.timezone as starts_at
+  ) s
+ where not exists (
+   select 1 from app.requests r
+    where r.tenant_id = v.tenant_id::uuid and r.state in ('pending', 'approved')
+      and r.slot_start < s.starts_at + v.minutes * interval '1 minute'
+      and r.slot_end > s.starts_at
+ );

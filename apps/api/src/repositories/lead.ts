@@ -1,5 +1,11 @@
 import type { HoldState, LeadSource, LeadState, RequestState, Urgency } from '@fsc/core';
-import { replyAllowed, replyOptions } from '@fsc/conversation';
+import {
+  nextStep,
+  replyAllowed,
+  replyOptions,
+  type Need,
+  type NextAction,
+} from '@fsc/conversation';
 import type { DbClient } from '../db.js';
 import { activeTemplates, contactOptedOut } from './replies.js';
 
@@ -16,6 +22,8 @@ export interface LeadDetail {
   summary: string | null;
   address: string | null;
   createdAt: string;
+  /** What it needs from a person and the one action that fits (`nextStep`), as on the list. */
+  next: { need: Need; action: NextAction | null; urgent: boolean };
   contact: {
     name: string | null;
     phone: string | null;
@@ -77,12 +85,16 @@ export async function getLead(
     phone: string | null;
     email: string | null;
     earlier_leads: string;
+    nudged: boolean;
   }>(
     `select l.id, l.source, l.state, l.state_reason, l.urgency, l.category, l.summary, l.address,
             l.created_at, c.id as contact_id, c.display_name, c.phone, c.email,
             (select count(*) from app.leads e
               where e.tenant_id = l.tenant_id and e.contact_id = l.contact_id
-                and e.created_at < l.created_at) as earlier_leads
+                and e.created_at < l.created_at) as earlier_leads,
+            exists (select 1 from app.jobs j
+                     where j.tenant_id = l.tenant_id and j.lead_id = l.id
+                       and j.action_type = 'send_nudge' and j.status <> 'skipped') as nudged
        from app.leads l
        join app.contacts c on c.tenant_id = l.tenant_id and c.id = l.contact_id
       where l.tenant_id = $1 and l.id = $2`,
@@ -168,6 +180,18 @@ export async function getLead(
     summary: row.summary,
     address: row.address,
     createdAt: row.created_at.toISOString(),
+    next: nextStep({
+      state: row.state,
+      reason: row.state_reason,
+      urgency: row.urgency,
+      requestState:
+        r?.state === 'pending' || r?.state === 'approved' || r?.state === 'changed'
+          ? r.state
+          : null,
+      hasPhone: row.phone !== null,
+      hasVoicemail: v !== undefined,
+      nudged: row.nudged,
+    }),
     contact: {
       name: row.display_name,
       phone: row.phone,
