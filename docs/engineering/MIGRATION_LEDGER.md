@@ -27,6 +27,7 @@ succeeds against that environment.
 | `20261105225952_onboarding.sql`                | Onboarding: business details for texting registration, setup progress, and `portal_users.approves_requests`, with RLS                                                                                  | active |               |         |            |
 | `20261106011219_claim_jobs_by_type.sql`        | `app.claim_jobs(limit, lease, action_types, tenant)`: claim only job types with handlers, optionally for one tenant                                                                                    | active |               |         |            |
 | `20261109181751_calendar_sync.sql`             | Outlook (Microsoft) as a calendar provider, `calendar_connections.last_synced_at`, and `calendar_busy` (synced busy times, start and end only) with RLS                                                | active |               |         |            |
+| `20261109190304_schedule_calendar_syncs.sql`   | `app.schedule_calendar_syncs(minutes, tenant)`: queues one `sync_calendar` job per connected calendar of each active business per period, never doubled                                                | active |               |         |            |
 
 ## Squash record
 

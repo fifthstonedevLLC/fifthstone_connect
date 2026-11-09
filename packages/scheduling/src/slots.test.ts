@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { dayCapacity, openSlots, openWindows, subtractBusy, type WeeklyHours } from './slots.js';
+import {
+  dayCapacity,
+  openSlots,
+  openWindows,
+  personalBusy,
+  subtractBusy,
+  type WeeklyHours,
+} from './slots.js';
 
 const CHICAGO = 'America/Chicago';
 const WEEKDAYS: WeeklyHours[] = [{ days: [1, 2, 3, 4, 5], open: '08:00', close: '17:00' }];
@@ -104,5 +111,24 @@ describe('dayCapacity', () => {
       { date: '2026-11-13', openMinutes: 540, freeMinutes: 360 },
       { date: '2026-11-14', openMinutes: 0, freeMinutes: 0 },
     ]);
+  });
+});
+
+describe('personalBusy', () => {
+  it("keeps the owner's own events and drops the time this service booked", () => {
+    const reported = [
+      // A dentist visit, reported merged with our 2–3 PM job right after it.
+      { start: at('2026-11-10T19:00:00Z'), end: at('2026-11-10T21:00:00Z') },
+      // Our hold on its own.
+      { start: at('2026-11-11T15:00:00Z'), end: at('2026-11-11T16:00:00Z') },
+      // Two overlapping personal events.
+      { start: at('2026-11-12T14:00:00Z'), end: at('2026-11-12T15:00:00Z') },
+      { start: at('2026-11-12T14:30:00Z'), end: at('2026-11-12T16:00:00Z') },
+    ];
+    const own = [
+      { start: at('2026-11-10T20:00:00Z'), end: at('2026-11-10T21:00:00Z') },
+      { start: at('2026-11-11T15:00:00Z'), end: at('2026-11-11T16:00:00Z') },
+    ];
+    expect(iso(personalBusy(reported, own))).toEqual(['19:00-20:00', '14:00-16:00']);
   });
 });

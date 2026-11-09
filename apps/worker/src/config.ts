@@ -9,6 +9,8 @@ export const ConfigSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   /** Seconds between passes when there is nothing to do. */
   WORKER_POLL_SECONDS: z.coerce.number().int().min(1).max(300).default(5),
+  /** How often each connected calendar's busy times are read again. */
+  CALENDAR_SYNC_MINUTES: z.coerce.number().int().min(5).max(1440).default(15),
 });
 
 export type Config = z.output<typeof ConfigSchema>;

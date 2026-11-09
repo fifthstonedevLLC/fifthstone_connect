@@ -129,3 +129,28 @@ export function dayCapacity(input: RangeInput & { busy: readonly Interval[] }): 
   }
   return days;
 }
+
+/** Overlapping or touching intervals joined into one, in order. */
+export function mergeIntervals(list: readonly Interval[]): Interval[] {
+  const sorted = [...list].sort((a, b) => a.start.getTime() - b.start.getTime());
+  const out: Interval[] = [];
+  for (const i of sorted) {
+    const last = out.at(-1);
+    if (last && i.start <= last.end) {
+      if (i.end > last.end) last.end = i.end;
+    } else {
+      out.push({ start: i.start, end: i.end });
+    }
+  }
+  return out;
+}
+
+/**
+ * The owner's own busy time, from what the calendar reports. The calendar also holds the holds
+ * and events this service wrote for its requests; a free/busy read cannot tell them apart and may
+ * merge them with the owner's events, so that time is cut out by interval rather than by event.
+ * What remains is time the owner is busy with something else.
+ */
+export function personalBusy(reported: readonly Interval[], own: readonly Interval[]): Interval[] {
+  return subtractBusy(mergeIntervals(reported), own);
+}
