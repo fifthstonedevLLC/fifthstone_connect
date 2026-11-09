@@ -8,6 +8,7 @@ import { sendSlotOffer } from './send-slot-offer.js';
 import { sendText } from './send-text.js';
 import { sendTextBack } from './send-text-back.js';
 import { syncCalendar } from './sync-calendar.js';
+import { transcribeVoicemail } from './transcribe-voicemail.js';
 
 /**
  * Job types this worker runs. Other types stay queued until their handler exists: the worker
@@ -24,4 +25,5 @@ export const HANDLERS: Record<string, JobHandler> = {
   send_approval_request: sendApprovalRequest,
   send_approver_text: sendApproverText,
   clarify_lead: clarifyLead,
+  transcribe_voicemail: transcribeVoicemail,
 };

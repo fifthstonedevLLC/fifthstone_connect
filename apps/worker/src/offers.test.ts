@@ -182,9 +182,11 @@ describe.skipIf(!ready)('offer step (local stack, mock connectors, test tenant)'
       expect((await leadRow(n))?.state).toBe('offered');
       const open = await openOffers(n);
       expect(open.map((o) => o.choice)).toEqual([1, 2, 3]);
-      // Every time is at least two hours away and on a different day.
+      // Every time is at least two hours away and on a different day for the business (Chicago).
       for (const o of open) expect(o.slot_start.getTime()).toBeGreaterThan(Date.now() + 7_100_000);
-      expect(new Set(open.map((o) => o.slot_start.toISOString().slice(0, 10))).size).toBe(3);
+      const chicagoDay = (d: Date) =>
+        d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+      expect(new Set(open.map((o) => chicagoDay(o.slot_start))).size).toBe(3);
     }
     expect((await leadRow(4))?.state).toBe('clarifying');
 

@@ -25,7 +25,17 @@ describe('planInbound', () => {
       move: null,
       job: 'send_text_back',
     });
-    expect(planInbound('voicemail', null).job).toBe('send_text_back');
+    expect(planInbound('voicemail', null, { clinic: true }).job).toBe('send_text_back');
+  });
+
+  it('transcribes a voicemail first, never for a clinic', () => {
+    expect(planInbound('voicemail', null)).toEqual({
+      create: 'missed_call',
+      move: null,
+      job: 'transcribe_voicemail',
+    });
+    expect(planInbound('voicemail', 'clarifying').job).toBe('transcribe_voicemail');
+    expect(planInbound('voicemail', 'clarifying', { clinic: true }).job).toBeNull();
   });
 
   it('joins a call to an open lead without texting again', () => {

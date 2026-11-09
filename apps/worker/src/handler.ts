@@ -1,4 +1,9 @@
-import type { CalendarProvider, LanguageModel, SmsSender } from '@fsc/connectors';
+import type {
+  CalendarProvider,
+  LanguageModel,
+  SmsSender,
+  TranscriptionProvider,
+} from '@fsc/connectors';
 import type { JobOutcome, JobSettlement } from '@fsc/workflow';
 import type pg from 'pg';
 import type { DbClient } from './db.js';
@@ -21,6 +26,8 @@ export interface Connectors {
   calendar: CalendarProvider;
   /** The clarify step's model. Without one, customer texts go to a person. */
   ai?: LanguageModel;
+  /** Voicemail transcription. Without one, a voicemail's caller gets the plain text-back. */
+  transcriber?: TranscriptionProvider;
 }
 
 export interface HandlerContext {

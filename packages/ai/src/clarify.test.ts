@@ -60,3 +60,25 @@ describe('parseClarifyOutput', () => {
     expect(parseClarifyOutput(JSON.stringify({ ...valid, answered: [0, 5] }), 3)).toBeNull();
   });
 });
+
+describe('the need phrase', () => {
+  const withNeed = (need: unknown) => JSON.stringify({ ...valid, need });
+
+  it('accepts a plain phrase to follow "Sounds like"', () => {
+    expect(parseClarifyOutput(withNeed("your furnace isn't heating."), 3)?.need).toBe(
+      "your furnace isn't heating",
+    );
+  });
+
+  it('drops a phrase that could carry a time, price, link or second sentence, keeping the rest', () => {
+    for (const need of [
+      'a tune-up for $89',
+      'a visit at 2 PM',
+      'see www.example.com',
+      'AC repair. We will be there soon',
+      'x'.repeat(61),
+    ]) {
+      expect(parseClarifyOutput(withNeed(need), 3), need).toEqual({ ...valid, need: null });
+    }
+  });
+});

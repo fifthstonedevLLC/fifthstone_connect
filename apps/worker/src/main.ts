@@ -1,4 +1,9 @@
-import { MockCalendar, MockRulesModel, MockSmsSender } from '@fsc/connectors/mock';
+import {
+  MockCalendar,
+  MockRulesModel,
+  MockSmsSender,
+  MockTranscriptionProvider,
+} from '@fsc/connectors/mock';
 import { pino } from 'pino';
 import { loadConfig } from './config.js';
 import { createPool, withoutTenant } from './db.js';
@@ -25,6 +30,8 @@ const ctx = {
       calendar: new MockCalendar({ runId }),
       // Fixed rules, not AI: no customer text leaves this machine until a provider is approved.
       ai: new MockRulesModel({ runId }),
+      // Reads back the words in a MOCK-SAYS- recording; nothing reaches a transcription provider.
+      transcriber: new MockTranscriptionProvider({ runId }),
     };
   })(),
   now: () => new Date(),

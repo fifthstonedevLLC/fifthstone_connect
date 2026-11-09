@@ -44,7 +44,29 @@ export function planClarify(facts: ClarifyFacts): ClarifyPlan {
   return { kind: 'ask', question: next };
 }
 
-/** Which of the owner's questions a sent message was, by its exact wording. */
+/**
+ * Which of the owner's questions have been sent, in order, found by their exact wording inside
+ * any text that went out (a question on its own, or one inside the text-back).
+ */
 export function askedIndexes(sent: readonly string[], questions: readonly string[]): number[] {
-  return sent.map((body) => questions.indexOf(body.trim())).filter((i) => i >= 0);
+  return sent.flatMap((body) =>
+    questions.flatMap((q, i) => (q.trim() !== '' && body.includes(q.trim()) ? [i] : [])),
+  );
+}
+
+/**
+ * Values for the owner's text-back: `{need}` from a voicemail reading, if one passed its guard,
+ * and `{question}`, the owner's first question not yet answered. A missing value leaves its
+ * sentence out of the text (`withoutUnfilled`); nothing is made up.
+ */
+export function textBackValues(
+  reading: { need?: string | null; answered: readonly number[] } | null,
+  questions: readonly string[],
+): { need?: string; question?: string } {
+  const answered = new Set(reading?.answered ?? []);
+  const question = questions.find((_, i) => !answered.has(i));
+  return {
+    ...(reading?.need ? { need: reading.need } : {}),
+    ...(question ? { question } : {}),
+  };
 }

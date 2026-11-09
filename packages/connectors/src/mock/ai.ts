@@ -13,12 +13,20 @@ import { MockConnector, type MockOptions } from './base.js';
  * did and did not reach the AI layer (for example: nothing from a clinic tenant).
  */
 
+/** Mock recordings for local runs: `MOCK-SAYS-` and the words, base64url-encoded. */
+export const MOCK_SAYS_PREFIX = 'MOCK-SAYS-';
+
+/** A mock recording reference that "says" these words (the mock transcriber reads them back). */
+export function mockRecordingSaying(words: string): string {
+  return MOCK_SAYS_PREFIX + Buffer.from(words, 'utf8').toString('base64url');
+}
+
 export class MockTranscriptionProvider extends MockConnector implements TranscriptionProvider {
   readonly requests: TranscribeInput[] = [];
   private readonly transcripts = new Map<string, Transcript>();
 
-  constructor() {
-    super('TR');
+  constructor(options: MockOptions = {}) {
+    super('TR', options);
   }
 
   /** Scripts the transcript for a recording, e.g. from the MOCK_DATA.md evaluation set. */
@@ -29,12 +37,21 @@ export class MockTranscriptionProvider extends MockConnector implements Transcri
   async transcribe(input: TranscribeInput) {
     this.requests.push(input);
     return this.once(input.tenantId, input.idempotencyKey, () => {
-      const transcript = this.transcripts.get(input.recordingRef);
+      const transcript = this.transcripts.get(input.recordingRef) ?? spokenIn(input.recordingRef);
       return transcript
         ? ok(transcript)
         : fail('permanent', 'recording_not_found', 'No mock transcript for this recording');
     });
   }
+}
+
+/** The words in a `MOCK-SAYS-` recording reference, as a clear transcript. Mock only. */
+function spokenIn(recordingRef: string): Transcript | undefined {
+  if (!recordingRef.startsWith(MOCK_SAYS_PREFIX)) return undefined;
+  const text = Buffer.from(recordingRef.slice(MOCK_SAYS_PREFIX.length), 'base64url').toString(
+    'utf8',
+  );
+  return { text, confidence: 0.92, durationSeconds: Math.max(3, Math.round(text.length / 15)) };
 }
 
 /** Rough token estimate (about four characters per token), for cost tracking in tests. */
@@ -123,9 +140,21 @@ export class MockRulesModel extends MockConnector implements LanguageModel {
         return problem ? [i] : [];
       });
       const all = messages.join(' ');
+      // The first sentence of what they said, as it would follow "Sounds like".
+      const firstSentence = problem?.replace(ADDRESS, '').split(/[.!?]/)[0]?.trim() ?? '';
+      const greetingless = firstSentence.replace(/^(hi|hello|hey)[, ]+/i, '');
+      const phrase = firstSentence.replace(/^(hi|hello|hey)[, ]+/i, '').replace(/^my\b/i, 'your');
+      const need =
+        /^[A-Za-z][A-Za-z' ,-]*$/.test(phrase) && phrase.length <= 60
+          ? phrase.charAt(0).toLowerCase() + phrase.slice(1)
+          : null;
       const output = {
         answered,
-        summary: problem ? problem.replace(ADDRESS, '').trim().slice(0, 120) || null : null,
+        need,
+        // Their first sentence, without a greeting, as one short line for the business.
+        summary: greetingless
+          ? `${greetingless.charAt(0).toUpperCase()}${greetingless.slice(1, 119)}.`
+          : null,
         category: null,
         urgency: urgencyWord,
         address,

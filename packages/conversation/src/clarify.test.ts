@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { askedIndexes, planClarify, type ClarifyFacts } from './clarify.js';
+import { askedIndexes, planClarify, textBackValues, type ClarifyFacts } from './clarify.js';
 
 const facts = (over: Partial<ClarifyFacts>): ClarifyFacts => ({
   questionCount: 3,
@@ -46,8 +46,26 @@ describe('planClarify', () => {
 });
 
 describe('askedIndexes', () => {
-  it('recognises sent questions by their exact wording', () => {
+  it('recognises sent questions by their exact wording, alone or inside the text-back', () => {
     const questions = ['What is the problem?', 'What is the address?'];
     expect(askedIndexes(['What is the address? ', 'Thanks!'], questions)).toEqual([1]);
+    expect(
+      askedIndexes(['Sorry we missed your call! What is the problem? Reply STOP.'], questions),
+    ).toEqual([0]);
+  });
+});
+
+describe('textBackValues', () => {
+  const questions = ['What is the problem?', 'What is the address?'];
+
+  it("asks the owner's first question when there is no voicemail reading", () => {
+    expect(textBackValues(null, questions)).toEqual({ question: 'What is the problem?' });
+  });
+
+  it('uses what the voicemail said, and asks the next question it did not answer', () => {
+    expect(
+      textBackValues({ need: 'your furnace is not heating', answered: [0] }, questions),
+    ).toEqual({ need: 'your furnace is not heating', question: 'What is the address?' });
+    expect(textBackValues({ need: null, answered: [0, 1] }, questions)).toEqual({});
   });
 });

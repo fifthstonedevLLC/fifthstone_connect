@@ -44,12 +44,15 @@ export interface InboundPlan {
   /** Move the lead to this state, or leave it where it is. */
   move: { state: LeadState; reason: string | null } | null;
   /** The job to queue, by type; the key is built from the lead or the message. */
-  job: 'send_text_back' | 'handle_offer_reply' | 'clarify_lead' | null;
+  job: 'send_text_back' | 'handle_offer_reply' | 'clarify_lead' | 'transcribe_voicemail' | null;
 }
 
 /**
- * - A missed call (or a voicemail with no call recorded first) from someone without an open lead
- *   starts one and gets the text-back. A call on an open lead joins it quietly.
+ * - A missed call from someone without an open lead starts one and gets the text-back. A call on
+ *   an open lead joins it quietly.
+ * - A voicemail is transcribed and read first (`transcribe_voicemail`), and the text-back for a
+ *   new caller follows from what they said. A clinic's voicemail is never transcribed (CLAUDE.md
+ *   rule 13): a new clinic caller gets the plain text-back.
  * - A text while times are on offer goes to the offer step (`handle_offer_reply`).
  * - A text while the lead is being clarified, or a first text from someone new, goes to the
  *   clarify step (`clarify_lead`). Not for clinics: their texts never reach the AI layer
@@ -62,10 +65,12 @@ export function planInbound(
   openLead: LeadState | null,
   options: { clinic?: boolean } = {},
 ): InboundPlan {
+  const create = openLead === null ? 'missed_call' : null;
+  if (kind === 'voicemail' && !options.clinic) {
+    return { create, move: null, job: 'transcribe_voicemail' };
+  }
   if (kind === 'missed_call' || kind === 'voicemail') {
-    return openLead === null
-      ? { create: 'missed_call', move: null, job: 'send_text_back' }
-      : { create: null, move: null, job: null };
+    return { create, move: null, job: openLead === null ? 'send_text_back' : null };
   }
   if (openLead === 'offered') return { create: null, move: null, job: 'handle_offer_reply' };
   const clarifying = openLead === null || openLead === 'new' || openLead === 'clarifying';

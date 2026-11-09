@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { MockLanguageModel, MockRulesModel, MockTranscriptionProvider } from './index.js';
+import {
+  MockLanguageModel,
+  MockRulesModel,
+  MockTranscriptionProvider,
+  mockRecordingSaying,
+} from './index.js';
 
 const T1 = 'tenant-mock-riverbend';
 
@@ -91,6 +96,26 @@ describe('MockRulesModel', () => {
       urgency: 'this_week',
       emergency: false,
     });
+  });
+
+  it('says what they need, from their first sentence', async () => {
+    const { output } = await read("My furnace isn't heating. I'm at 9941 Elm St, Cedar Falls.");
+    expect(output).toMatchObject({
+      need: "your furnace isn't heating",
+      summary: "My furnace isn't heating.",
+      address: '9941 Elm St, Cedar Falls.',
+      answered: [0, 1],
+    });
+  });
+
+  it('reads back the words in a mock recording', async () => {
+    const transcriber = new MockTranscriptionProvider();
+    const said = await transcriber.transcribe({
+      tenantId: 'mock-tenant',
+      recordingRef: mockRecordingSaying('My furnace is out.'),
+      idempotencyKey: 'transcribe:1',
+    });
+    expect(said).toMatchObject({ ok: true, value: { text: 'My furnace is out.' } });
   });
 
   it('flags prices and gas, and answers nothing it cannot see', async () => {

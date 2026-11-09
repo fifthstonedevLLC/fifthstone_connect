@@ -24,10 +24,24 @@ export const SAFETY_LAYER = [
 
 const Slug = z.string().regex(/^[a-z][a-z_]{1,59}$/);
 
+/**
+ * The phrase for the owner's "Sounds like {need}." sentence, the only model-written words a
+ * customer can see. Letters, spaces, apostrophes, commas and hyphens only, at most 60
+ * characters: no number, time, price, link or sentence of its own can fit.
+ */
+export const NeedPhraseSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(60)
+  .regex(/^[A-Za-z][A-Za-z' ,-]*$/);
+
 export const ClarifyOutputSchema = z
   .object({
     /** Zero-based indexes of the owner's questions the customer has clearly answered. */
     answered: z.array(z.number().int().min(0).max(9)).max(10),
+    /** "your furnace is not heating": fills the owner's "Sounds like {need}." sentence. */
+    need: NeedPhraseSchema.nullable().optional(),
     /** At most two short sentences, for the business; never sent to the customer. */
     summary: z.string().trim().min(1).max(200).nullable(),
     category: Slug.nullable(),
@@ -64,7 +78,7 @@ export function compileClarifyPrompt(input: {
     ...questions.map((q, i) => `${i}: ${q}`),
     '',
     'Reply with this JSON shape:',
-    '{"answered": [indexes of questions clearly answered], "summary": "at most two short sentences, or null", "category": "snake_case_word or null", "urgency": "emergency" | "this_week" | "flexible" | null, "address": "as written, or null", "emergency": true | false, "out_of_scope": true | false, "price_question": true | false}',
+    '{"answered": [indexes of questions clearly answered], "need": "what they need, in words only, to follow the words Sounds like (e.g. your furnace is not heating), or null", "summary": "at most two short sentences, or null", "category": "snake_case_word or null", "urgency": "emergency" | "this_week" | "flexible" | null, "address": "as written, or null", "emergency": true | false, "out_of_scope": true | false, "price_question": true | false}',
     'For a numbered urgency question, 1 means emergency, 2 means this_week, 3 means flexible.',
   ]
     .filter((line) => line !== null)
@@ -79,7 +93,8 @@ export function clarifyInput(messages: readonly string[]): string {
 
 /**
  * Parses the model's reply. Anything that is not exactly the schema, including indexes for
- * questions that do not exist, is null: the lead goes to a person.
+ * questions that do not exist, is null: the lead goes to a person. Only the `need` phrase is
+ * forgiving: if it fails its guard it becomes null and the reading stands.
  */
 export function parseClarifyOutput(text: string, questionCount: number): ClarifyOutput | null {
   let json: unknown;
@@ -87,6 +102,13 @@ export function parseClarifyOutput(text: string, questionCount: number): Clarify
     json = JSON.parse(text.trim().replace(/^```(?:json)?\s*|\s*```$/g, ''));
   } catch {
     return null;
+  }
+  // A need phrase that fails its guard is dropped (its sentence is left out of the text), not
+  // the whole reading; a trailing period is forgiven.
+  if (json && typeof json === 'object' && 'need' in json) {
+    const raw = (json as { need: unknown }).need;
+    const need = typeof raw === 'string' ? raw.trim().replace(/\.$/, '') : raw;
+    (json as { need: unknown }).need = NeedPhraseSchema.safeParse(need).success ? need : null;
   }
   const parsed = ClarifyOutputSchema.safeParse(json);
   if (!parsed.success) return null;
