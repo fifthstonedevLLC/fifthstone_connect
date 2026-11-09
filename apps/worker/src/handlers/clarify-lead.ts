@@ -1,30 +1,25 @@
-import { clarifyInput, compileClarifyPrompt, parseClarifyOutput } from '@fsc/ai';
-import { askedIndexes, planClarify, type ClarifyPlan } from '@fsc/conversation';
-import { AiSettingsSchema, type LeadState } from '@fsc/core';
+import type { LeadState } from '@fsc/core';
 import { withTenant, type DbClient } from '../db.js';
 import { keyId, type JobHandler } from '../handler.js';
-import { queueQuestionText } from './texts.js';
+import {
+  aiSettings,
+  applyPlan,
+  planFromReading,
+  readCustomer,
+  storeReading,
+  toPerson,
+} from './reading.js';
 
 /**
  * `clarify_lead:<message id>`, queued by intake for a customer's text while a lead is being
- * clarified (SCOPE.md v0.2, step 2). The language model reads the customer's messages (as data,
+ * clarified (SCOPE.md v0.2, step 2). The language model reads the customer's words (as data,
  * inside the locked safety layer) and says which of the owner's questions are answered; its
- * output is validated and stored in `app.ai_analyses`. Then `planClarify` decides: ask the next
- * question in the owner's words, offer times, or hand the lead to a person. A clinic's messages
- * never reach the model (CLAUDE.md rule 13), and a model that is missing, failing or answering
- * out of shape puts the lead in front of a person rather than guessing.
+ * output is validated and stored in `app.ai_analyses`. Then the plan: ask the next question in
+ * the owner's words, offer times, or hand the lead to a person. A clinic's messages never reach
+ * the model (CLAUDE.md rule 13), and a model that is missing, failing or answering out of shape
+ * puts the lead in front of a person rather than guessing. A voicemail's transcript, when there
+ * is one, is read with the texts.
  */
-
-const MAX_OUTPUT_TOKENS = 400;
-
-const toPerson = async (client: DbClient, tenantId: string, leadId: string, reason: string) => {
-  await client.query(
-    `update app.leads set state = 'needs_attention', state_reason = $3, state_changed_at = now()
-      where tenant_id = $1 and id = $2 and state in ('new', 'clarifying')`,
-    [tenantId, leadId, reason],
-  );
-};
-
 export const clarifyLead: JobHandler = async (job, ctx) => {
   const messageId = keyId(job.idempotencyKey);
   if (!messageId) return { outcome: { kind: 'skipped', reason: 'malformed_key' } };
@@ -55,14 +50,7 @@ export const clarifyLead: JobHandler = async (job, ctx) => {
     );
     const row = rows[0];
     if (!row) return null;
-    const thread = await client.query<{ direction: 'in' | 'out'; author: string; body: string }>(
-      `select m.direction, m.author, m.body from app.messages m
-         join app.conversations cv on cv.tenant_id = m.tenant_id and cv.id = m.conversation_id
-        where m.tenant_id = $1 and cv.lead_id = $2
-        order by m.occurred_at, m.id`,
-      [job.tenantId, row.lead_id],
-    );
-    return { ...row, thread: thread.rows };
+    return { ...row, ...(await leadWords(client, job.tenantId, row.lead_id)) };
   });
 
   if (!facts) return { outcome: { kind: 'skipped', reason: 'message_not_found' } };
@@ -78,97 +66,65 @@ export const clarifyLead: JobHandler = async (job, ctx) => {
     apply: (client: DbClient) => toPerson(client, job.tenantId, leadId, reason),
   });
   if (facts.clinic) return person('new_message');
-  const settings = AiSettingsSchema.safeParse(facts.settings ?? {});
+  const settings = aiSettings(facts.settings);
   const model = ctx.connectors.ai;
-  if (!settings.success || !model) return person('new_message');
-  const questions = settings.data.questions ?? [];
+  if (!settings || !model) return person('new_message');
+  const questions = settings.questions ?? [];
 
-  const reply = await model.complete({
+  const reading = await readCustomer(model, {
     tenantId: job.tenantId,
-    system: compileClarifyPrompt({ businessName: facts.business, settings: settings.data }),
-    input: clarifyInput(facts.thread.filter((m) => m.direction === 'in').map((m) => m.body)),
-    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    businessName: facts.business,
+    settings,
+    words: facts.words,
   });
-  if (!reply.ok) {
+  if (!reading.ok) {
     return {
-      outcome: { kind: 'failed', error: reply.error },
+      outcome: { kind: 'failed', error: reading.error },
       apply: async (client, settled) => {
         if (settled.status === 'dead') await toPerson(client, job.tenantId, leadId, 'unsure');
       },
     };
   }
-
-  const output = parseClarifyOutput(reply.value.text, questions.length);
-  const asked = askedIndexes(
-    facts.thread.filter((m) => m.author === 'ai_question').map((m) => m.body),
-    questions,
-  );
-  const plan: ClarifyPlan = output
-    ? planClarify({
-        questionCount: questions.length,
-        answered: output.answered,
-        asked,
-        emergency: output.emergency || output.urgency === 'emergency',
-        outOfScope: output.out_of_scope,
-        priceQuestion: output.price_question,
-      })
-    : { kind: 'person', reason: 'unsure' };
+  const plan = planFromReading(reading.output, questions, facts.sent);
 
   return {
     outcome: { kind: 'succeeded' },
     apply: async (client, settled) => {
       if (settled.status !== 'succeeded') return;
-      await client.query(
-        `insert into app.ai_analyses
-           (tenant_id, lead_id, input_kind, model, valid, output, input_tokens, output_tokens)
-         values ($1, $2, 'text', $3, $4, $5, $6, $7)`,
-        [
-          job.tenantId,
-          leadId,
-          reply.value.model,
-          output !== null,
-          output ? JSON.stringify(output) : null,
-          reply.value.inputTokens,
-          reply.value.outputTokens,
-        ],
-      );
-      if (output) {
-        await client.query(
-          `update app.leads
-              set summary = coalesce($3, summary), category = coalesce($4, category),
-                  urgency = coalesce($5, urgency), address = coalesce($6, address)
-            where tenant_id = $1 and id = $2`,
-          [job.tenantId, leadId, output.summary, output.category, output.urgency, output.address],
-        );
-      }
-      if (plan.kind === 'person') {
-        await toPerson(client, job.tenantId, leadId, plan.reason);
-        return;
-      }
-      if (plan.kind === 'offer') {
-        await client.query(
-          `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key)
-           values ($1, $2, 'send_slot_offer', $3)
-           on conflict (tenant_id, idempotency_key) do nothing`,
-          [job.tenantId, leadId, `send_slot_offer:${messageId}`],
-        );
-        return;
-      }
-      const queued = await queueQuestionText(
-        client,
-        job.tenantId,
-        leadId,
-        questions[plan.question]!,
-      );
-      if (queued.ok) {
-        await client.query(
-          `update app.leads set state = 'clarifying', state_reason = null, state_changed_at = now()
-            where tenant_id = $1 and id = $2`,
-          [job.tenantId, leadId],
-        );
-      } else if (queued.reason !== 'opted_out') {
-        await toPerson(client, job.tenantId, leadId, queued.reason);
-      }
+      await storeReading(client, job.tenantId, leadId, 'text', reading);
+      await applyPlan(client, job.tenantId, leadId, plan, questions, messageId);
     },
   };
 };
+
+/**
+ * The customer's words on a lead, oldest first (voicemail transcripts, then their texts), and
+ * every text that went out to them.
+ */
+export async function leadWords(
+  client: DbClient,
+  tenantId: string,
+  leadId: string,
+): Promise<{ words: string[]; sent: string[] }> {
+  const transcripts = await client.query<{ transcript: string }>(
+    `select v.transcript from app.voicemails v
+       join app.calls c on c.tenant_id = v.tenant_id and c.id = v.call_id
+      where v.tenant_id = $1 and c.lead_id = $2 and v.transcript is not null
+      order by v.created_at`,
+    [tenantId, leadId],
+  );
+  const thread = await client.query<{ direction: 'in' | 'out'; body: string }>(
+    `select m.direction, m.body from app.messages m
+       join app.conversations cv on cv.tenant_id = m.tenant_id and cv.id = m.conversation_id
+      where m.tenant_id = $1 and cv.lead_id = $2
+      order by m.occurred_at, m.id`,
+    [tenantId, leadId],
+  );
+  return {
+    words: [
+      ...transcripts.rows.map((t) => t.transcript),
+      ...thread.rows.filter((m) => m.direction === 'in').map((m) => m.body),
+    ],
+    sent: thread.rows.filter((m) => m.direction === 'out').map((m) => m.body),
+  };
+}

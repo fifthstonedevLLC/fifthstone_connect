@@ -73,9 +73,12 @@ approver's 1, 2 or 3 goes through the same `applyAction` as the portal (decided 
 a customer's text queues `clarify_lead`; the model (via `packages/ai`: locked safety layer, prompt
 compiler, Zod-validated output) only says which of the owner's questions are answered, and
 `planClarify` asks the next one word for word, offers times, or hands the lead to a person.
-Clinics never reach the model. Locally the worker uses `MockRulesModel` (fixed rules, not AI). The
-loop runs end to end on mocks with no step done by hand. Next: voicemail transcription into the
-same step, then approval reminders and hold expiry (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+Clinics never reach the model. Locally the worker uses `MockRulesModel` (fixed rules, not AI). Voicemails:
+intake queues `transcribe_voicemail` (never for clinics); the transcript is read by the same step,
+and the text-back follows from it (`{need}`, a guarded phrase, and `{question}`, the owner's first
+unanswered question). Locally the worker uses the mock transcriber. The loop runs end to end on
+mocks with no step done by hand. Next: approval reminders and hold expiry, then the fixed safety
+and crisis messages (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands

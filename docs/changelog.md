@@ -12,6 +12,55 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-09 — Phase 3: voicemails transcribed and read
+
+**Change:** a caller's voicemail is transcribed and read by the clarify step, so the first text
+says what they need and asks only what the voicemail did not answer.
+
+- **Intake:** a voicemail queues `transcribe_voicemail` (never for clinics, CLAUDE.md rule 13). A
+  new caller who left a voicemail gets the text-back after it has been read; a clinic caller gets
+  the plain text-back.
+- **`transcribe_voicemail`** (worker):
+  - Only the recording reference goes to the transcriber.
+  - A clear transcript is read with the customer's texts by the same model step as texts
+    (`apps/worker/src/handlers/reading.ts`, now shared with `clarify_lead`).
+  - A new caller gets the text-back next. If the voicemail answered every question, times are
+    offered right after; someone at risk goes in front of a person at once and still gets the text.
+  - A caller who already got the text-back is asked the next question, offered times, or handed
+    to a person.
+  - An unclear transcript (confidence below 0.6) is kept for the lead page but not read; a failed
+    transcription still sends the plain text-back.
+- **The text-back** (`textBackValues`):
+  - `{need}` comes from the reading.
+  - `{question}` is the owner's first unanswered question, even with no voicemail. So Riverbend's
+    text-back now asks "What is the problem?" instead of nothing.
+  - A question asked inside the text-back counts as asked (`askedIndexes`), so it is never sent
+    twice. It goes out once, as soon as nothing has been sent to the caller yet.
+- **AI layer:** an optional `need` phrase, the only model-written words a customer can see.
+  Letters, spaces, apostrophes, commas and hyphens only, 60 characters at most, so no number,
+  time, price, link or second sentence fits. A phrase that fails is dropped and its sentence left
+  out; the rest of the reading stands.
+- **Migration `20261109210831_voicemail_transcripts`:** the worker may update only `transcript`
+  and `transcript_confidence` on `voicemails` (pgTAP `voicemail_transcripts.test.sql`).
+- **Mocks (rule 5):**
+  - `MockTranscriptionProvider` reads back the words in a `MOCK-SAYS-` recording reference, for
+    local runs.
+  - The rules mock gives a `need` phrase and a one-line summary from the first sentence.
+  - The worker uses both locally; nothing reaches a transcription or AI provider.
+- **Test fix:** the offer test compared UTC dates, so it failed in Chicago afternoons; it now
+  compares the business's own days.
+
+**Test evidence:** `npm run check` and `npm run db:test` pass (counts in the PR). New: the need
+guard (2), text-back values and asked questions (3), voicemail routing (1), the mock transcriber
+and need phrase (2), and the voicemail job (5: what they need and only the unanswered question; an
+unclear transcript kept but not read; a failed transcription still texted back; a gas smell to a
+person at once, still texted; only the recording reference sent to the transcriber), pgTAP (4).
+End to end through the running API and worker: a voicemail to Riverbend ("Hi, my furnace is making
+a banging noise and won't stay on. I'm at 9941 Elm St, Cedar Falls.") got "Sorry we missed your
+call! This is Riverbend Heating & Air. Sounds like your furnace is making a banging noise and won't
+stay on. How soon: 1 today, 2 this week, 3 flexible? Reply STOP to opt out."; "2" → times; "1" →
+requested; Rhett "1" → booked. Mock transcriber and rules mock only.
+
 ## 2026-11-09 — Phase 3: the clarify step, and the loop with no step done by hand
 
 **Change:** SCOPE.md v0.2, step 2. A customer's texts are read, only what is missing is asked

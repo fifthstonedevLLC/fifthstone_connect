@@ -116,6 +116,7 @@ export async function recordPhoneEvent(
   if (!lead) return 'recorded';
 
   let messageId: string | null = null;
+  let voicemailId: string | null = null;
   if (event.kind === 'text_received') {
     messageId = await recordText(client, tenantId, lead.id, event);
   } else {
@@ -131,13 +132,18 @@ export async function recordPhoneEvent(
       [tenantId, event.callId],
     );
     if (event.kind === 'voicemail') {
-      // Kept as a recording; transcribing it is the clarify step's job (and never for clinics).
+      // Kept as a recording; `transcribe_voicemail` reads it (never for clinics).
       await client.query(
         `insert into app.voicemails (tenant_id, call_id, recording_ref, duration_seconds)
          values ($1, $2, $3, $4)
          on conflict (tenant_id, call_id) do nothing`,
         [tenantId, call.rows[0]!.id, event.recordingRef, event.durationSeconds],
       );
+      const voicemail = await client.query<{ id: string }>(
+        `select id from app.voicemails where tenant_id = $1 and call_id = $2`,
+        [tenantId, call.rows[0]!.id],
+      );
+      voicemailId = voicemail.rows[0]?.id ?? null;
     }
   }
 
@@ -151,9 +157,11 @@ export async function recordPhoneEvent(
   const key =
     plan.job === 'send_text_back'
       ? `send_text_back:${lead.id}`
-      : plan.job !== null && messageId
-        ? `${plan.job}:${messageId}`
-        : null;
+      : plan.job === 'transcribe_voicemail'
+        ? voicemailId && `transcribe_voicemail:${voicemailId}`
+        : plan.job !== null && messageId
+          ? `${plan.job}:${messageId}`
+          : null;
   if (plan.job && key) {
     await client.query(
       `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key)

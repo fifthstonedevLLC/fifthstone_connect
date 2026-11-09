@@ -160,7 +160,7 @@ describe.skipIf(!ready)('phone webhook (local stack, mock adapter, test tenant)'
     expect(calls.rowCount).toBe(1);
   });
 
-  it('joins a second call and a voicemail to the open lead without texting again', async () => {
+  it('joins a second call and a voicemail to the open lead, transcribing the voicemail', async () => {
     const callId = id('MOCK-CA');
     await missedCall(caller(1), callId);
     await post(
@@ -176,7 +176,11 @@ describe.skipIf(!ready)('phone webhook (local stack, mock adapter, test tenant)'
     );
     const leads = await leadOf(caller(1));
     expect(leads).toHaveLength(1);
-    expect(await jobsOf(leads[0]!.id)).toHaveLength(1);
+    // The second call texts nothing; the voicemail is queued to be transcribed and read.
+    expect((await jobsOf(leads[0]!.id)).map((j) => j.action_type)).toEqual([
+      'send_text_back',
+      'transcribe_voicemail',
+    ]);
     const voicemails = await pool.query(
       `select v.transcript from app.voicemails v join app.calls c on c.id = v.call_id
         where c.lead_id = $1`,
