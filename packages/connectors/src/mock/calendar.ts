@@ -48,6 +48,23 @@ export class MockCalendar extends MockConnector implements CalendarProvider {
     entries.push({ ref, calendarId, kind: 'hold', range, title });
   }
 
+  /**
+   * Puts back busy time the database already stores from an earlier sync, as one of the owner's
+   * own events. Like `restoreHold`, this exists because the mock keeps calendars in memory only.
+   * Mock only: a real calendar is where the busy time comes from.
+   */
+  restoreBusy(tenantId: string, calendarId: string, range: TimeRange): void {
+    const entries = this.list(tenantId);
+    const known = entries.some(
+      (e) =>
+        e.calendarId === calendarId &&
+        e.range.start.getTime() === range.start.getTime() &&
+        e.range.end.getTime() === range.end.getTime(),
+    );
+    if (!known)
+      entries.push({ ref: this.nextRef(), calendarId, kind: 'event', range, title: 'Busy' });
+  }
+
   /** Simulates the tenant revoking calendar access (MOCK_DATA.md case X-05). */
   revokeAccess(tenantId: string): void {
     this.revoked.add(tenantId);

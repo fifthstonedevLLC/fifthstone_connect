@@ -12,6 +12,37 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-09 — Phase 3: calendar sync on the mock calendar
+
+**Change:** the worker keeps each connected calendar's busy times current, so the Calendar page
+and slot offers read what the sync stored rather than sample rows alone.
+
+- **Migration `20261109190304_schedule_calendar_syncs`:** `app.schedule_calendar_syncs(minutes,
+tenant)`, a narrow security-definer function like `app.claim_jobs`. It queues one
+  `sync_calendar` job per connected calendar of each active business per period, and never a
+  second while one is queued, running or retrying. The worker calls it before each pass, every
+  15 minutes by default (`CALENDAR_SYNC_MINUTES`).
+- **The `sync_calendar` handler:**
+  - Reads busy times from 7 days back to 42 days ahead.
+  - Takes out time this service booked (open and approved requests: its holds and events) with
+    the new `personalBusy` rule in `packages/scheduling`. A free/busy read cannot tell events
+    apart and may merge ours with the owner's, so the cut is by time, not by event.
+  - Replaces the stored busy times for that window and sets `last_synced_at`, in the transaction
+    that settles the job. Only start and end are stored.
+  - If the business withdrew access, marks the connection `revoked` and records
+    `calendar.revoked` in the audit trail. Offers pause and the portal shows "Reconnect needed";
+    no further syncs are queued until it is reconnected.
+- **Mock calendar:** `MockCalendar.restoreBusy`. A fresh worker's mock calendar is empty, so it is
+  first given the stored busy times; once it has entries it is the source. Without this, starting
+  the worker would wipe the sample busy times. Mock only (rule 5).
+
+**Test evidence:** worker tests 10 of 10 against the local stack (4 new: queued once per period;
+the owner's events stored without this service's job, the last read replaced, `last_synced_at`
+set; revoked access marks the connection and stops syncs; another business's busy times
+untouched). `personalBusy` unit test. `npm run once -w @fsc/worker` on the sample data: 3 syncs
+queued and succeeded (Riverbend, Northline, Prairie Path; Old Mill is disconnected), busy times
+unchanged, last synced updated. Mock calendar only; no calendar was called.
+
 ## 2026-11-09 — Calendar: the week as the business works it (on mocks)
 
 **Change** (owner: a calendar of events that syncs with Google, Outlook and other popular

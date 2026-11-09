@@ -57,8 +57,9 @@ Phase 3 in progress (engine on mocks): `apps/worker` claims due jobs of the type
 handlers for (`app.claim_jobs` with action types), runs them against labeled mock connectors and
 settles each in one transaction with retries and dead-letter (`packages/workflow`). Handlers so
 far: `confirm_calendar_event` (approved lead becomes booked, confirmation text queued),
-`send_text` and `release_hold`. Slot calculation is built (`packages/scheduling`). Next: the
-calendar sync job (busy times into `app.calendar_busy`), then offering slots and placing holds,
+`send_text`, `release_hold` and `sync_calendar` (busy times into `app.calendar_busy` every 15
+minutes, without this service's own holds and events; a revoked calendar is marked and offers
+pause). Slot calculation is built (`packages/scheduling`). Next: offering slots and placing holds,
 then inbound calls and texts on mocks (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
