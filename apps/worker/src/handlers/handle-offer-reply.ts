@@ -190,6 +190,13 @@ export const handleOfferReply: JobHandler = async (job, ctx) => {
          values ($1, 'system', 'request.created', 'request', $2, $3)`,
         [job.tenantId, requestId, JSON.stringify({ choice: offer.choice, via: 'text' })],
       );
+      // The approvers get their text (or, for portal approvals, the Approve queue is enough).
+      await client.query(
+        `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key)
+         values ($1, $2, 'send_approval_request', $3)
+         on conflict (tenant_id, idempotency_key) do nothing`,
+        [job.tenantId, leadId, `send_approval_request:${requestId}`],
+      );
       await queueTemplateText(client, job.tenantId, leadId, 'request_received', {
         slot: formatSlot(slot.start, facts.timezone),
       });

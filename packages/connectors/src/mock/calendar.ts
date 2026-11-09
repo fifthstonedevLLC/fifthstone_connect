@@ -5,7 +5,7 @@ import type {
   PlaceHoldInput,
 } from '../calendar.js';
 import { fail, ok, overlaps, type ConnectorResult, type TimeRange } from '../result.js';
-import { MockConnector } from './base.js';
+import { MockConnector, type MockOptions } from './base.js';
 
 export interface MockCalendarEntry {
   ref: string;
@@ -20,8 +20,8 @@ export class MockCalendar extends MockConnector implements CalendarProvider {
   private readonly entries = new Map<string, MockCalendarEntry[]>();
   private readonly revoked = new Set<string>();
 
-  constructor() {
-    super('CAL');
+  constructor(options: MockOptions = {}) {
+    super('CAL', options);
   }
 
   /** Seeds an existing appointment. */

@@ -7,7 +7,7 @@ import {
 import type { DbClient } from '../db.js';
 
 /**
- * Applies a portal action to a lead. Runs inside `withTenant`: the lead and its request are
+ * Applies a portal action to a lead, decided in the portal or by an approver's text reply. Runs inside `withTenant`: the lead and its request are
  * locked, the plan from @fsc/conversation is applied, and the decision, its jobs and its audit
  * event commit together or not at all (CLAUDE.md rule 1).
  */
@@ -20,6 +20,8 @@ export async function applyAction(
   portalUserId: string,
   leadId: string,
   action: PortalAction,
+  /** How the person decided: in the portal, or by replying to an approval text. */
+  via: 'portal' | 'text' = 'portal',
 ): Promise<ApplyResult> {
   const lead = await client.query<{ state: LeadSnapshot['state']; phone: string | null }>(
     `select l.state, c.phone
@@ -82,9 +84,9 @@ export async function applyAction(
   if (plan.request) {
     await client.query(
       `update app.requests
-          set state = $3, decided_by = $4, decided_via = 'portal', decided_at = now()
+          set state = $3, decided_by = $4, decided_via = $5, decided_at = now()
         where tenant_id = $1 and id = $2`,
-      [tenantId, plan.request.id, plan.request.state, portalUserId],
+      [tenantId, plan.request.id, plan.request.state, portalUserId, via],
     );
   }
   if (plan.lead) {
@@ -122,7 +124,7 @@ export async function applyAction(
       plan.audit.action,
       plan.audit.subjectType,
       plan.audit.subjectId,
-      JSON.stringify({ via: 'portal', jobs: plan.jobs.map((j) => j.actionType) }),
+      JSON.stringify({ via, jobs: plan.jobs.map((j) => j.actionType) }),
     ],
   );
   return { ok: true };

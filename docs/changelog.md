@@ -12,6 +12,48 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-09 — Phase 3: approving by text, and the loop end to end on mocks
+
+**Change:** SCOPE.md v0.2, step 4. When a customer picks a time, each approver gets one text and
+can answer with a number. With this, the whole loop runs on mocks: missed call → text-back →
+offered times → pick → approval text → "1" → booked with a confirmation.
+
+- **Rules** (`packages/conversation/src/approvals.ts`, tested): 1 approves, 2 suggests another
+  time, 3 asks for the customer's number; anything else gets a short "Reply 1, 2 or 3" answer.
+  Nothing is guessed from other words. The answers back to approvers are fixed wording, since
+  they go to the business's own people, never to customers.
+- **Migration `20261109194419_approver_texts`:** every approval request, approver reply and answer,
+  kept apart from the customer thread. A reply is always inbound. RLS and pgTAP tests.
+- **`send_approval_request`** (worker), queued when a pick becomes a request:
+  - Sends the owner's `approval_request` template to every approver with a mobile, for playbooks
+    that approve by text (HVAC, contractor). Tattoo studios and clinics approve in the portal, so
+    nothing is sent; the request is in the Approve queue either way.
+  - A missing job summary is left out of the text; a caller with no name is named by their number,
+    so the time is never left out. A clinic's text would never carry the summary (rule 13).
+  - Each text is sent by its own `send_approver_text` job from the business number.
+- **Approver replies** (API intake): a text from an approver's mobile never starts a lead. A bare
+  number answers the latest request texted to them that is still waiting, through the same
+  `applyAction` as the Front Desk, recorded as decided by text (`decided_via = 'text'`), with an
+  audit event. Every reply gets an answer: "Approved. Marcus T. is being booked for …", "OK. … will
+  be offered other times.", "Call … at (319) 555-0142.", or "Nothing is waiting".
+- **Mock fix:** mock message and calendar references restarted at 0001 in every worker process, so
+  a second run reused a stored reference and the worker stopped. The worker now gives its mocks a
+  run token (`MOCK-SM-<run>-0001`); tests keep predictable references.
+
+**Not yet:** approver reminders after the approval window, and telling the customer the time is
+being confirmed (the `approval_reminder` job), hold expiry, and an approver texting STOP.
+
+**Test evidence:** `npm run check` and `npm run db:test` pass (counts in the PR). New: approval
+rules (4), approver replies through the webhook (4: 2 suggests another time on the latest request;
+3 and other words on the one still waiting; 1 approves, then nothing is waiting; approver texts
+never start a lead), the approval text (3: the owner's wording to approvers only; a nameless caller
+named by number; nothing for a decided request), pgTAP `approver_texts` (6). End to end on the
+sample data through the running API and worker: a new caller to Riverbend got the text-back, was
+offered "1) Mon, Nov 9 at 5:00 PM …", replied 1, got "Got it, … is requested"; Rhett got "(319)
+555-0153 picked Mon, Nov 9 at 5:00 PM. Reply 1 to approve …", replied 1, got "Approved. …"; the
+lead became booked and the customer got the confirmation. Mock connectors only; no text left
+this machine.
+
 ## 2026-11-09 — Phase 3: inbound calls and texts on mocks
 
 **Change:** the start of the core loop (SCOPE.md v0.2, step 1, Capture). Calls and texts to a

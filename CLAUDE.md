@@ -67,8 +67,11 @@ calendar hold; a taken time is re-offered; anything else goes to a person). Offe
 call, voicemail and text with its lead in one transaction (`planInbound` in
 `packages/conversation/src/intake.ts`): a new caller gets `send_text_back`, a reply to open times
 goes to `handle_offer_reply`, STOP and START are honored at once, and any other text goes to a
-person. Next: the approval text to approvers, then the clarify step (voicemail transcription and
-questions) (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+person. Approving by text: a pick queues `send_approval_request` (the owner's `approval_request`
+template to each approver, playbooks that approve by text), recorded in `app.approver_texts`; an
+approver's 1, 2 or 3 goes through the same `applyAction` as the portal (decided by text). The loop
+runs end to end on mocks. Next: the clarify step (voicemail transcription and questions), then
+approval reminders and hold expiry (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands

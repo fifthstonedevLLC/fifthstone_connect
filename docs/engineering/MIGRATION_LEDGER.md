@@ -29,6 +29,7 @@ succeeds against that environment.
 | `20261109181751_calendar_sync.sql`             | Outlook (Microsoft) as a calendar provider, `calendar_connections.last_synced_at`, and `calendar_busy` (synced busy times, start and end only) with RLS                                                | active |               |         |            |
 | `20261109190304_schedule_calendar_syncs.sql`   | `app.schedule_calendar_syncs(minutes, tenant)`: queues one `sync_calendar` job per connected calendar of each active business per period, never doubled                                                | active |               |         |            |
 | `20261109191515_slot_offers.sql`               | `slot_offers`: the numbered times each customer was offered, one open time per number per lead, with RLS                                                                                               | active |               |         |            |
+| `20261109194419_approver_texts.sql`            | `approver_texts`: approval requests, approver replies and answers, kept apart from the customer thread, with RLS                                                                                       | active |               |         |            |
 
 ## Squash record
 
