@@ -23,6 +23,7 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
+import type { PhoneEvents } from '@fsc/connectors';
 import type pg from 'pg';
 import { z } from 'zod';
 import { requirePortalUser, type PortalUser, type TokenVerifier } from './auth.js';
@@ -51,6 +52,7 @@ import {
 } from './repositories/onboarding.js';
 import { APPOINTMENT_STATUSES, getCalendar } from './repositories/calendar.js';
 import { getToday } from './repositories/today.js';
+import { webhookRoutes } from './webhooks.js';
 
 /**
  * The HTTP app. Routes are thin: validate input with Zod, call a repository or package function
@@ -60,6 +62,8 @@ import { getToday } from './repositories/today.js';
 export interface AppDeps {
   pool: pg.Pool;
   verifyToken: TokenVerifier;
+  /** Inbound phone webhooks; the labeled mock until Phase 4. Without it the route is absent. */
+  phoneEvents?: PhoneEvents;
   logger?: FastifyServerOptions['logger'];
 }
 
@@ -396,6 +400,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       return { status: 'ok' as const };
     },
   );
+
+  const phoneEvents = deps.phoneEvents;
+  if (phoneEvents) app.register(webhookRoutes, { pool: deps.pool, phoneEvents });
 
   // Portal routes: every request is signed in and runs in its user's tenant.
   app.register(

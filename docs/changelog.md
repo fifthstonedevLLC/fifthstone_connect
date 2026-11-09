@@ -12,6 +12,51 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-09 — Phase 3: inbound calls and texts on mocks
+
+**Change:** the start of the core loop (SCOPE.md v0.2, step 1, Capture). Calls and texts to a
+business's number now create and move leads, which closes the loop from a missed call to a held
+request.
+
+- **`POST /webhooks/phone`** (`apps/api/src/webhooks.ts`):
+  - The connector verifies the signature on the exact bytes received, then parses the event.
+    Until Phase 4 that is the labeled `MockPhoneEvents`, which accepts only mock-signed requests
+    with 555-01xx numbers; the real adapter replaces it without changing the route.
+  - The business is found from the number called (`app.resolve_inbound_tenant`). A number that is
+    not a business, or a disabled one, gets the same answer and nothing is stored.
+  - The event, contact, lead, call or message and jobs are stored in one transaction before the
+    answer (rule 1). A provider retry of the same event changes nothing (rule 2). Answers carry no
+    customer data. Delivery receipts for sent texts wait for the real provider.
+- **Intake rules** (`packages/conversation/src/intake.ts`, tested):
+  - A missed call or voicemail from someone without an open lead starts one and queues the
+    text-back. A call on an open lead joins it without texting again.
+  - A text while times are on offer goes to `handle_offer_reply`.
+  - Any other text puts the lead in front of a person (Reply, "New text to read") until the
+    clarify step reads texts; a lead already waiting on a person keeps its reason.
+  - STOP (and the other carrier keywords) is recorded at once and the lead becomes opted out;
+    START opts back in. Neither starts a lead (rule 12).
+  - Voicemails are kept as recordings; transcription is the clarify step, never for clinics.
+- **`send_text_back`** (worker): the owner's `missed_call_text_back` template through `send_text`.
+  Sentences that need a voicemail analysis that has not happened (`{need}`, `{question}`) are left
+  out by the new `withoutUnfilled`, never guessed. The lead waits as `clarifying`; with texting not
+  live it goes to a person to call.
+- **Front Desk:** `new_message` is Reply, with the row reading "New text to read"; the offer-step
+  reasons now have row wording too.
+
+**Note:** Riverbend's active text-back uses `{need}` and `{question}`, so until voicemails are
+analyzed it sends only its other sentences ("Sorry we missed your call! This is Riverbend Heating
+& Air. Reply STOP to opt out."), with no question. The owner may want a version without AI parts
+until the clarify step exists.
+
+**Test evidence:** webhook route tests (7: unsigned and malformed requests rejected; an unknown
+number stores nothing; a missed call starts a lead and queues the text-back once, even on retry;
+a second call and a voicemail join it; a reply to open times goes to the offer step; another text
+goes to a person; STOP, STOP from a stranger, and START). Worker text-back tests (2). Intake rules
+(7), `withoutUnfilled` (2) and row wording (1). End to end against the running API and worker on
+the sample data: a mock missed call to Riverbend from 555-0153, the text-back sent, the caller's
+reply in the thread, and the contact in the Front Desk Reply queue as "New text to read". Mock
+connectors only; nothing reached a carrier.
+
 ## 2026-11-09 — Phase 3: the offer step on mocks
 
 **Change:** the middle of the core loop (SCOPE.md v0.2, step 3). A customer is texted two or

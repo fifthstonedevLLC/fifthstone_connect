@@ -7,6 +7,7 @@ import {
   renderTemplate,
   sampleText,
   templateRule,
+  withoutUnfilled,
 } from './templates.js';
 
 const BUSINESS = 'Riverbend Heating & Air';
@@ -144,6 +145,23 @@ describe('formatSlot', () => {
   it('reads like the slot in a text, in the business time zone', () => {
     expect(formatSlot(new Date('2026-11-12T20:00:00Z'), 'America/Chicago')).toBe(
       'Thu, Nov 12 at 2:00 PM',
+    );
+  });
+});
+
+describe('withoutUnfilled', () => {
+  const template =
+    'Sorry we missed your call! This is {business}. Sounds like {need}. {question} Reply STOP to opt out.';
+
+  it('leaves out sentences that need an analysis that has not happened', () => {
+    expect(withoutUnfilled(template, {})).toBe(
+      'Sorry we missed your call! This is {business}. Reply STOP to opt out.',
+    );
+  });
+
+  it('keeps the whole template once the values exist', () => {
+    expect(withoutUnfilled(template, { need: 'a furnace repair', question: 'Address?' })).toBe(
+      template,
     );
   });
 });

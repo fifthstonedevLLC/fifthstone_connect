@@ -28,6 +28,10 @@ const REASON_LABEL: Record<string, string> = {
   voicemail_to_review: 'Voicemail to listen to',
   private_details: 'Shared private details',
   crisis_message_sent: 'Crisis message sent',
+  new_message: 'New text to read',
+  unclear_reply: 'Replied to the open times, but not with a number',
+  no_open_times: 'No open times to offer',
+  calendar_unavailable: "Calendar isn't connected",
 };
 
 const dayKey = (date: Date, timeZone: string) =>
@@ -359,6 +363,7 @@ const GUIDANCE: Record<string, string> = {
   no_open_times: 'No open times fit in the next two weeks. Call to agree a time.',
   calendar_unavailable:
     "Times couldn't be offered because your calendar isn't connected. Call to agree a time.",
+  new_message: 'They sent a text that needs a person. Read it, then reply or call.',
   unclear_reply:
     'They answered the open times with something other than a number. Read it, then reply or call.',
 };

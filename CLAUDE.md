@@ -62,8 +62,13 @@ minutes, without this service's own holds and events; a revoked calendar is mark
 pause), `send_slot_offer` (two or three numbered open times by text, recorded in
 `app.slot_offers`) and `handle_offer_reply` (a numbered reply becomes a pending request with a
 calendar hold; a taken time is re-offered; anything else goes to a person). Offer rules live in
-`packages/conversation/src/offers.ts`, slot calculation in `packages/scheduling`. Next: inbound
-calls and texts on mocks (they queue `handle_offer_reply`), then the approval text (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+`packages/conversation/src/offers.ts`, slot calculation in `packages/scheduling`. Intake:
+`POST /webhooks/phone` (signed; the labeled `MockPhoneEvents` until Phase 4) records each missed
+call, voicemail and text with its lead in one transaction (`planInbound` in
+`packages/conversation/src/intake.ts`): a new caller gets `send_text_back`, a reply to open times
+goes to `handle_offer_reply`, STOP and START are honored at once, and any other text goes to a
+person. Next: the approval text to approvers, then the clarify step (voicemail transcription and
+questions) (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands

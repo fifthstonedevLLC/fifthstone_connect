@@ -55,6 +55,15 @@ describe('whenLabel', () => {
 });
 
 describe('statusLine', () => {
+  it('names what a new text or an offer problem needs', () => {
+    expect(statusLine(card({ state: 'needs_attention', reason: 'new_message' }), TZ)).toBe(
+      'New text to read',
+    );
+    expect(statusLine(card({ state: 'needs_attention', reason: 'no_open_times' }), TZ)).toBe(
+      'No open times to offer',
+    );
+  });
+
   it('describes a request with its slot and urgency', () => {
     const slot = '2026-11-12T20:00:00Z';
     expect(statusLine(card({ slotStart: slot, urgency: 'flexible' }), TZ)).toBe(
