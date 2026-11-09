@@ -3,8 +3,24 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Executes queued actions and scheduled staff reminders.",
+  "description": "Runs queued jobs: texts, calendar events, holds. Uses labeled mock connectors until Phase 4.",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "once": "tsx --env-file-if-exists=../../.env src/main.ts --once"
+  },
+  "dependencies": {
+    "@fsc/connectors": "*",
+    "@fsc/conversation": "*",
+    "@fsc/core": "*",
+    "@fsc/workflow": "*",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }

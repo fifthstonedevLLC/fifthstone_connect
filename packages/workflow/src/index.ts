@@ -1,7 +1,5 @@
 /**
- * @fsc/workflow — durable job queue, retries, idempotency.
- *
- * Phase 0 placeholder. Phase 3 adds lease-based job claiming (FOR UPDATE SKIP LOCKED),
- * capped attempts, exponential backoff with jitter, and dead-letter status.
+ * @fsc/workflow — durable jobs: how a job run settles (retry with backoff, dead-letter), and the
+ * handler contract the worker uses. Pure code; the worker owns claiming and the database.
  */
-export const MODULE = 'workflow' as const;
+export * from './settle.js';

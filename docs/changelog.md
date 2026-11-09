@@ -198,6 +198,81 @@ The smooth scroll to the list on phones could not be watched in the test pane; t
 scroll works. The local database was reset afterwards. The portal bundle is 547 kB. Mock data
 only.
 
+## 2026-11-06 — Phase 3 (part 1): the worker runs jobs on mocks
+
+**Change**
+
+- **`apps/worker`:** claims due jobs, runs each one, and settles it.
+  - Each handler reads its facts in a short transaction, calls the connector outside any
+    transaction, and returns its result.
+  - The worker then writes the handler's results, the job's new status and an attempt record in
+    one transaction. A lead is never marked booked by a job that isn't marked done, and the
+    reverse can't happen either.
+  - A handler that throws counts as a transient failure, so the job retries instead of vanishing.
+  - `npm run dev -w @fsc/worker` polls continuously. `npm run once -w @fsc/worker` runs every due job
+    and exits.
+  - Every connector is a labeled mock (CLAUDE.md rule 5), and the worker logs a warning saying so
+    at startup.
+- **`packages/workflow`:** `settleJob` decides how a run ends.
+  - **Success:** the job is done, and the provider's reference is kept.
+  - **Skipped:** the job is closed with its reason, not as a failure.
+  - **Transient failure:** retried with capped exponential backoff (30 s doubling to 1 h, with
+    ±20% jitter), or the provider's own wait if that's longer.
+  - **Permanent failure, or the last attempt:** the job is dead-lettered.
+- **Handlers:**
+  - **`confirm_calendar_event`** (queued by Approve):
+    - The hold becomes a calendar event and the lead becomes booked, with a `lead.booked` audit
+      event.
+    - The confirmation text is queued from the owner's `confirmation` template, filled by the new
+      `renderTemplate` and `formatSlot`.
+    - The text is not queued when texting isn't live, the customer opted out, or the template
+      can't be filled; the booking stands either way.
+    - If the event can't be made, the lead goes back to Needs you as `booking_failed`.
+  - **`send_text`:**
+    - Opt-out is checked again right before sending (rule 12), and nothing is sent while texting
+      isn't approved.
+    - A sent message records the provider reference and becomes "Sent".
+    - An opted-out or dead message becomes "Not delivered".
+  - **`release_hold`:** releasing a hold that is already gone is not an error.
+- **Mock calendar:** `restoreHold` mirrors a hold the database records, because the mock keeps
+  calendars in memory only. Real calendars never need this.
+- **Migration `20261106011219_claim_jobs_by_type.sql`:**
+  - `app.claim_jobs(limit, lease, action_types, tenant)` claims only job types with handlers, so
+    seeded jobs of other types stay queued instead of being dead-lettered.
+  - The optional tenant scopes a claim to one business (operator replay, tests).
+- **CI:** the stack job now runs the worker tests too.
+- **New dependency:** `pino` in `apps/worker`, for structured logs. It's the logger Fastify already
+  uses in `apps/api`, so the version in the tree doesn't change.
+
+**Test evidence:** `npm run check`: 228 passed, 1 skipped locally without the anon key.
+
+- **`packages/workflow`** (7 tests): backoff, jitter, provider wait, dead-lettering and error codes.
+- **Template rendering and slot formatting:** 3 tests.
+- **Mock calendar:** `restoreHold`.
+- **Worker on the local stack** (6 tests, test-only business, claims scoped to it):
+  - every handled job runs, and an unhandled type stays queued;
+  - an approved lead is booked, with its hold converted, an audit event and the confirmation
+    queued;
+  - a hold is released;
+  - a reply is sent, and an opted-out customer is never texted;
+  - an unbookable lead goes back to a person, with every attempt recorded;
+  - the confirmation goes out on the next pass, and then nothing is left;
+  - a transient failure retries later and then succeeds on attempt 2.
+- **API and worker suites with the anon key:** 50 of 50.
+- **`db:test`:** 110 of 110, including the new `claim_jobs_by_type.test.sql`:
+  - claims filter by type and by business;
+  - an empty list of types is refused;
+  - an unhandled type is left untouched;
+  - anon can't claim.
+
+End to end in the in-app browser as Rhett, all on mocks:
+
+1. Approved Marcus; the lead page showed "Confirming".
+2. Ran `npm run once -w @fsc/worker`.
+3. Marcus read "Booked", and the confirmation text from Riverbend's template showed as "Sent".
+
+The local database was reset afterwards. Mock connectors only; nothing was sent.
+
 ## 2026-11-05 — Phase 2: onboarding screens with a simulated test call
 
 **Change**
@@ -207,7 +282,7 @@ only.
   unfinished one.
   1. **Business type:** shows the playbook and how requests are approved, plus the minimum-data
      note for clinics, and asks the owner to confirm it. Changing it goes through Fifth Stone Dev
-     (decision 28, working default).
+     (decision 28; confirmed by the owner 2026-11-05: businesses confirm and cannot change it).
   2. **Business details for texting registration:**
      - legal name, EIN (optional), address, website (optional) and a contact;
      - normalized by `BusinessProfileSchema` in `@fsc/core`, with plain notes under any field that

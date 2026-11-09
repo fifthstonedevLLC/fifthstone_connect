@@ -96,6 +96,22 @@ describe('MockCalendar', () => {
     ).toMatchObject({ ok: false, error: { code: 'hold_not_found' } });
   });
 
+  it('mirrors a hold the database already records, once', async () => {
+    const calendar = new MockCalendar();
+    calendar.restoreHold(T1, cal.calendarId, 'MOCK-CAL-RB-02', slot(14));
+    calendar.restoreHold(T1, cal.calendarId, 'MOCK-CAL-RB-02', slot(14));
+    expect(calendar.entriesFor(T1)).toHaveLength(1);
+    expect(
+      await calendar.confirmHold({
+        ...cal,
+        holdRef: 'MOCK-CAL-RB-02',
+        title: 'AC tune-up',
+        description: 'Mock',
+        idempotencyKey: 'confirm:1',
+      }),
+    ).toEqual({ ok: true, value: { eventRef: 'MOCK-CAL-RB-02' } });
+  });
+
   it('rejects an inverted slot', async () => {
     const result = await new MockCalendar().placeHold({
       ...cal,

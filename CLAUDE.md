@@ -51,8 +51,15 @@ The Calendar page shows the week: business hours, held and booked appointments, 
 from the connected calendar (Google, Outlook or Acuity; start and end only) and the open time left
 (`/portal/calendar`, `packages/scheduling`; the sync itself is mocked until Phase 4). The Setup page walks the owner through onboarding (business type, details for texting
 registration, hours and calendar, template review, approvers) and a labeled simulated test call
-(decision 29); nothing is sent to a vendor. That completes the Phase 2 screens; next: Phase 3,
-the engine on mocks (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+(decision 29); nothing is sent to a vendor. That completes the Phase 2 screens.
+
+Phase 3 in progress (engine on mocks): `apps/worker` claims due jobs of the types it has
+handlers for (`app.claim_jobs` with action types), runs them against labeled mock connectors and
+settles each in one transaction with retries and dead-letter (`packages/workflow`). Handlers so
+far: `confirm_calendar_event` (approved lead becomes booked, confirmation text queued),
+`send_text` and `release_hold`. Slot calculation is built (`packages/scheduling`). Next: the
+calendar sync job (busy times into `app.calendar_busy`), then offering slots and placing holds,
+then inbound calls and texts on mocks (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands
@@ -73,13 +80,15 @@ npm run db:stop
 npm run seed:build     # regenerate supabase/seed/ from packages/mock-data (never edit seeds by hand)
 npm run dev -w @fsc/api # API on http://127.0.0.1:8787 (reads .env; needs the local stack)
 npm run dev -w @fsc/portal # portal on http://127.0.0.1:5173 (apps/portal/.env.local; needs the API)
+npm run dev -w @fsc/worker # worker, polling for due jobs (mock connectors only)
+npm run once -w @fsc/worker # run every due job once, then exit
 ```
 
 Database rules, environments and local setup: `docs/engineering/DATABASE.md`.
 
 CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: `npm run check` and
 the portal build, then a throwaway local Supabase stack for `db:reset`, `db:test` and the API route
-tests (which must run there, not skip). Mock data only; no secrets.
+and worker tests (which must run there, not skip). Mock data only; no secrets.
 
 ## Layout
 
@@ -87,13 +96,13 @@ tests (which must run there, not skip). Mock data only; no secrets.
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `packages/core`         | Domain models, Zod validation, event contracts, tenant config                                                     |
 | `packages/connectors`   | Interfaces to Twilio, SES, calendars, transcription and models; labeled mocks in `@fsc/connectors/mock`           |
-| `packages/workflow`     | Durable jobs, retries, idempotency, orchestration                                                                 |
+| `packages/workflow`     | Durable jobs: how a run settles (retry with backoff and jitter, dead-letter)                                      |
 | `packages/conversation` | Portal actions, reply and template rules (built); conversation state, clarifying questions, playbooks (Phase 3)   |
 | `packages/scheduling`   | Open windows from business hours, open slots, day capacity (built); urgency rules, tentative holds (Phase 3)      |
 | `packages/ai`           | Prompt compiler, locked safety layer, AI output schemas (planned)                                                 |
 | `packages/mock-data`    | Mock tenants, users and scenarios (MOCK_DATA.md) and the seed generator; local only                               |
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, portal API, health                                 |
-| `apps/worker`           | Executes jobs: texts, emails, calendar writes, transcription, reminders, hold expiry                              |
+| `apps/worker`           | Runs jobs (built: calendar event, send text, release hold; mocks until Phase 4); reminders, hold expiry next      |
 | `apps/portal`           | Owner portal (React + Vite): sign-in, Front Desk, lead pages, Templates & AI, Setup; calls only `apps/api`        |
 | `apps/operator`         | Guarded CLI for onboarding, status, replay, export/delete                                                         |
 | `apps/marketing`        | Static marketing page (local review only, not deployed)                                                           |
