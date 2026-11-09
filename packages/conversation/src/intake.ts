@@ -44,23 +44,34 @@ export interface InboundPlan {
   /** Move the lead to this state, or leave it where it is. */
   move: { state: LeadState; reason: string | null } | null;
   /** The job to queue, by type; the key is built from the lead or the message. */
-  job: 'send_text_back' | 'handle_offer_reply' | null;
+  job: 'send_text_back' | 'handle_offer_reply' | 'clarify_lead' | null;
 }
 
 /**
  * - A missed call (or a voicemail with no call recorded first) from someone without an open lead
  *   starts one and gets the text-back. A call on an open lead joins it quietly.
  * - A text while times are on offer goes to the offer step (`handle_offer_reply`).
- * - Any other text needs a person until the clarify step reads it: the lead goes to Reply on the
- *   Front Desk. A lead already waiting on a person keeps its reason (an emergency stays one).
+ * - A text while the lead is being clarified, or a first text from someone new, goes to the
+ *   clarify step (`clarify_lead`). Not for clinics: their texts never reach the AI layer
+ *   (CLAUDE.md rule 13), so a person reads them.
+ * - Any other text needs a person: the lead goes to Reply on the Front Desk. A lead already
+ *   waiting on a person keeps its reason (an emergency stays one).
  */
-export function planInbound(kind: InboundKind, openLead: LeadState | null): InboundPlan {
+export function planInbound(
+  kind: InboundKind,
+  openLead: LeadState | null,
+  options: { clinic?: boolean } = {},
+): InboundPlan {
   if (kind === 'missed_call' || kind === 'voicemail') {
     return openLead === null
       ? { create: 'missed_call', move: null, job: 'send_text_back' }
       : { create: null, move: null, job: null };
   }
   if (openLead === 'offered') return { create: null, move: null, job: 'handle_offer_reply' };
+  const clarifying = openLead === null || openLead === 'new' || openLead === 'clarifying';
+  if (clarifying && !options.clinic) {
+    return { create: openLead === null ? 'text' : null, move: null, job: 'clarify_lead' };
+  }
   if (openLead === 'needs_attention') return { create: null, move: null, job: null };
   return {
     create: openLead === null ? 'text' : null,

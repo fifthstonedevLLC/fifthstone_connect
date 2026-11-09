@@ -1,4 +1,4 @@
-import { MockCalendar, MockSmsSender } from '@fsc/connectors/mock';
+import { MockCalendar, MockRulesModel, MockSmsSender } from '@fsc/connectors/mock';
 import { pino } from 'pino';
 import { loadConfig } from './config.js';
 import { createPool, withoutTenant } from './db.js';
@@ -20,7 +20,12 @@ const ctx = {
   // A run token keeps mock message and calendar references unique across worker restarts.
   connectors: (() => {
     const runId = Date.now().toString(36);
-    return { sms: new MockSmsSender({ runId }), calendar: new MockCalendar({ runId }) };
+    return {
+      sms: new MockSmsSender({ runId }),
+      calendar: new MockCalendar({ runId }),
+      // Fixed rules, not AI: no customer text leaves this machine until a provider is approved.
+      ai: new MockRulesModel({ runId }),
+    };
   })(),
   now: () => new Date(),
 };

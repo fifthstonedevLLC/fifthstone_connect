@@ -97,6 +97,7 @@ export function nextStep(lead: NextStepFacts): NextStep {
         case 'price_question':
         case 'unclear_reply':
         case 'new_message':
+        case 'out_of_scope':
           return { need: 'reply', action: 'reply', urgent };
         case 'voicemail_to_review':
           return { need: 'listen', action: 'listen', urgent };

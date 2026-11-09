@@ -185,6 +185,17 @@ describe.skipIf(!ready)('phone webhook (local stack, mock adapter, test tenant)'
     expect(voicemails.rows).toEqual([{ transcript: null }]);
   });
 
+  it('puts a text on a booked lead in front of a person', async () => {
+    const lead = (await leadOf(caller(1)))[0]!;
+    await pool.query(`update app.leads set state = 'booked' where id = $1`, [lead.id]);
+    await text(caller(1), 'Running ten minutes late');
+    expect((await leadOf(caller(1)))[0]).toMatchObject({
+      state: 'needs_attention',
+      state_reason: 'new_message',
+    });
+    await pool.query(`update app.leads set state = 'clarifying' where id = $1`, [lead.id]);
+  });
+
   it('sends a reply to open times to the offer step', async () => {
     const lead = (await leadOf(caller(1)))[0]!;
     await pool.query(`update app.leads set state = 'offered' where id = $1`, [lead.id]);
@@ -194,13 +205,11 @@ describe.skipIf(!ready)('phone webhook (local stack, mock adapter, test tenant)'
     expect((await leadOf(caller(1)))[0]?.state).toBe('offered');
   });
 
-  it('puts any other text in front of a person, starting a lead when needed', async () => {
+  it('starts a lead from a first text and sends it to the clarify step', async () => {
     await text(caller(2), 'Do you service heat pumps?');
-    expect((await leadOf(caller(2)))[0]).toMatchObject({
-      state: 'needs_attention',
-      state_reason: 'new_message',
-      source: 'text',
-    });
+    const lead = (await leadOf(caller(2)))[0]!;
+    expect(lead).toMatchObject({ state: 'new', state_reason: null, source: 'text' });
+    expect((await jobsOf(lead.id)).map((j) => j.action_type)).toEqual(['clarify_lead']);
     const thread = await pool.query<{ body: string; direction: string }>(
       `select m.body, m.direction from app.messages m
          join app.conversations c on c.id = m.conversation_id

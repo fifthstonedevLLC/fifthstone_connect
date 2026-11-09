@@ -98,7 +98,13 @@ export async function recordPhoneEvent(
     return 'recorded';
   }
 
-  const plan = planInbound(event.kind, lead?.state ?? null);
+  const clinic = await client.query<{ clinic: boolean }>(
+    `select clinic_minimum_data as clinic from app.tenant_config where tenant_id = $1`,
+    [tenantId],
+  );
+  const plan = planInbound(event.kind, lead?.state ?? null, {
+    clinic: clinic.rows[0]?.clinic ?? true,
+  });
   if (plan.create) {
     const created = await client.query<{ id: string; state: LeadState }>(
       `insert into app.leads (tenant_id, contact_id, source, first_event_id)
@@ -145,8 +151,8 @@ export async function recordPhoneEvent(
   const key =
     plan.job === 'send_text_back'
       ? `send_text_back:${lead.id}`
-      : plan.job === 'handle_offer_reply' && messageId
-        ? `handle_offer_reply:${messageId}`
+      : plan.job !== null && messageId
+        ? `${plan.job}:${messageId}`
         : null;
   if (plan.job && key) {
     await client.query(

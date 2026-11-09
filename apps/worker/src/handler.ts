@@ -1,4 +1,4 @@
-import type { CalendarProvider, SmsSender } from '@fsc/connectors';
+import type { CalendarProvider, LanguageModel, SmsSender } from '@fsc/connectors';
 import type { JobOutcome, JobSettlement } from '@fsc/workflow';
 import type pg from 'pg';
 import type { DbClient } from './db.js';
@@ -19,6 +19,8 @@ export interface ClaimedJob {
 export interface Connectors {
   sms: SmsSender;
   calendar: CalendarProvider;
+  /** The clarify step's model. Without one, customer texts go to a person. */
+  ai?: LanguageModel;
 }
 
 export interface HandlerContext {
