@@ -77,8 +77,11 @@ Clinics never reach the model. Locally the worker uses `MockRulesModel` (fixed r
 intake queues `transcribe_voicemail` (never for clinics); the transcript is read by the same step,
 and the text-back follows from it (`{need}`, a guarded phrase, and `{question}`, the owner's first
 unanswered question). Locally the worker uses the mock transcriber. The loop runs end to end on
-mocks with no step done by hand. Next: approval reminders and hold expiry, then the fixed safety
-and crisis messages (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+mocks with no step done by hand. If nobody decides:
+`approval_reminder` texts the approvers once after the approval window (business hours,
+`afterOpenMinutes`), and `expire_hold` releases the hold when it runs out (decision 19), marks the
+request expired and puts the lead in front of a person. Next: the fixed safety and crisis
+messages; the customer's "still confirming" text waits on decision 31 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands

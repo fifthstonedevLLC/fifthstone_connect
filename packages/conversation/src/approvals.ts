@@ -24,12 +24,16 @@ export type ApproverAnswer =
   | { kind: 'call'; name: string; phone: string | null }
   | { kind: 'help'; name: string }
   | { kind: 'nothing_waiting' }
+  /** Sent once after the approval window, while the request still waits. */
+  | { kind: 'reminder'; name: string; slot: string }
+  /** The hold ran out with nobody approving; the request is on the Front Desk. */
+  | { kind: 'lapsed'; name: string; slot: string }
   | { kind: 'refused'; error: ActionError };
 
 /** One period at the end, even after an initial ("Marcus T."). */
 const end = (text: string) => (text.endsWith('.') ? text : `${text}.`);
 
-/** The text back to an approver after their reply. */
+/** The text back to an approver after their reply, or a reminder or notice from the engine. */
 export function approverAnswer(answer: ApproverAnswer): string {
   switch (answer.kind) {
     case 'approved':
@@ -44,6 +48,10 @@ export function approverAnswer(answer: ApproverAnswer): string {
       return end(`Reply 1 to approve, 2 to suggest another time, or 3 to call ${answer.name}`);
     case 'nothing_waiting':
       return 'Nothing is waiting for your approval right now.';
+    case 'reminder':
+      return `Reminder: ${answer.name} is still waiting on ${answer.slot}. Reply 1 to approve, 2 to suggest another time, 3 to call.`;
+    case 'lapsed':
+      return `The hold on ${answer.slot} for ${answer.name} ran out with no approval, so the time was released. It is on the Front Desk.`;
     case 'refused':
       return answer.error === 'hold_expired'
         ? 'That time is no longer held. Open the Front Desk to sort it out.'

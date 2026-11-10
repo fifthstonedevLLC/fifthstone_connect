@@ -1,4 +1,6 @@
 import { formatSlot, holdExpiry, parseChoice } from '@fsc/conversation';
+import { BusinessHoursListSchema } from '@fsc/core';
+import { afterOpenMinutes } from '@fsc/scheduling';
 import type { LeadState } from '@fsc/core';
 import { withTenant, type DbClient } from '../db.js';
 import { keyId, type JobHandler } from '../handler.js';
@@ -69,8 +71,11 @@ export const handleOfferReply: JobHandler = async (job, ctx) => {
       state: LeadState;
       timezone: string;
       hold_minutes: number;
+      approval_window_minutes: number;
+      business_hours: unknown;
     }>(
-      `select m.direction, m.body, l.id as lead_id, l.state, t.timezone, cfg.hold_minutes
+      `select m.direction, m.body, l.id as lead_id, l.state, t.timezone, cfg.hold_minutes,
+              cfg.approval_window_minutes, cfg.business_hours
          from app.messages m
          join app.conversations cv on cv.tenant_id = m.tenant_id and cv.id = m.conversation_id
          join app.leads l on l.tenant_id = cv.tenant_id and l.id = cv.lead_id
@@ -160,6 +165,7 @@ export const handleOfferReply: JobHandler = async (job, ctx) => {
         [job.tenantId, leadId, slot.start, slot.end],
       );
       const requestId = request.rows[0]?.id;
+      const expiresAt = holdExpiry(now, slot.start, facts.hold_minutes);
       await client.query(
         `insert into app.calendar_holds
            (tenant_id, request_id, calendar_id, provider_hold_ref, slot_start, slot_end, expires_at)
@@ -171,7 +177,7 @@ export const handleOfferReply: JobHandler = async (job, ctx) => {
           held.value.holdRef,
           slot.start,
           slot.end,
-          holdExpiry(now, slot.start, facts.hold_minutes),
+          expiresAt,
         ],
       );
       await client.query(
@@ -196,6 +202,29 @@ export const handleOfferReply: JobHandler = async (job, ctx) => {
          values ($1, $2, 'send_approval_request', $3)
          on conflict (tenant_id, idempotency_key) do nothing`,
         [job.tenantId, leadId, `send_approval_request:${requestId}`],
+      );
+      // If nobody decides: one reminder after the approval window (in business hours, decision
+      // 10), as long as the hold is still running; then the hold runs out (decision 19).
+      const hours = BusinessHoursListSchema.safeParse(facts.business_hours);
+      const remindAt = afterOpenMinutes(
+        now,
+        facts.approval_window_minutes,
+        hours.success ? hours.data : [],
+        facts.timezone,
+      );
+      if (remindAt < expiresAt) {
+        await client.query(
+          `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key, run_at)
+           values ($1, $2, 'approval_reminder', $3, $4)
+           on conflict (tenant_id, idempotency_key) do nothing`,
+          [job.tenantId, leadId, `approval_reminder:${requestId}`, remindAt],
+        );
+      }
+      await client.query(
+        `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key, run_at)
+         values ($1, $2, 'expire_hold', $3, $4)
+         on conflict (tenant_id, idempotency_key) do nothing`,
+        [job.tenantId, leadId, `expire_hold:${requestId}`, expiresAt],
       );
       await queueTemplateText(client, job.tenantId, leadId, 'request_received', {
         slot: formatSlot(slot.start, facts.timezone),

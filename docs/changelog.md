@@ -12,6 +12,44 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-09 — Phase 3: approval reminders and hold expiry
+
+**Change:** what happens when a customer picks a time and nobody approves it (SCOPE.md v0.2,
+step 4; decisions 10 and 19).
+
+- **Timing** (`afterOpenMinutes` in `packages/scheduling`, tested): the approval window counts
+  business hours only, so a request at 4:30 PM with a two-hour window is chased at 9:30 the next
+  morning, and a Friday-evening request on Monday. With no hours set, plain minutes count.
+- **Queued with every request** (`handle_offer_reply`):
+  - `approval_reminder`, after the business's approval window, only while the hold is still
+    running;
+  - `expire_hold`, at the moment the hold runs out.
+- **`approval_reminder`** (worker): one text to each approver while the request still waits, for
+  playbooks that approve by text: "Reminder: Marcus T. is still waiting on Tue, Nov 10 at 9:00
+  AM. Reply 1 to approve, 2 to suggest another time, 3 to call." It is recorded as an approval
+  request, so a bare "1" in reply answers it. Nothing once someone has decided.
+- **`expire_hold`** (worker), when the hold runs out and the request still waits:
+  - The hold is released on the calendar; the request becomes `expired`.
+  - The lead goes to a person (Front Desk "Hold expired before approval"), and any queued
+    reminder is skipped. Audited as `request.expired`.
+  - Approvers who approve by text are told: "The hold on … for … ran out with no approval, so the
+    time was released. It is on the Front Desk."
+  - It does nothing if someone decided first, or if the hold has not run out.
+- **Not built, pending decision 31:** telling the customer their time is still being confirmed.
+  That is customer wording with no template yet; a proposed `still_confirming` template is in
+  DECISIONS_PENDING. Also left to a person: re-offering times after a hold runs out.
+- **Test change:** the runner test's example of a job with no handler is now
+  `send_confirmation_email` (email arrives with the real provider), since `approval_reminder`
+  has one.
+
+**Test evidence:** `npm run check` and `npm run db:test` pass (counts in the PR). New:
+`afterOpenMinutes` (4), reminder and lapsed wording (1), timer jobs (4: one reminder while a
+request waits, answered by a bare "1"; nothing once decided; a run-out hold released, request
+expired, lead to a person, approver told, audited; a hold not yet run out left alone), and the
+offer test now checks both timers are queued with each request, expiry exactly at the hold's end.
+The database's rule that two active holds can never overlap on one calendar showed up in setup.
+Mock connectors only.
+
 ## 2026-11-09 — Phase 3: voicemails transcribed and read
 
 **Change:** a caller's voicemail is transcribed and read by the clarify step, so the first text
