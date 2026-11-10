@@ -1,4 +1,4 @@
-import { formatSlot, holdExpiry, parseChoice } from '@fsc/conversation';
+import { formatSlot, holdExpiry, OFFER_LEAD_MINUTES, parseChoice } from '@fsc/conversation';
 import { BusinessHoursListSchema } from '@fsc/core';
 import { afterOpenMinutes } from '@fsc/scheduling';
 import type { LeadState } from '@fsc/core';
@@ -35,15 +35,17 @@ function reoffer(
   tenantId: string,
   leadId: string,
   messageId: string,
-  connectionId: string,
-  slot: Slot,
+  /** The calendar said this time is busy: recorded so the new offer cannot repeat it. */
+  busy?: { connectionId: string; slot: Slot },
 ) {
   return async (client: DbClient) => {
-    await client.query(
-      `insert into app.calendar_busy (tenant_id, connection_id, starts_at, ends_at)
-       values ($1, $2, $3, $4)`,
-      [tenantId, connectionId, slot.start, slot.end],
-    );
+    if (busy) {
+      await client.query(
+        `insert into app.calendar_busy (tenant_id, connection_id, starts_at, ends_at)
+         values ($1, $2, $3, $4)`,
+        [tenantId, busy.connectionId, busy.slot.start, busy.slot.end],
+      );
+    }
     await client.query(
       `update app.slot_offers set state = 'withdrawn'
         where tenant_id = $1 and lead_id = $2 and state = 'open'`,
@@ -136,8 +138,29 @@ export const handleOfferReply: JobHandler = async (job, ctx) => {
     };
   }
 
-  // The calendar has the final say: a time taken since the offer fails here, not later.
   const slot = { start: offer.slot_start, end: offer.slot_end };
+  // An offer answered late can point at a time that has passed, or is too soon to approve and
+  // reach: fresh times instead.
+  if (slot.start.getTime() <= now.getTime() + OFFER_LEAD_MINUTES * 60_000) {
+    return { outcome: { kind: 'succeeded' }, apply: reoffer(job.tenantId, leadId, messageId) };
+  }
+  // Another customer may have picked the same time from their own offer. This service's records
+  // say so before the calendar does (a calendar may accept overlapping holds; the database never
+  // does), so check them first rather than leave a stray hold on the calendar.
+  const taken = await withTenant(ctx.pool, job.tenantId, async (client) => {
+    const { rowCount } = await client.query(
+      `select 1 from app.requests r
+        where r.tenant_id = $1 and r.state in ('pending', 'approved')
+          and r.slot_start < $3 and r.slot_end > $2`,
+      [job.tenantId, slot.start, slot.end],
+    );
+    return (rowCount ?? 0) > 0;
+  });
+  if (taken) {
+    return { outcome: { kind: 'succeeded' }, apply: reoffer(job.tenantId, leadId, messageId) };
+  }
+
+  // The calendar has the final say: a time taken there since the offer fails here, not later.
   const held = await ctx.connectors.calendar.placeHold({
     tenantId: job.tenantId,
     calendarId: facts.calendar.calendar_id,
@@ -149,7 +172,10 @@ export const handleOfferReply: JobHandler = async (job, ctx) => {
     if (held.error.code === 'slot_unavailable') {
       return {
         outcome: { kind: 'succeeded' },
-        apply: reoffer(job.tenantId, leadId, messageId, facts.calendar.id, slot),
+        apply: reoffer(job.tenantId, leadId, messageId, {
+          connectionId: facts.calendar.id,
+          slot,
+        }),
       };
     }
     return { outcome: { kind: 'failed', error: held.error } };
