@@ -29,7 +29,7 @@ Build order (owner, 2026-11-03; `docs/product/SCOPE.md`): 1 foundation → 2 por
 providers) are planned and stay behind interfaces with mocks, but no real adapter is built until
 Phase 4, after the portal works and multi-tenant isolation is proven.
 
-Phase 1 in progress. Done: core types and validation (`packages/core`), connector interfaces
+Phase 1 complete. Done: core types and validation (`packages/core`), connector interfaces
 with labeled mocks (`packages/connectors`), the tenancy migration (`app.tenants`,
 `app.portal_users`, RLS) with its isolation tests, the mock-data catalog with generated seed files
 for the four mock tenants and seven local logins, the lead-domain migration (contacts through
@@ -38,7 +38,7 @@ migration (playbooks, config, versioned settings, registrations, connections, jo
 audit) with its seed. Phase 1 is complete: `db:reset` builds cleanly and isolation tests pass for
 every table.
 
-Phase 2 in progress: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/today` and
+Phase 2 complete: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/today` and
 `/portal/leads/:id`, `POST /portal/leads/:id/actions`, `POST /portal/leads/:id/replies` and the
 settings routes with Supabase sign-in and tenant-scoped transactions; `apps/portal` (React + Vite) shows the Front Desk (work queues)
 with counts (`nextStep` and `QUEUES` in `packages/conversation`), the selected lead open beside
@@ -53,7 +53,7 @@ from the connected calendar (Google, Outlook or Acuity; start and end only) and 
 registration, hours and calendar, template review, approvers) and a labeled simulated test call
 (decision 29); nothing is sent to a vendor. That completes the Phase 2 screens.
 
-Phase 3 in progress (engine on mocks): `apps/worker` claims due jobs of the types it has
+Phase 3 complete (engine on mocks): `apps/worker` claims due jobs of the types it has
 handlers for (`app.claim_jobs` with action types), runs them against labeled mock connectors and
 settles each in one transaction with retries and dead-letter (`packages/workflow`). Handlers so
 far: `confirm_calendar_event` (approved lead becomes booked, confirmation text queued),
@@ -85,8 +85,11 @@ queue: a hazard in the customer's own words (gas, flooding, crisis language; a f
 `packages/conversation/src/safety.ts`, never AI, so it covers clinics) sends a fixed message that
 owners cannot edit (`send_safety_message`; crisis points to 911 only) and alerts the approvers at
 once; a clarify-step emergency alerts them too (`emergency_alert`). The exact wording waits on
-decision 32, the customer's "still confirming" text on decision 31. Next: the Phase 3 wrap-up (a
-review of the loop's edges), then Phase 4 integrations (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+decision 32, the customer's "still confirming" text on decision 31. Phase 3 closed on
+2026-11-10 after a review of the loop's edge cases (changelog). Next: Phase 4 integrations, each
+real adapter run against a real test resource with owner approval: provider choices (decisions 6,
+15, 16), Twilio toll-free registration, SES domain verification and Google/Microsoft calendar app
+verification, plus the wording in decisions 31 and 32 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands
@@ -124,12 +127,12 @@ and worker tests (which must run there, not skip). Mock data only; no secrets.
 | `packages/core`         | Domain models, Zod validation, event contracts, tenant config                                                     |
 | `packages/connectors`   | Interfaces to Twilio, SES, calendars, transcription and models; labeled mocks in `@fsc/connectors/mock`           |
 | `packages/workflow`     | Durable jobs: how a run settles (retry with backoff and jitter, dead-letter)                                      |
-| `packages/conversation` | Portal actions, reply and template rules (built); conversation state, clarifying questions, playbooks (Phase 3)   |
-| `packages/scheduling`   | Open windows from business hours, open slots, day capacity (built); urgency rules, tentative holds (Phase 3)      |
+| `packages/conversation` | Portal actions, queues, templates, intake, clarify, offers, approvals and safety rules (built)                    |
+| `packages/scheduling`   | Open windows from business hours, open slots, day capacity, business-hours timing (built)                         |
 | `packages/ai`           | Prompt compiler, locked safety layer, AI output schemas (built: the clarify step)                                 |
 | `packages/mock-data`    | Mock tenants, users and scenarios (MOCK_DATA.md) and the seed generator; local only                               |
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, portal API, health                                 |
-| `apps/worker`           | Runs jobs (built: calendar event, send text, release hold; mocks until Phase 4); reminders, hold expiry next      |
+| `apps/worker`           | Runs every engine job (built, on labeled mocks until Phase 4): texts, calendar, clarify, offers, approvals        |
 | `apps/portal`           | Owner portal (React + Vite): sign-in, Front Desk, lead pages, Templates & AI, Setup; calls only `apps/api`        |
 | `apps/operator`         | Guarded CLI for onboarding, status, replay, export/delete                                                         |
 | `apps/marketing`        | Static marketing page (local review only, not deployed)                                                           |

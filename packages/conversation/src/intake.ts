@@ -58,7 +58,8 @@ export interface InboundPlan {
  *   clarify step (`clarify_lead`). Not for clinics: their texts never reach the AI layer
  *   (CLAUDE.md rule 13), so a person reads them.
  * - Any other text needs a person: the lead goes to Reply on the Front Desk. A lead already
- *   waiting on a person keeps its reason (an emergency stays one).
+ *   waiting on a person keeps its reason (an emergency stays one), and a lead waiting for
+ *   approval stays in the Approve queue with the text in its thread.
  */
 export function planInbound(
   kind: InboundKind,
@@ -77,7 +78,11 @@ export function planInbound(
   if (clarifying && !options.clinic) {
     return { create: openLead === null ? 'text' : null, move: null, job: 'clarify_lead' };
   }
-  if (openLead === 'needs_attention') return { create: null, move: null, job: null };
+  // Already in front of a person, or waiting on an approver: the text joins the thread and the
+  // lead stays where it is (moving a requested lead would leave its request unapprovable).
+  if (openLead === 'needs_attention' || openLead === 'requested') {
+    return { create: null, move: null, job: null };
+  }
   return {
     create: openLead === null ? 'text' : null,
     move: { state: 'needs_attention', reason: 'new_message' },

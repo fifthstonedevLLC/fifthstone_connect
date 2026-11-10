@@ -50,6 +50,8 @@ async function removeTestTenant(pool: pg.Pool) {
      delete from app.approver_texts where tenant_id = $1;
      delete from app.calendar_holds where tenant_id = $1;
      delete from app.requests where tenant_id = $1;
+     delete from app.messages where tenant_id = $1;
+     delete from app.conversations where tenant_id = $1;
      delete from app.leads where tenant_id = $1;
      delete from app.inbound_events where tenant_id = $1;
      delete from app.contacts where tenant_id = $1;
@@ -65,8 +67,8 @@ describe.skipIf(!ready)('approving by text (local stack, mock adapter, test tena
   const phone = new MockPhoneEvents();
   let seq = 0;
 
-  /** The approver texts the business number; returns the answer queued back to them. */
-  const approverSays = async (body: string) => {
+  /** Someone texts the business number. */
+  const textFrom = async (from: string, body: string) => {
     seq += 1;
     const res = await buildApp({
       pool,
@@ -80,7 +82,7 @@ describe.skipIf(!ready)('approving by text (local stack, mock adapter, test tena
         const r = phone.request({
           kind: 'text_received',
           messageId: `MOCK-SM-APPROVE-${Date.now()}-${seq}`,
-          from: APPROVER_MOBILE,
+          from,
           to: NUMBER,
           body,
           mediaCount: 0,
@@ -90,6 +92,10 @@ describe.skipIf(!ready)('approving by text (local stack, mock adapter, test tena
       })(),
     });
     expect(res.statusCode).toBe(200);
+  };
+  /** The approver texts the business number; returns the answer queued back to them. */
+  const approverSays = async (body: string) => {
+    await textFrom(APPROVER_MOBILE, body);
     const { rows } = await pool.query<{ body: string }>(
       `select body from app.approver_texts
         where tenant_id = $1 and kind = 'answer' order by occurred_at desc limit 1`,
@@ -173,6 +179,9 @@ describe.skipIf(!ready)('approving by text (local stack, mock adapter, test tena
   });
 
   it('1 approves, the same as the Front Desk, and then nothing is waiting', async () => {
+    // The customer texting while they wait does not take the request out of the Approve queue.
+    await textFrom('+13195550187', 'Thanks!');
+    expect(await requestState(1)).toEqual({ state: 'pending', decided_via: null });
     expect(await approverSays('1')).toMatch(/^Approved\. Customer 1 is being booked for .+\.$/);
     expect(await requestState(1)).toEqual({ state: 'approved', decided_via: 'text' });
     expect(await jobKeys(1)).toEqual(['confirm_calendar_event']);

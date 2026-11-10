@@ -57,7 +57,23 @@ export async function runOnce(ctx: HandlerContext, options: RunOptions): Promise
 
   const reports: RunReport[] = [];
   for (const job of claimed) {
-    reports.push(await runJob(job, ctx, options));
+    try {
+      reports.push(await runJob(job, ctx, options));
+    } catch (error) {
+      // Saving the result failed (the database refused it). The job keeps its lease and is
+      // claimed again when the lease runs out, so it retries and counts the attempt; the rest of
+      // this pass goes on.
+      options.log.error(
+        { err: error, jobId: job.id, actionType: job.actionType },
+        'job not settled',
+      );
+      reports.push({
+        jobId: job.id,
+        actionType: job.actionType,
+        status: 'failed',
+        error: 'settle_error',
+      });
+    }
   }
   return reports;
 }

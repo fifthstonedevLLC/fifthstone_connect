@@ -55,8 +55,10 @@ sequenceDiagram
     W->>TW: Confirmation text (+ SES email if known)
 ```
 
-Emergencies branch at the urgency answer: the approver is alerted immediately and, where the
-playbook says so, the customer first receives the fixed safety message.
+Emergencies skip the queue. A hazard in the customer's own words (crisis language, a gas smell,
+flooding; a fixed phrase list, never AI) sends the fixed safety or crisis message first and alerts
+every approver at once. An emergency the clarify step finds alerts the approvers too. The crisis
+message points to 911 only.
 
 ## States (proposed, ADR-0002 decision 6)
 
@@ -138,22 +140,22 @@ stored encrypted, never in plain tenant config.
 
 ## Error behavior
 
-| Failure                                                      | Behavior                                                                                  |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Invalid input / Turnstile / signature                        | Rejected before persistence; nothing stored                                               |
-| Duplicate event                                              | Unique constraint → return original result; no new jobs                                   |
-| DB unavailable at intake                                     | 503; source may retry; no partial state                                                   |
-| Vendor transient error (429, 5xx, timeout)                   | Retry with exponential backoff + jitter up to cap                                         |
-| Vendor permanent error (rejected sender, revoked permission) | Mark failed/dead-letter, alert operator, no infinite retry                                |
-| Worker crash mid-job                                         | Lease expires; job reclaimed; reconcile before repeating non-idempotent calls             |
-| Tenant disabled                                              | Pending jobs skipped and marked; no new intake                                            |
-| Duplicate Twilio webhook (retries)                           | Unique on Twilio CallSid / MessageSid; no second lead or text                             |
-| Transcription or model failure                               | Lead continues with a generic first text and lands in **Needs you**; never blocks capture |
-| AI output fails schema validation                            | Treated as model failure; output discarded, not sent                                      |
-| Calendar read fails                                          | No slots offered; customer told the owner will confirm a time; lead to **Needs you**      |
-| Calendar token revoked                                       | Operator and owner alerted; portal shows reconnect; offers paused for that tenant         |
-| Customer opted out (STOP)                                    | Outbound text job skipped and marked; never retried                                       |
-| Hold expires before approval                                 | Hold released; customer offered fresh slots or told the owner will follow up              |
+| Failure                                                      | Behavior                                                                                      |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Invalid input / Turnstile / signature                        | Rejected before persistence; nothing stored                                                   |
+| Duplicate event                                              | Unique constraint → return original result; no new jobs                                       |
+| DB unavailable at intake                                     | 503; source may retry; no partial state                                                       |
+| Vendor transient error (429, 5xx, timeout)                   | Retry with exponential backoff + jitter up to cap                                             |
+| Vendor permanent error (rejected sender, revoked permission) | Mark failed/dead-letter, alert operator, no infinite retry                                    |
+| Worker crash mid-job                                         | Lease expires; job reclaimed; reconcile before repeating non-idempotent calls                 |
+| Tenant disabled                                              | Pending jobs skipped and marked; no new intake                                                |
+| Duplicate Twilio webhook (retries)                           | Unique on Twilio CallSid / MessageSid; no second lead or text                                 |
+| Transcription or model failure                               | Lead continues with a generic first text and lands in **Needs you**; never blocks capture     |
+| AI output fails schema validation                            | Treated as model failure; output discarded, not sent                                          |
+| Calendar read fails                                          | No slots offered; customer told the owner will confirm a time; lead to **Needs you**          |
+| Calendar token revoked                                       | Operator and owner alerted; portal shows reconnect; offers paused for that tenant             |
+| Customer opted out (STOP)                                    | Outbound text job skipped and marked; never retried                                           |
+| Hold expires before approval                                 | Hold released, request expired, lead to a person; approvers told (customer text: decision 31) |
 
 ## Environments and hosting (ADR-0003)
 

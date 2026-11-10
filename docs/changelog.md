@@ -12,6 +12,41 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-10 — Phase 3 closed: a review of the loop's edges
+
+**Change:** a review of the whole engine before Phase 4. Four real problems found and fixed, each
+with a test.
+
+- **A customer texting while their time waits for approval broke the approval.** The text moved the
+  lead out of `requested`, so an approver's "1" (or Approve in the portal) answered "no pending
+  request". Now the text joins the thread and the lead stays in the Approve queue.
+- **An offer answered late could book a time that had passed.** A pick within two hours of now, or
+  in the past, now gets fresh times instead of a hold.
+- **Two customers picking the same time.** A real calendar may accept overlapping holds, the
+  database never does, so the second pick's job died and left a stray hold on the calendar. The
+  reply step now checks this service's own held and booked times first and offers fresh times.
+- **One job whose result could not be saved stopped the whole worker pass.** Now that job is
+  logged, keeps its lease and is retried later; the rest of the pass carries on.
+
+**Also:**
+
+- Sample jobs now use the engine's own key form (a transcription by its voicemail, a reminder by
+  its request), so the worker handles them like real ones; a fresh `npm run once` on the sample data
+  settles every due job with no errors.
+- **Sample appointments inside business hours.** They were "N hours after the last reset", so a
+  reset in the evening put booked jobs in the evening. Each now falls on the business's Nth open
+  day, a few hours after opening, whenever the seed loads (a session-only SQL helper in the seed).
+  A data problem, not an engine one: real offers always came from business hours.
+- CI: one run on `main` (#18) failed on the offer test's UTC dates, fixed in #19; every run since has
+  passed, and CI runs the API and worker tests against the database.
+- CLAUDE.md marks Phases 1–3 complete, the layout table and the architecture overview match what is
+  built, and the next step is Phase 4.
+
+**Test evidence:** `npm run check` and `npm run db:test` pass (counts in the PR). New: intake keeps a
+requested lead (1), a customer text then the approver's "1" still approves (1), late and
+double-picked times re-offered (2), and the worker carries on past a job it cannot save (1).
+Mock connectors only.
+
 ## 2026-11-10 — Phase 3: fixed safety and crisis messages
 
 **Change:** emergencies skip the queue (SCOPE.md v0.2, Guardrails). When a customer's own words

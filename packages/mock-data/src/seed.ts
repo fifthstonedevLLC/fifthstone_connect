@@ -43,9 +43,52 @@ const calendarIdOf = (tenant: string) => {
   return `${CALENDAR_PREFIX[ops.calendar.provider]}-${tenant}`;
 };
 
-/** Slot starts land on the hour so the calendar views look like real bookings. */
-const slotAt = (hours: number, plus = 0) =>
-  `date_trunc('hour', now()) + interval '${hours + plus} hours'`;
+/**
+ * A sample appointment time inside the business's own hours, whenever the seed is loaded: about
+ * `hours / 24` open days from today (forward, or back for a past job), a few hours after opening
+ * and never past the last hour of the day. Different `hours` give different times, so two sample
+ * holds never overlap on one calendar.
+ */
+const slotAt = (tenant: string, hours: number, plus = 0) =>
+  `pg_temp.mock_open_slot(${lit(tenantId(tenant))}, ${hours})` +
+  (plus ? ` + interval '${plus} hours'` : '');
+
+/** The SQL behind `slotAt`, defined for the seed session only. */
+const OPEN_SLOT_FUNCTION = `create function pg_temp.mock_open_slot(p_tenant uuid, p_hours integer)
+returns timestamptz
+language plpgsql
+as $$
+declare
+  v_tz text;
+  v_hours jsonb;
+  v_day date;
+  v_step integer := case when p_hours < 0 then -1 else 1 end;
+  v_left integer := greatest(1, round(abs(p_hours) / 24.0)::integer);
+  v_block jsonb;
+  v_at time;
+begin
+  select t.timezone, c.business_hours into v_tz, v_hours
+    from app.tenants t join app.tenant_config c on c.tenant_id = t.id
+   where t.id = p_tenant;
+  v_day := (now() at time zone v_tz)::date;
+  loop
+    v_day := v_day + v_step;
+    select b into v_block from jsonb_array_elements(v_hours) b
+     where b -> 'days' @> to_jsonb(extract(isodow from v_day)::integer)
+     order by b ->> 'open' limit 1;
+    if v_block is not null then
+      v_left := v_left - 1;
+      if v_left = 0 then
+        v_at := least(
+          (v_block ->> 'open')::time + make_interval(hours => 1 + abs(p_hours) % 24 % 5),
+          (v_block ->> 'close')::time - interval '1 hour'
+        );
+        return (v_day + v_at) at time zone v_tz;
+      end if;
+    end if;
+  end loop;
+end;
+$$;`;
 
 function find<T extends { key: string }>(list: readonly T[], key: string): T {
   const item = list.find((x) => x.key === key);
@@ -185,6 +228,19 @@ ${rows(calendars)};
 `;
 }
 
+/**
+ * A job's idempotency key, in the same form the engine uses, so the worker handles sample jobs
+ * exactly like real ones: a transcription by its voicemail, a reminder by its request, the rest by
+ * their lead.
+ */
+function jobKey(action: string, lead: string): string {
+  if (action === 'transcribe_voicemail') return `${action}:${mockUuid('voicemail', lead)}`;
+  if (action === 'approval_reminder' && find(LEADS, lead).request) {
+    return `${action}:${requestId(lead)}`;
+  }
+  return `${action}:${leadId(lead)}`;
+}
+
 function jobsFile(): string {
   const leadTenant = (key: string) => find(LEADS, key).tenant;
   const jobs = JOBS.map((j) => [
@@ -192,7 +248,7 @@ function jobsFile(): string {
     lit(tenantId(leadTenant(j.lead))),
     lit(leadId(j.lead)),
     lit(j.action),
-    lit(`${j.action}:${leadId(j.lead)}`),
+    lit(jobKey(j.action, j.lead)),
     lit(j.status),
     String(j.attempts),
     `now() + interval '${j.runInMinutes} minutes'`,
@@ -545,8 +601,8 @@ function requestsFile(): string {
     lit(requestId(lead.key)),
     lit(tenantId(lead.tenant)),
     lit(leadId(lead.key)),
-    slotAt(r.slotInHours),
-    slotAt(r.slotInHours, 1),
+    slotAt(lead.tenant, r.slotInHours),
+    slotAt(lead.tenant, r.slotInHours, 1),
     lit(r.state),
     r.decidedBy ? lit(portalUserId(r.decidedBy)) : 'null',
     opt(r.decidedVia),
@@ -562,8 +618,8 @@ function requestsFile(): string {
             lit(requestId(lead.key)),
             lit(calendarIdOf(lead.tenant)),
             lit(`MOCK-CAL-${lead.key}`),
-            slotAt(r.slotInHours),
-            slotAt(r.slotInHours, 1),
+            slotAt(lead.tenant, r.slotInHours),
+            slotAt(lead.tenant, r.slotInHours, 1),
             lit(r.hold),
             r.hold === 'active' ? "now() + interval '22 hours'" : ago(60),
           ],
@@ -571,6 +627,9 @@ function requestsFile(): string {
       : [],
   );
   return `${GENERATED}
+-- Sample appointments fall inside each business's own hours, whenever this is loaded.
+${OPEN_SLOT_FUNCTION}
+
 -- Requests in decided and undecided states, with their calendar holds.
 insert into app.requests (
   id, tenant_id, lead_id, slot_start, slot_end, state, decided_by, decided_via, decided_at,

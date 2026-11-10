@@ -88,6 +88,14 @@ describe('planInbound', () => {
     expect(planInbound('text_received', 'needs_attention').move).toBeNull();
   });
 
+  it('keeps a lead waiting for approval in the Approve queue when the customer texts', () => {
+    expect(planInbound('text_received', 'requested')).toEqual({
+      create: null,
+      move: null,
+      job: null,
+    });
+  });
+
   it('never reopens a closed lead', () => {
     expect(isOpenLead('closed')).toBe(false);
     expect(isOpenLead('opted_out')).toBe(false);

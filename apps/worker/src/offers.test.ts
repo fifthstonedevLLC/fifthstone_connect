@@ -257,4 +257,42 @@ describe.skipIf(!ready)('offer step (local stack, mock connectors, test tenant)'
     const requests = await pool.query(`select 1 from app.requests where lead_id = $1`, [lead(3)]);
     expect(requests.rowCount).toBe(0);
   });
+
+  it('offers fresh times for an answer that came too late for its time', async () => {
+    // The customer took days to answer: the first time has passed.
+    await pool.query(
+      `update app.slot_offers set slot_start = now() - interval '2 hours',
+              slot_end = now() - interval '1 hour'
+        where lead_id = $1 and state = 'open' and choice = 1`,
+      [lead(3)],
+    );
+    await reply(3, '1');
+    await drain();
+    expect((await leadRow(3))?.state).toBe('offered');
+    const fresh = await openOffers(3);
+    expect(fresh).toHaveLength(3);
+    expect(fresh.every((o) => o.slot_start.getTime() > Date.now())).toBe(true);
+    const requests = await pool.query(`select 1 from app.requests where lead_id = $1`, [lead(3)]);
+    expect(requests.rowCount).toBe(0);
+  });
+
+  it('never holds a time another customer already picked, even if the calendar would', async () => {
+    // Customer 1 holds a time; customer 3 was offered the same one in their own text.
+    const held = await pool.query<{ slot_start: Date; slot_end: Date }>(
+      `select slot_start, slot_end from app.requests where lead_id = $1`,
+      [lead(1)],
+    );
+    await pool.query(
+      `update app.slot_offers set slot_start = $2, slot_end = $3
+        where lead_id = $1 and state = 'open' and choice = 2`,
+      [lead(3), held.rows[0]!.slot_start, held.rows[0]!.slot_end],
+    );
+    const holdsBefore = calendar.entriesFor(T).filter((e) => e.kind === 'hold').length;
+    await reply(3, '2');
+    await drain();
+    expect((await leadRow(3))?.state).toBe('offered');
+    expect(calendar.entriesFor(T).filter((e) => e.kind === 'hold')).toHaveLength(holdsBefore);
+    const requests = await pool.query(`select 1 from app.requests where lead_id = $1`, [lead(3)]);
+    expect(requests.rowCount).toBe(0);
+  });
 });
