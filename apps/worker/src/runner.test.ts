@@ -159,7 +159,7 @@ describe.skipIf(!ready)('worker (local stack, mock connectors, test tenant)', ()
          ('${T}', '${lead(3)}', 'send_text', 'send_text:${message(3)}'),
          ('${T}', '${lead(4)}', 'send_text', 'send_text:${message(4)}'),
          ('${T}', '${lead(5)}', 'confirm_calendar_event', 'confirm_calendar_event:${request(5)}'),
-         ('${T}', '${lead(1)}', 'approval_reminder', 'approval_reminder:${lead(1)}');`,
+         ('${T}', '${lead(1)}', 'send_confirmation_email', 'send_confirmation_email:${lead(1)}');`,
     );
   });
 
@@ -189,7 +189,7 @@ describe.skipIf(!ready)('worker (local stack, mock connectors, test tenant)', ()
     });
     expect(
       await one(`select status, attempts from app.jobs where idempotency_key = $1`, [
-        `approval_reminder:${lead(1)}`,
+        `send_confirmation_email:${lead(1)}`,
       ]),
     ).toEqual({ status: 'queued', attempts: 0 });
   });

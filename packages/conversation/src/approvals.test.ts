@@ -35,4 +35,14 @@ describe('approverAnswer', () => {
     expect(approverAnswer({ kind: 'nothing_waiting' })).toMatch(/^Nothing is waiting/);
     expect(approverAnswer({ kind: 'refused', error: 'hold_expired' })).toMatch(/no longer held/);
   });
+
+  it('reminds once, and says plainly when a hold ran out', () => {
+    const slot = 'Tue, Nov 10 at 9:00 AM';
+    expect(approverAnswer({ kind: 'reminder', name: 'Marcus T.', slot })).toBe(
+      'Reminder: Marcus T. is still waiting on Tue, Nov 10 at 9:00 AM. Reply 1 to approve, 2 to suggest another time, 3 to call.',
+    );
+    expect(approverAnswer({ kind: 'lapsed', name: 'Marcus T.', slot })).toBe(
+      'The hold on Tue, Nov 10 at 9:00 AM for Marcus T. ran out with no approval, so the time was released. It is on the Front Desk.',
+    );
+  });
 });

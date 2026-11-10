@@ -222,6 +222,19 @@ describe.skipIf(!ready)('offer step (local stack, mock connectors, test tenant)'
     expect(sms.sent.filter((s) => s.tenantId === T).at(-1)?.body).toMatch(
       /^Got it, .+ is requested\./,
     );
+    // If nobody decides: a reminder after the approval window, and expiry when the hold runs out.
+    const timers = await pool.query<{ action_type: string; run_at: Date; status: string }>(
+      `select action_type, run_at, status from app.jobs
+        where lead_id = $1 and action_type in ('approval_reminder', 'expire_hold')
+        order by run_at`,
+      [lead(1)],
+    );
+    const expiry = timers.rows.find((j) => j.action_type === 'expire_hold');
+    expect(expiry?.run_at.getTime()).toBe(rows[0]!.expires_at.getTime());
+    expect(expiry?.status).toBe('queued');
+    for (const j of timers.rows.filter((r) => r.action_type === 'approval_reminder')) {
+      expect(j.run_at.getTime()).toBeLessThan(rows[0]!.expires_at.getTime());
+    }
   });
 
   it('sends anything but a number to a person', async () => {

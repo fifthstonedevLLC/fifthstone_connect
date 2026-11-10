@@ -4,6 +4,7 @@ import { clarifyLead } from './clarify-lead.js';
 import { confirmCalendarEvent } from './confirm-calendar-event.js';
 import { handleOfferReply } from './handle-offer-reply.js';
 import { releaseHold } from './release-hold.js';
+import { approvalReminder, expireHold } from './request-timers.js';
 import { sendSlotOffer } from './send-slot-offer.js';
 import { sendText } from './send-text.js';
 import { sendTextBack } from './send-text-back.js';
@@ -26,4 +27,6 @@ export const HANDLERS: Record<string, JobHandler> = {
   send_approver_text: sendApproverText,
   clarify_lead: clarifyLead,
   transcribe_voicemail: transcribeVoicemail,
+  approval_reminder: approvalReminder,
+  expire_hold: expireHold,
 };

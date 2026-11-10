@@ -1,4 +1,4 @@
-import { addDays, isoWeekday, zonedTime, type LocalDate } from './zoned.js';
+import { addDays, isoWeekday, localDate, zonedTime, type LocalDate } from './zoned.js';
 
 /**
  * Open time, from the business's own settings first: its weekly hours say which days and times
@@ -153,4 +153,35 @@ export function mergeIntervals(list: readonly Interval[]): Interval[] {
  */
 export function personalBusy(reported: readonly Interval[], own: readonly Interval[]): Interval[] {
   return subtractBusy(mergeIntervals(reported), own);
+}
+
+/**
+ * The moment `minutes` of open time have passed after `start`, counting only the business's
+ * hours ("2 business hours", decision 10). A start outside hours counts from the next opening.
+ * With no hours at all, plain minutes are counted. Looks at most `searchDays` ahead.
+ */
+export function afterOpenMinutes(
+  start: Date,
+  minutes: number,
+  hours: readonly WeeklyHours[],
+  timeZone: string,
+  searchDays = 14,
+): Date {
+  const plain = new Date(start.getTime() + minutes * 60_000);
+  if (hours.length === 0) return plain;
+  let left = minutes * 60_000;
+  const windows = openWindows({
+    hours,
+    timeZone,
+    from: addDays(localDate(start, timeZone), -1),
+    days: searchDays + 1,
+  });
+  for (const w of windows) {
+    const from = Math.max(w.start.getTime(), start.getTime());
+    if (from >= w.end.getTime()) continue;
+    const available = w.end.getTime() - from;
+    if (available >= left) return new Date(from + left);
+    left -= available;
+  }
+  return plain;
 }

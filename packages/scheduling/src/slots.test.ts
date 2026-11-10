@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  afterOpenMinutes,
   dayCapacity,
   openSlots,
   openWindows,
@@ -130,5 +131,34 @@ describe('personalBusy', () => {
       { start: at('2026-11-11T15:00:00Z'), end: at('2026-11-11T16:00:00Z') },
     ];
     expect(iso(personalBusy(reported, own))).toEqual(['19:00-20:00', '14:00-16:00']);
+  });
+});
+
+describe('afterOpenMinutes', () => {
+  // Weekdays 08:00–17:00 Chicago (14:00–23:00 UTC in November).
+  it('counts within the same open day', () => {
+    expect(afterOpenMinutes(at('2026-11-10T15:00:00Z'), 120, WEEKDAYS, CHICAGO).toISOString()).toBe(
+      '2026-11-10T17:00:00.000Z',
+    );
+  });
+
+  it('carries over the close to the next opening', () => {
+    // 4:30 PM Tuesday: 30 minutes left today, 90 more from 8:00 Wednesday.
+    expect(afterOpenMinutes(at('2026-11-10T22:30:00Z'), 120, WEEKDAYS, CHICAGO).toISOString()).toBe(
+      '2026-11-11T15:30:00.000Z',
+    );
+  });
+
+  it('starts counting at the next opening, across the weekend', () => {
+    // Friday 7 PM: nothing counts until Monday 8:00.
+    expect(afterOpenMinutes(at('2026-11-14T01:00:00Z'), 120, WEEKDAYS, CHICAGO).toISOString()).toBe(
+      '2026-11-16T16:00:00.000Z',
+    );
+  });
+
+  it('counts plain minutes when there are no hours', () => {
+    expect(afterOpenMinutes(at('2026-11-14T01:00:00Z'), 120, [], CHICAGO).toISOString()).toBe(
+      '2026-11-14T03:00:00.000Z',
+    );
   });
 });
