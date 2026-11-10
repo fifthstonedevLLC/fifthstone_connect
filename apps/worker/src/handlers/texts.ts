@@ -103,6 +103,25 @@ export async function queueTemplateText(
 }
 
 /**
+ * Queues a fixed safety or crisis message (`packages/conversation/src/safety.ts`). It is not an
+ * owner template and cannot be edited, but the same opt-out and texting checks apply (rule 12).
+ */
+export async function queueFixedText(
+  client: DbClient,
+  tenantId: string,
+  leadId: string,
+  key: string,
+  body: string,
+): Promise<QueuedText> {
+  const f = await leadTextFacts(client, tenantId, leadId, null);
+  if (!f) return { ok: false, reason: 'no_template' };
+  if (f.texting !== 'approved') return { ok: false, reason: 'texting_not_live' };
+  if (f.opted_out) return { ok: false, reason: 'opted_out' };
+  const messageId = await queueOutbound(client, tenantId, leadId, 'template', key, body);
+  return messageId ? { ok: true, messageId } : { ok: false, reason: 'no_template' };
+}
+
+/**
  * Queues one of the owner's clarifying questions, word for word from their AI settings (the AI
  * layer chose which one; it wrote none of it). Same opt-out and texting checks as a template.
  */

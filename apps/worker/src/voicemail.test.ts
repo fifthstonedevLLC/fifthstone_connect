@@ -193,9 +193,14 @@ describe.skipIf(!ready)('voicemail transcription (local stack, mock transcriber 
     expect(await transcriptOf(3)).toBeNull();
   });
 
-  it('puts a gas smell in front of a person at once, and still texts back', async () => {
-    expect(await leadRow(4)).toMatchObject({ state: 'needs_attention', state_reason: 'emergency' });
-    expect(textTo(4)).toHaveLength(1);
+  it('sends the fixed gas safety message instead of the text-back, and puts it before a person', async () => {
+    expect(await leadRow(4)).toMatchObject({
+      state: 'needs_attention',
+      state_reason: 'safety_message_sent',
+    });
+    const texts = textTo(4);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toMatch(/^Voicemail Co: If you smell gas, leave the building now\./);
   });
 
   it('sends nothing but the recording reference to the transcriber', () => {

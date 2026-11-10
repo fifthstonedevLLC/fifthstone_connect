@@ -1,3 +1,4 @@
+import { detectHazard } from '@fsc/conversation';
 import type { LeadState } from '@fsc/core';
 import { withTenant, type DbClient } from '../db.js';
 import { keyId, type JobHandler } from '../handler.js';
@@ -6,6 +7,7 @@ import {
   aiSettings,
   applyPlan,
   planFromReading,
+  queueEmergencyAlert,
   readCustomer,
   storeReading,
   toPerson,
@@ -113,6 +115,24 @@ export const transcribeVoicemail: JobHandler = async (job, ctx) => {
   const settings = aiSettings(facts.settings);
   const model = ctx.connectors.ai;
   const clear = transcript.confidence >= MIN_TRANSCRIPT_CONFIDENCE && transcript.text.trim() !== '';
+
+  // A hazard in what they said comes first: the fixed safety or crisis message and an alert to the
+  // approvers (`send_safety_message`), instead of the text-back and questions.
+  if (clear && detectHazard(transcript.text)) {
+    return {
+      outcome: { kind: 'succeeded' },
+      apply: async (client, settled) => {
+        if (settled.status !== 'succeeded') return;
+        await saveTranscript(client);
+        await client.query(
+          `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key)
+           values ($1, $2, 'send_safety_message', $3)
+           on conflict (tenant_id, idempotency_key) do nothing`,
+          [job.tenantId, leadId, `send_safety_message:${voicemailId}`],
+        );
+      },
+    };
+  }
   const reading: Reading | null =
     clear && settings && model
       ? await readCustomer(model, {
@@ -137,7 +157,10 @@ export const transcribeVoicemail: JobHandler = async (job, ctx) => {
       const plan = planFromReading(reading.output, questions, facts.sent);
       if (facts.state === 'new') {
         // Risk goes in front of a person now; the caller still gets the text-back.
-        if (plan.kind === 'person') await toPerson(client, job.tenantId, leadId, plan.reason);
+        if (plan.kind === 'person') {
+          await toPerson(client, job.tenantId, leadId, plan.reason);
+          if (plan.reason === 'emergency') await queueEmergencyAlert(client, job.tenantId, leadId);
+        }
         await queueTextBack(client, job.tenantId, leadId);
         if (plan.kind === 'offer') {
           await applyPlan(client, job.tenantId, leadId, plan, questions, voicemailId);

@@ -784,7 +784,7 @@ export const LEADS: readonly MockLead[] = [
         direction: 'out',
         template: 'crisis_message',
         minutesAgo: 599,
-        body: "If you are thinking about suicide or are in crisis, call or text 988 to reach the Suicide & Crisis Lifeline. If you are in danger right now, call 911. Prairie Path Counseling's front desk will see your message when the office opens.",
+        body: 'If you are in danger or thinking about hurting yourself, call 911 now. Prairie Path Counseling will see your message as soon as someone is available.',
       },
     ],
   },

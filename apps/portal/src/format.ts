@@ -343,8 +343,7 @@ export function needLine(card: LeadCard, timeZone: string): string {
 const GUIDANCE: Record<string, string> = {
   emergency: 'Call now.',
   safety_message_sent: 'The fixed safety message went out first. Call now.',
-  crisis_message_sent:
-    'A fixed crisis message pointing to 988 and 911 went out. Call as soon as you can.',
+  crisis_message_sent: 'A fixed crisis message pointing to 911 went out. Call as soon as you can.',
   reschedule:
     'Call to agree a new time, then move it on your calendar. Bookings are never moved automatically.',
   cancellation:
