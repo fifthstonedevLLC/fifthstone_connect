@@ -12,6 +12,45 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-10 — Phase 3: fixed safety and crisis messages
+
+**Change:** emergencies skip the queue (SCOPE.md v0.2, Guardrails). When a customer's own words
+show a hazard, a fixed message goes out before anything else and the approvers are alerted at once.
+
+- **Rules** (`packages/conversation/src/safety.ts`, tested):
+  - `detectHazard`: a fixed phrase list for crisis language, a gas smell, and flooding or a burst
+    pipe, checked in that order. It catches indirect crisis words ("I don't know if I can keep
+    going") and does not fire on ordinary ones ("my gas furnace is not heating", "the furnace
+    can't keep going"). It never uses AI, so it covers clinics without their messages reaching a
+    model (rule 13).
+  - `safetyMessage`: the fixed customer message, held in code. Owners cannot edit or remove it and
+    the AI layer never writes it (rule 11). Each names the business and points to 911.
+  - **The crisis message points to 911 only, not 988 (owner, 2026-11-09).** The earlier sample
+    wording, the Front Desk guidance and MOCK_DATA.md are updated to match.
+  - `emergencyAlert`: the alert to approvers. A crisis alert never repeats what was written.
+- **Intake:** a text with a hazard puts the lead in front of a person at once (`needs_attention`,
+  `safety_message_sent` or `crisis_message_sent`, urgency `emergency`) and queues
+  `send_safety_message`, before and instead of the clarify step.
+- **`send_safety_message`** (worker):
+  - Sends the fixed message through `send_text`. Opt-out still applies (rule 12).
+  - Texts every approver with a mobile at once, whatever the business's approval channel, recorded
+    as kind `alert`.
+  - A voicemail whose transcript shows a hazard takes the same path instead of the text-back.
+- **`emergency_alert`** (worker): when the clarify step finds someone may be at risk without one of
+  those phrases, the approvers are alerted; no fixed message is sent.
+- **Migration `20261110002752_emergency_alerts`:** `approver_texts.kind` adds `alert`, so a bare
+  "1" never answers an alert.
+- **Pending decision 32:** the exact customer wording (drafts in `safety.ts`) needs the owner's
+  approval before any real text.
+
+**Test evidence:** `npm run check` and `npm run db:test` pass (counts in the PR). New: the safety
+rules (7, including no 988 and every message within two segments), the webhook (1: a gas text goes
+to a person with the safety job, no AI step), and the safety jobs (4: the gas message then an
+approver alert with the number to call; a clinic's crisis message to 911 only and an alert that
+repeats nothing; an opted-out customer gets nothing but the approver is still alerted; a clarify
+emergency alerts the approver). The voicemail test now expects the safety message for a gas smell.
+Mock connectors only.
+
 ## 2026-11-09 — Phase 3: approval reminders and hold expiry
 
 **Change:** what happens when a customer picks a time and nobody approves it (SCOPE.md v0.2,

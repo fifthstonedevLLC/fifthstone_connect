@@ -80,8 +80,13 @@ unanswered question). Locally the worker uses the mock transcriber. The loop run
 mocks with no step done by hand. If nobody decides:
 `approval_reminder` texts the approvers once after the approval window (business hours,
 `afterOpenMinutes`), and `expire_hold` releases the hold when it runs out (decision 19), marks the
-request expired and puts the lead in front of a person. Next: the fixed safety and crisis
-messages; the customer's "still confirming" text waits on decision 31 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+request expired and puts the lead in front of a person. Emergencies skip the
+queue: a hazard in the customer's own words (gas, flooding, crisis language; a fixed phrase list in
+`packages/conversation/src/safety.ts`, never AI, so it covers clinics) sends a fixed message that
+owners cannot edit (`send_safety_message`; crisis points to 911 only) and alerts the approvers at
+once; a clarify-step emergency alerts them too (`emergency_alert`). The exact wording waits on
+decision 32, the customer's "still confirming" text on decision 31. Next: the Phase 3 wrap-up (a
+review of the loop's edges), then Phase 4 integrations (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands

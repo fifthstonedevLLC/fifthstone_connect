@@ -189,8 +189,9 @@ Each row is one lead with a full history. "VM" and "M" codes point to the evalua
 | PP-08 | Ray V.  | Website form     | `opted_out`       | STOP after first text                                                              |
 | PP-09 | Unknown | Missed call + VM | `needs_attention` | Scheduling-only voicemail: still not transcribed (VM-16)                           |
 
-The crisis template in T3 points people to 988 (Suicide & Crisis Lifeline) and 911. Its wording is
-fixed and not editable by the AI layer.
+The crisis message points people to 911 only (owner, 2026-11-09). Its wording is fixed in code
+(`packages/conversation/src/safety.ts`), not an owner template, and not editable by the AI layer;
+the exact wording awaits the owner's approval (decision 32).
 
 ### T4 Old Mill Roofing (disabled)
 

@@ -99,6 +99,20 @@ export function planFromReading(
   });
 }
 
+/** Someone may be at risk: the approvers are texted at once (`emergency_alert`), once per lead. */
+export async function queueEmergencyAlert(
+  client: DbClient,
+  tenantId: string,
+  leadId: string,
+): Promise<void> {
+  await client.query(
+    `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key)
+     values ($1, $2, 'emergency_alert', $3)
+     on conflict (tenant_id, idempotency_key) do nothing`,
+    [tenantId, leadId, `emergency_alert:${leadId}`],
+  );
+}
+
 export async function toPerson(
   client: DbClient,
   tenantId: string,
@@ -126,6 +140,7 @@ export async function applyPlan(
 ): Promise<void> {
   if (plan.kind === 'person') {
     await toPerson(client, tenantId, leadId, plan.reason);
+    if (plan.reason === 'emergency') await queueEmergencyAlert(client, tenantId, leadId);
     return;
   }
   if (plan.kind === 'offer') {

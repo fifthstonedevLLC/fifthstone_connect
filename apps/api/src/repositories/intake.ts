@@ -1,5 +1,5 @@
 import type { PhoneEvent } from '@fsc/connectors';
-import { isOptIn, isOptOut, planInbound } from '@fsc/conversation';
+import { detectHazard, HAZARD_REASON, isOptIn, isOptOut, planInbound } from '@fsc/conversation';
 import type { LeadState } from '@fsc/core';
 import type { DbClient } from '../db.js';
 import { recordApproverReply } from './approver-replies.js';
@@ -95,6 +95,35 @@ export async function recordPhoneEvent(
         );
       }
     }
+    return 'recorded';
+  }
+
+  // A hazard in the customer's own words comes before anything else, for every business (a fixed
+  // phrase list, never AI): the lead goes to a person at once, and `send_safety_message` sends the
+  // fixed message and alerts the approvers.
+  const hazard = event.kind === 'text_received' ? detectHazard(event.body) : null;
+  if (event.kind === 'text_received' && hazard) {
+    if (!lead) {
+      const created = await client.query<{ id: string; state: LeadState }>(
+        `insert into app.leads (tenant_id, contact_id, source, first_event_id)
+         values ($1, $2, 'text', $3) returning id, state`,
+        [tenantId, contactId, eventId],
+      );
+      lead = created.rows[0]!;
+    }
+    const messageId = await recordText(client, tenantId, lead.id, event);
+    await client.query(
+      `update app.leads set state = 'needs_attention', state_reason = $3, urgency = 'emergency',
+              state_changed_at = now()
+        where tenant_id = $1 and id = $2`,
+      [tenantId, lead.id, HAZARD_REASON[hazard]],
+    );
+    await client.query(
+      `insert into app.jobs (tenant_id, lead_id, action_type, idempotency_key)
+       values ($1, $2, 'send_safety_message', $3)
+       on conflict (tenant_id, idempotency_key) do nothing`,
+      [tenantId, lead.id, `send_safety_message:${messageId}`],
+    );
     return 'recorded';
   }
 

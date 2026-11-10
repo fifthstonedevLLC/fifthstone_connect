@@ -225,6 +225,13 @@ describe.skipIf(!ready)('phone webhook (local stack, mock adapter, test tenant)'
     expect(thread.rows).toEqual([{ body: 'Do you service heat pumps?', direction: 'in' }]);
   });
 
+  it('puts a gas smell in front of a person before anything else, with no AI step', async () => {
+    await text(caller(4), 'I smell gas in the basement, what do I do');
+    const lead = (await leadOf(caller(4)))[0]!;
+    expect(lead).toMatchObject({ state: 'needs_attention', state_reason: 'safety_message_sent' });
+    expect((await jobsOf(lead.id)).map((j) => j.action_type)).toEqual(['send_safety_message']);
+  });
+
   it('honors STOP at once and START after it, without starting a lead', async () => {
     await text(caller(2), 'Stop');
     expect((await leadOf(caller(2)))[0]).toMatchObject({ state: 'opted_out' });
