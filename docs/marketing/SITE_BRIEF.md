@@ -33,13 +33,19 @@ let them find their industry and invite a conversation with Fifth Stone Dev.
    going."
 2. **How it works:** five-step strip (missed call → text back → details gathered → times
    offered → you approve), no industry specifics.
-3. **Pick your business:** industry tiles. Each tile has one pain line and three things it
-   does:
-   - Tattoo studios: booking requests, waivers, deposits
-   - HVAC and plumbing: missed-call text-back, urgency triage, same-day slots
-   - Contractors: estimate requests, site-visit scheduling, estimate follow-up
-   - Clinics and practices: appointment requests, waitlist backfill, no clinical details by
-     text
+3. **Pick your business:** one tile per workflow (decision 34), each naming its trades, with
+   one pain line and three things it does. Only describe what is built:
+   - Service call (heating and cooling, plumbing, electrical, garage doors): missed-call
+     text-back, how-soon question, visit times
+   - Estimate visit (roofing, remodeling, painting, landscaping): project questions, estimate
+     visit times, you approve by text
+   - Recurring service (lawn care, cleaning, pools, pest control): first-visit booking, how-often
+     question, you set up the schedule
+   - Studio appointment (tattoo, salon or barber, pet grooming, photography): booking requests,
+     approval at the front desk
+   - Shop drop-off (auto, small engine, phone and computer, bike): what's wrong, drop-off times
+   - Each tile links to "other" businesses of the same kind. No healthcare tile: clinics and
+     practices are out of scope (decision 33)
 4. **Industry section** for each tile: a sample text thread, what the owner approves, what
    stays the same (their phone, calendar and tools).
 5. **Owner portal:** a mock of the Today dashboard and an approval, modeled on the WayMaker
@@ -56,9 +62,9 @@ let them find their industry and invite a conversation with Fifth Stone Dev.
 - Tone: warm, practical, understated. The reader may have been burned by an agency before.
 - No invented statistics, testimonials, logos, certifications, or claims like
   "never miss a lead" / "fully hands-off".
-- Only the tattoo playbook has a delivered reference build. Other tiles describe the
-  playbook, not past results. No client names without written permission.
-- Clinic tile states that no clinical details are collected by text.
+- Only the tattoo studio trade has a delivered reference build. Other tiles describe the
+  workflow, not past results. Waivers, deposits and estimate follow-up are not built; don't
+  list them. No client names without written permission.
 - Missed-call texts come from the Fifth Stone Connect number, not the number dialed; don't
   imply otherwise.
 - No pricing and no third-party vendor prices.

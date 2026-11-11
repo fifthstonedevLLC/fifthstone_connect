@@ -20,7 +20,7 @@ $$;
 
 create temp table ids as
 select pg_temp.tenant_of('rhett@riverbend.example.com') as riverbend,
-       pg_temp.tenant_of('helen@prairiepath.example.org') as prairie;
+       pg_temp.tenant_of('mara@northline.example.com') as northline;
 grant select on ids to fsc_app;
 
 select set_config('app.tenant_id', (select riverbend::text from ids), true);
@@ -39,13 +39,13 @@ select results_eq(
 );
 
 select is_empty(
-  $$select 1 from app.business_profiles where tenant_id = (select prairie from ids)$$,
+  $$select 1 from app.business_profiles where tenant_id = (select northline from ids)$$,
   'another business''s details cannot be read by tenant ID'
 );
 
 select throws_ok(
   $$insert into app.onboarding_progress (tenant_id, type_confirmed_at)
-    select prairie, now() from ids$$,
+    select northline, now() from ids$$,
   '42501',
   null,
   'setup progress cannot be written for another business'
@@ -53,7 +53,7 @@ select throws_ok(
 
 select is_empty(
   $$update app.business_profiles set city = 'Waterloo'
-     where tenant_id = (select prairie from ids) returning 1$$,
+     where tenant_id = (select northline from ids) returning 1$$,
   'another business''s details cannot be updated'
 );
 

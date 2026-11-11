@@ -22,7 +22,7 @@ export const NEEDS = [
   /** They want to move or cancel an existing booking. */
   'reschedule',
   'cancel',
-  /** A voicemail nobody could read for them (unclear, or a minimum-data business). */
+  /** A voicemail nobody could read for them (unclear, or not transcribed). */
   'listen',
   /** Something did not go through (a lapsed hold, a failed booking); look before acting. */
   'review',

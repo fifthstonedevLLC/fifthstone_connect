@@ -3,7 +3,7 @@
  * When a customer's own words show a hazard, a fixed message goes out before anything else and
  * the approvers are alerted at once. The wording lives here, in code: owners cannot edit or remove
  * it and the AI layer never writes it (CLAUDE.md rule 11). Detection is a fixed list of phrases,
- * not AI, so it works for clinics without their messages ever reaching a model (rule 13).
+ * not AI, so it works the same with or without a model.
  *
  * The crisis message points to 911 only (owner, 2026-11-09). The exact customer wording is a draft
  * until the owner approves it (decision 32).

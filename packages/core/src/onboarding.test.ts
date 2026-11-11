@@ -3,7 +3,10 @@ import {
   BusinessHoursListSchema,
   BusinessProfileSchema,
   normalizeEin,
+  ONBOARDING_STEPS,
   onboardingSteps,
+  readyToApply,
+  setupStage,
 } from './onboarding.js';
 
 const profile = {
@@ -89,11 +92,12 @@ describe('onboardingSteps', () => {
     templatesReviewed: false,
     approvers: 0,
     testRun: false,
+    applicationSent: false,
   };
 
-  it('lists the six steps in order, none done for a new business', () => {
+  it('lists the seven steps in order, none done for a new business', () => {
     expect(onboardingSteps(none)).toEqual(
-      ['business_type', 'details', 'hours', 'templates', 'team', 'test'].map((key) => ({
+      ['business_type', 'details', 'hours', 'templates', 'team', 'test', 'apply'].map((key) => ({
         key,
         done: false,
       })),
@@ -110,6 +114,22 @@ describe('onboardingSteps', () => {
   it('needs at least one approver for the team step', () => {
     expect(onboardingSteps({ ...none, approvers: 1 }).find((s) => s.key === 'team')?.done).toBe(
       true,
+    );
+  });
+});
+
+describe('setup stage', () => {
+  it('is live only when Fifth Stone Dev has turned the business on', () => {
+    expect(setupStage(false, false)).toBe('setting_up');
+    expect(setupStage(false, true)).toBe('applied');
+    expect(setupStage(true, false)).toBe('live');
+  });
+
+  it('allows the application once every other step is done', () => {
+    const steps = ONBOARDING_STEPS.map((key) => ({ key, done: key !== 'apply' }));
+    expect(readyToApply(steps)).toBe(true);
+    expect(readyToApply(steps.map((s) => (s.key === 'test' ? { ...s, done: false } : s)))).toBe(
+      false,
     );
   });
 });

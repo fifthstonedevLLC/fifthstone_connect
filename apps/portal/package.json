@@ -6,6 +6,7 @@
   "description": "Owner portal (React + Vite): sign-in, Today dashboard, lead pages, settings.",
   "scripts": {
     "dev": "vite",
+    "dev:phone": "vite --mode phone",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview"
   },

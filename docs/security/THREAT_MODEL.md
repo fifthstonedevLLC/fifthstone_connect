@@ -69,7 +69,7 @@ pending.**
 | A17 | Portal cross-tenant access                                                            | Tenant resolved server-side from session; tenant-scoped repositories; isolation tests on every portal route                                                            | 2–3   |
 | A18 | Portal account takeover                                                               | Supabase Auth; MFA offered to owners; session expiry; audit events on settings and approvals                                                                           | 3–4   |
 | A19 | Texting after opt-out                                                                 | Opt-out recorded on receipt and checked before every outbound text; covered by tests                                                                                   | 2–3   |
-| A20 | Clinical data reaches the AI layer or is requested                                    | Clinic flag enforced in code: no clinical fields, AI path skipped; tests                                                                                               | 3     |
+| A20 | Clinical data reaches the AI layer or is requested                                    | Healthcare practices are not onboarded (decision 33); no playbook asks for clinical detail                                                                             | 3     |
 | A21 | Double booking through concurrent picks                                               | Tentative hold placed in one transaction before confirmation; slot excluded while held                                                                                 | 3     |
 | A22 | Spoofed forwarded email                                                               | Accept only from verified tenant forwarding addresses; SES spam/virus verdicts honored                                                                                 | 4     |
 | A23 | Voicemail audio or transcripts in logs                                                | Logger redaction; store recording references, not audio, in logs                                                                                                       | 2–4   |
@@ -80,5 +80,5 @@ pending.**
 
 ## Out of scope for MVP
 
-Regulated data (PHI, cardholder data) — the clinic playbook is minimum-data by design (A20);
+Regulated data (PHI, cardholder data) and healthcare practices (decision 33, A20);
 compliance certification; texting from tenants' existing numbers.

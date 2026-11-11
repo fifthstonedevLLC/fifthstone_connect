@@ -3,8 +3,7 @@ import type { ConnectorIdentity, ConnectorResult } from './result.js';
 /**
  * Transcription and language-model providers (ADR-0002 decision 5; provider choice is pending
  * decision 15). These are plain transport: prompt compilation, the locked safety layer and
- * output validation live in `packages/ai`, and the clinic minimum-data rule is enforced before
- * either is called (CLAUDE.md rule 13).
+ * output validation live in `packages/ai`.
  */
 
 export interface TranscribeInput {

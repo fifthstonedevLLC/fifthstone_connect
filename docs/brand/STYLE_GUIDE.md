@@ -32,7 +32,7 @@ going").
 ## Audience
 
 Owners and office managers of 1–20 person businesses where the person doing the work also
-answers the phone: service trades, contractors, tattoo studios, small clinics and practices.
+answers the phone: service trades, contractors and tattoo studios. Not healthcare practices.
 Practical, busy, often skeptical of agencies and software pitches. Not technical.
 
 ## Voice

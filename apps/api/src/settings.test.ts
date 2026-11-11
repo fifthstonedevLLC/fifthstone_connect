@@ -9,8 +9,7 @@ import { createPool } from './db.js';
 /**
  * Settings routes against the local stack. Saves write, so they run on a test-only business
  * (`mock-test-settings`) with an owner and a staff login, removed afterwards (and before
- * starting, in case an earlier run was interrupted). The minimum-data checks read the seeded
- * clinic tenant and write nothing. Mock values only.
+ * starting, in case an earlier run was interrupted). Mock values only.
  */
 
 const DATABASE_URL =
@@ -72,11 +71,6 @@ describe.skipIf(!ready)('portal settings (local stack, test tenant)', () => {
   beforeAll(async () => {
     pool = createPool(DATABASE_URL);
     await removeTestTenant(pool);
-    const { rows } = await pool.query<{ id: string }>(
-      `select id from auth.users where email = 'helen@prairiepath.example.org'`,
-    );
-    if (rows[0]) tokens.set('clinic-owner', rows[0].id);
-
     await pool.query(
       `insert into app.tenants (id, slug, name) values ('${T}', 'mock-test-settings', '${BUSINESS}');
        insert into auth.users (id, email, aud, role) values
@@ -86,8 +80,8 @@ describe.skipIf(!ready)('portal settings (local stack, test tenant)', () => {
          ('${OWNER}', '${T}', '${OWNER_AUTH}', 'owner', 'Settings Owner'),
          ('${STAFF}', '${T}', '${STAFF_AUTH}', 'staff', 'Settings Staff');
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes)
-         values ('${T}', 'hvac', false, '[]', 60);
+         (tenant_id, playbook_key, business_hours, default_job_minutes)
+         values ('${T}', 'service_call', '[]', 60);
        insert into app.tenant_templates (tenant_id, version, content, active)
          values ('${T}', 1, '${JSON.stringify(TEMPLATES_V1)}', true);
        insert into app.ai_settings (tenant_id, version, content, active)
@@ -124,7 +118,7 @@ describe.skipIf(!ready)('portal settings (local stack, test tenant)', () => {
     expect(body.canEdit).toBe(false);
     expect(body.businessName).toBe(BUSINESS);
     expect(body.templates.versions).toMatchObject([{ version: 1, active: true }]);
-    expect(body.ai).toMatchObject({ available: true, versions: [{ version: 1, content: AI_V1 }] });
+    expect(body.ai).toMatchObject({ versions: [{ version: 1, content: AI_V1 }] });
 
     const edit = await call('PUT', '/portal/settings/templates', 'staff', {
       id: randomUUID(),
@@ -239,20 +233,5 @@ describe.skipIf(!ready)('portal settings (local stack, test tenant)', () => {
       active: true,
       content: { questions: ['What is the address?'] },
     });
-  });
-
-  it('never stores AI settings for a minimum-data business', async () => {
-    const get = await call('GET', '/portal/settings', 'clinic-owner');
-    expect(get.statusCode).toBe(200);
-    expect(get.json().ai).toEqual({ available: false, versions: [] });
-    expect(get.json().businessName).toBe('Prairie Path Counseling');
-
-    const put = await call('PUT', '/portal/settings/ai', 'clinic-owner', {
-      id: randomUUID(),
-      baseVersion: 1,
-      content: { tone: 'Warm.' },
-    });
-    expect(put.statusCode).toBe(409);
-    expect(put.json()).toEqual({ error: 'minimum_data' });
   });
 });

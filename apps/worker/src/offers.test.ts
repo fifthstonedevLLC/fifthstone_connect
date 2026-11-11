@@ -138,9 +138,9 @@ describe.skipIf(!ready)('offer step (local stack, mock connectors, test tenant)'
        insert into app.portal_users (id, tenant_id, auth_user_id, role, display_name)
          values ('${OWNER}', '${T}', '${OWNER_AUTH}', 'owner', 'Offers Owner');
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes,
+         (tenant_id, playbook_key, business_hours, default_job_minutes,
           connect_number)
-         values ('${T}', 'hvac', false, '${hours}', 60, '+13195550197');
+         values ('${T}', 'service_call', '${hours}', 60, '+13195550197');
        insert into app.service_registrations (tenant_id, service, state)
          values ('${T}', 'texting', 'approved');
        insert into app.tenant_templates (tenant_id, version, content, active)

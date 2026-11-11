@@ -15,8 +15,7 @@ import {
 } from './reading.js';
 
 /**
- * `transcribe_voicemail:<voicemail id>`, queued by intake for a voicemail (never a clinic's,
- * CLAUDE.md rule 13). The recording is transcribed, then read with the customer's texts by the
+ * `transcribe_voicemail:<voicemail id>`, queued by intake for a voicemail. The recording is transcribed, then read with the customer's texts by the
  * same model step as the clarify step, inside the locked safety layer. Then:
  *
  * - a new caller gets the text-back, which can now say what they need ("Sounds like …") and ask
@@ -51,19 +50,16 @@ export const transcribeVoicemail: JobHandler = async (job, ctx) => {
       transcript: string | null;
       lead_id: string;
       state: LeadState;
-      clinic: boolean;
       business: string;
       settings: unknown;
     }>(
-      `select v.recording_ref, v.transcript, c.lead_id, l.state,
-              cfg.clinic_minimum_data as clinic, t.name as business,
+      `select v.recording_ref, v.transcript, c.lead_id, l.state, t.name as business,
               (select a.content from app.ai_settings a
                 where a.tenant_id = v.tenant_id and a.active) as settings
          from app.voicemails v
          join app.calls c on c.tenant_id = v.tenant_id and c.id = v.call_id
          join app.leads l on l.tenant_id = c.tenant_id and l.id = c.lead_id
          join app.tenants t on t.id = v.tenant_id
-         join app.tenant_config cfg on cfg.tenant_id = v.tenant_id
         where v.tenant_id = $1 and v.id = $2`,
       [job.tenantId, voicemailId],
     );
@@ -73,7 +69,6 @@ export const transcribeVoicemail: JobHandler = async (job, ctx) => {
   });
 
   if (!facts) return { outcome: { kind: 'skipped', reason: 'voicemail_not_found' } };
-  if (facts.clinic) return { outcome: { kind: 'skipped', reason: 'clinic_minimum_data' } };
   if (facts.transcript !== null)
     return { outcome: { kind: 'skipped', reason: 'already_transcribed' } };
   const leadId = facts.lead_id;

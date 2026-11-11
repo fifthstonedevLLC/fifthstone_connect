@@ -21,10 +21,14 @@ export type Urgency = 'emergency' | 'this_week' | 'flexible';
 
 export type ServiceState = 'not_started' | 'submitted' | 'approved' | 'rejected' | 'disabled';
 
+export type SetupStage = 'setting_up' | 'applied' | 'live';
+
 export interface Me {
   displayName: string;
   role: 'owner' | 'staff';
   tenant: { name: string; slug: string; timezone: string };
+  /** Only a live business gets the working pages (decision 35). */
+  stage: SetupStage;
   services: { texting: ServiceState; email: ServiceState };
   calendar: {
     provider: CalendarProviderKey;
@@ -149,12 +153,13 @@ export interface Settings {
   canEdit: boolean;
   businessName: string;
   templates: { versions: SettingsVersion<Record<string, string>>[] };
-  ai: { available: boolean; versions: SettingsVersion<AiSettings>[] };
+  ai: { versions: SettingsVersion<AiSettings>[] };
 }
 
 export type SettingsKind = 'templates' | 'ai';
 
-export type OnboardingStep = 'business_type' | 'details' | 'hours' | 'templates' | 'team' | 'test';
+export type OnboardingStep =
+  'business_type' | 'details' | 'hours' | 'templates' | 'team' | 'test' | 'apply';
 
 export interface HoursBlock {
   days: number[];
@@ -182,8 +187,9 @@ export interface Onboarding {
     key: string;
     name: string;
     description: string;
-    minimumData: boolean;
     approverChannel: 'text' | 'portal';
+    trade: { key: string; name: string } | null;
+    jobMinutes: number;
     confirmedAt: string | null;
   } | null;
   details: (BusinessDetails & { updatedAt: string }) | null;
@@ -202,6 +208,12 @@ export interface Onboarding {
     approvesRequests: boolean;
   }[];
   test: { simulatedAt: string | null };
+  application: {
+    ready: boolean;
+    submittedAt: string | null;
+    preview: { useCase: string; optIn: string; sampleMessages: string[] } | null;
+  };
+  stage: SetupStage;
   connectNumber: string | null;
 }
 

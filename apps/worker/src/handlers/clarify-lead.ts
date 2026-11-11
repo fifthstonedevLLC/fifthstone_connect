@@ -15,9 +15,8 @@ import {
  * clarified (SCOPE.md v0.2, step 2). The language model reads the customer's words (as data,
  * inside the locked safety layer) and says which of the owner's questions are answered; its
  * output is validated and stored in `app.ai_analyses`. Then the plan: ask the next question in
- * the owner's words, offer times, or hand the lead to a person. A clinic's messages never reach
- * the model (CLAUDE.md rule 13), and a model that is missing, failing or answering out of shape
- * puts the lead in front of a person rather than guessing. A voicemail's transcript, when there
+ * the owner's words, offer times, or hand the lead to a person. A model that is missing, failing
+ * or answering out of shape puts the lead in front of a person rather than guessing. A voicemail's transcript, when there
  * is one, is read with the texts.
  */
 export const clarifyLead: JobHandler = async (job, ctx) => {
@@ -28,12 +27,11 @@ export const clarifyLead: JobHandler = async (job, ctx) => {
     const { rows } = await client.query<{
       lead_id: string;
       state: LeadState;
-      clinic: boolean;
       business: string;
       latest_in: string | null;
       settings: unknown;
     }>(
-      `select l.id as lead_id, l.state, cfg.clinic_minimum_data as clinic, t.name as business,
+      `select l.id as lead_id, l.state, t.name as business,
               (select m2.id from app.messages m2
                 where m2.tenant_id = m.tenant_id and m2.conversation_id = m.conversation_id
                   and m2.direction = 'in'
@@ -44,7 +42,6 @@ export const clarifyLead: JobHandler = async (job, ctx) => {
          join app.conversations cv on cv.tenant_id = m.tenant_id and cv.id = m.conversation_id
          join app.leads l on l.tenant_id = cv.tenant_id and l.id = cv.lead_id
          join app.tenants t on t.id = m.tenant_id
-         join app.tenant_config cfg on cfg.tenant_id = m.tenant_id
         where m.tenant_id = $1 and m.id = $2 and m.direction = 'in'`,
       [job.tenantId, messageId],
     );
@@ -65,7 +62,6 @@ export const clarifyLead: JobHandler = async (job, ctx) => {
     outcome: { kind: 'succeeded' as const },
     apply: (client: DbClient) => toPerson(client, job.tenantId, leadId, reason),
   });
-  if (facts.clinic) return person('new_message');
   const settings = aiSettings(facts.settings);
   const model = ctx.connectors.ai;
   if (!settings || !model) return person('new_message');

@@ -1,4 +1,11 @@
-import { templateRule } from '@fsc/conversation';
+import {
+  WORKFLOWS,
+  templateRule,
+  trade,
+  tradesFor,
+  workflow,
+  type WorkflowKey,
+} from '@fsc/conversation';
 import { US_REGIONS } from '@fsc/core/regions';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
@@ -29,6 +36,7 @@ const STEP_TITLE: Record<OnboardingStep, string> = {
   templates: 'Templates and questions',
   team: 'Who approves requests',
   test: 'Test it',
+  apply: 'Apply for texting',
 };
 
 const ERROR: Record<string, string> = {
@@ -39,22 +47,34 @@ const ERROR: Record<string, string> = {
   not_provisioned: 'Your account is still being set up by Fifth Stone Dev.',
   invalid_fields: 'Some fields need a fix. See the notes below them.',
   network: "We couldn't reach the server. Nothing was saved; try again.",
+  unknown_trade: 'That business type is not available. Pick another one.',
+  setup_incomplete: 'Finish the other steps first. The latest setup is shown.',
+  not_confirmed: 'Confirm the details are accurate before sending.',
+  already_live: 'Your business is already live.',
+  template_problems:
+    "The starting wording doesn't fit your business name. Fifth Stone Dev will help set it up.",
 };
 const errorText = (code: string) =>
   ERROR[code] ?? "That didn't work. Nothing was saved; try again.";
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+/** Null once saved; otherwise the fields that need fixing (empty when the error is not a field's). */
 type Save = (write: () => Promise<Onboarding>) => Promise<Record<string, string> | null>;
 
 // Steps --------------------------------------------------------------------------------------
 
 function BusinessTypeStep({ data, save, token }: { data: Onboarding; save: Save; token: string }) {
   const type = data.businessType;
-  if (!type) return <p className="meta">Fifth Stone Dev hasn't set your business type yet.</p>;
+  const [choosing, setChoosing] = useState(false);
+  if (!type) return <p className="meta">Fifth Stone Dev hasn't set up your account yet.</p>;
+  const picking = data.canEdit && (choosing || type.trade === null);
+
   return (
     <div className="setup-step">
-      <p className="setup-step__big">{type.name}</p>
+      <p className="setup-step__big">
+        {type.trade ? `${type.trade.name} · ${type.name}` : type.name}
+      </p>
       <p>{type.description}</p>
       <ul className="setup-facts">
         <li>
@@ -62,36 +82,176 @@ function BusinessTypeStep({ data, save, token }: { data: Onboarding; save: Save;
             ? 'Requests are approved by text.'
             : 'Requests are approved in this portal.'}
         </li>
-        {type.minimumData && (
-          <li>
-            Minimum-data setup: customers are asked only for a callback number and times. Nothing
-            they send goes to the AI, and voicemails are not transcribed.
-          </li>
-        )}
+        <li>Each booking holds {minutesLabel(type.jobMinutes)} on your calendar.</li>
       </ul>
-      <p className="meta">
-        Your business type decides what customers are asked and what is kept. To change it, contact
-        Fifth Stone Dev.
-      </p>
-      {type.confirmedAt ? (
-        <p className="setup-done">
-          <Icon name="check" size={16} /> Confirmed {savedAtLabel(type.confirmedAt, data.timezone)}
-        </p>
+      {picking ? (
+        <BusinessTypePicker
+          type={type}
+          save={save}
+          token={token}
+          {...(type.trade ? { onCancel: () => setChoosing(false) } : {})}
+          onDone={() => setChoosing(false)}
+        />
       ) : (
-        data.canEdit && (
-          <div>
-            <button
-              className="button button--primary"
-              type="button"
-              onClick={() =>
-                void save(() => apiPost<Onboarding>('/portal/onboarding/business-type', token, {}))
-              }
-            >
-              That's right
-            </button>
-          </div>
-        )
+        <>
+          {type.confirmedAt && (
+            <p className="setup-done">
+              <Icon name="check" size={16} /> Confirmed{' '}
+              {savedAtLabel(type.confirmedAt, data.timezone)}
+            </p>
+          )}
+          {data.canEdit && (
+            <div className="setup-actions">
+              {!type.confirmedAt && (
+                <button
+                  className="button button--primary"
+                  type="button"
+                  onClick={() =>
+                    void save(() =>
+                      apiPost<Onboarding>('/portal/onboarding/business-type', token, {}),
+                    )
+                  }
+                >
+                  That's right
+                </button>
+              )}
+              <button className="button" type="button" onClick={() => setChoosing(true)}>
+                Change business type
+              </button>
+            </div>
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+function minutesLabel(minutes: number) {
+  if (minutes % 60 === 0) return minutes === 60 ? '1 hour' : `${minutes / 60} hours`;
+  return minutes > 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} minutes`;
+}
+
+/**
+ * Pick how bookings work (the workflow), then the closest trade (decision 34). Choosing applies
+ * that trade's starter questions and wording as new versions; earlier ones stay restorable in
+ * Templates & AI. The server checks the choice; the page shows what it confirmed.
+ */
+function BusinessTypePicker({
+  type,
+  save,
+  token,
+  onCancel,
+  onDone,
+}: {
+  type: NonNullable<Onboarding['businessType']>;
+  save: Save;
+  token: string;
+  onCancel?: () => void;
+  onDone: () => void;
+}) {
+  const [flowKey, setFlowKey] = useState<WorkflowKey>(workflow(type.key)?.key ?? WORKFLOWS[0]!.key);
+  const [tradeKey, setTradeKey] = useState<string | null>(type.trade?.key ?? null);
+  const [busy, setBusy] = useState(false);
+  const flow = workflow(flowKey)!;
+  const chosen = tradeKey ? trade(tradeKey) : null;
+  const preview = chosen?.workflow === flowKey ? chosen : null;
+
+  async function apply() {
+    if (!preview) return;
+    setBusy(true);
+    const problems = await save(() =>
+      apiPut<Onboarding>('/portal/onboarding/business-type', token, { trade: preview.key }),
+    );
+    setBusy(false);
+    if (!problems) onDone();
+  }
+
+  return (
+    <div className="setup-step">
+      <fieldset className="type-group">
+        <legend className="setup-card__title">How do your bookings work?</legend>
+        <div className="type-choices">
+          {WORKFLOWS.map((w) => (
+            <label key={w.key} className="type-choice">
+              <input
+                type="radio"
+                name="workflow"
+                value={w.key}
+                checked={flowKey === w.key}
+                onChange={() => {
+                  setFlowKey(w.key);
+                  setTradeKey(null);
+                }}
+              />
+              <span>
+                <strong>{w.name}</strong>
+                <span>{w.summary}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="type-group">
+        <legend className="setup-card__title">Which is closest to your business?</legend>
+        <div className="type-choices type-choices--trades">
+          {tradesFor(flowKey).map((t) => (
+            <label key={t.key} className="type-choice">
+              <input
+                type="radio"
+                name="trade"
+                value={t.key}
+                checked={tradeKey === t.key}
+                onChange={() => setTradeKey(t.key)}
+              />
+              <span>
+                <strong>{t.name}</strong>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {preview && (
+        <div className="setup-card" aria-live="polite">
+          <h3 className="setup-card__title">What you start with</h3>
+          <ul className="setup-facts">
+            <li>
+              {flow.approverChannel === 'text'
+                ? 'Requests are approved by text.'
+                : 'Requests are approved in this portal.'}
+            </li>
+            <li>Each booking holds {minutesLabel(preview.jobMinutes)} on your calendar.</li>
+          </ul>
+          <p className="meta">Questions customers are asked before times are offered:</p>
+          <ol className="setup-list">
+            {(preview.ai.questions ?? []).map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ol>
+          <p className="meta">
+            This replaces your live templates and AI instructions with this starting set. Your
+            current versions stay in Templates &amp; AI, where you can edit them or restore an
+            earlier one.
+          </p>
+        </div>
+      )}
+
+      <div className="setup-actions">
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={!preview || busy}
+          onClick={() => void apply()}
+        >
+          {busy ? 'Saving...' : 'Use these settings'}
+        </button>
+        {onCancel && (
+          <button className="button" type="button" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -578,7 +738,121 @@ function TestStep({
 
 // Page ---------------------------------------------------------------------------------------
 
-export function SetupPage({ me, accessToken }: { me: Me; accessToken: string }) {
+/**
+ * The texting application (decision 35): what goes to the carriers, built from the business's
+ * details and live templates. Fifth Stone Dev submits it; nothing goes to a vendor from here.
+ */
+function ApplyStep({
+  data,
+  save,
+  token,
+  onApplied,
+}: {
+  data: Onboarding;
+  save: Save;
+  token: string;
+  onApplied: () => void;
+}) {
+  const [confirmed, setConfirmed] = useState(false);
+  const { application, details } = data;
+  const sent = application.submittedAt;
+  const live = data.stage === 'live';
+
+  async function send() {
+    const problems = await save(() =>
+      apiPost<Onboarding>('/portal/onboarding/application', token, { confirmed: true }),
+    );
+    if (!problems) onApplied();
+  }
+
+  if (live) return <p className="meta">{'Texting is live. There is nothing to apply for.'}</p>;
+  return (
+    <div className="setup-step">
+      <p>
+        This is what the phone carriers review before your business can text customers. Check it
+        carefully: a mismatch is the most common reason an application comes back.
+      </p>
+      {!application.ready && (
+        <p className="notice">Finish the other steps first. Each one feeds this application.</p>
+      )}
+      {details && (
+        <div className="setup-card">
+          <h3 className="setup-card__title">Business</h3>
+          <p>
+            {details.legalName}
+            {details.ein ? `, EIN ${details.ein}` : ''}
+          </p>
+          <p className="meta">
+            {details.street}, {details.city}, {details.region} {details.postalCode}
+            {details.website ? ` · ${details.website}` : ''}
+          </p>
+          <p className="meta">
+            Contact: {details.contactName}, {details.contactEmail},{' '}
+            {formatPhone(details.contactPhone)}
+          </p>
+        </div>
+      )}
+      {application.preview && (
+        <>
+          <div className="setup-card">
+            <h3 className="setup-card__title">How texts are used</h3>
+            <p>{application.preview.useCase}</p>
+          </div>
+          <div className="setup-card">
+            <h3 className="setup-card__title">How customers agree to texts</h3>
+            <p>{application.preview.optIn}</p>
+          </div>
+          <div className="setup-card">
+            <h3 className="setup-card__title">Sample messages, from your templates</h3>
+            <ul className="setup-facts">
+              {application.preview.sampleMessages.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+      {sent && (
+        <p className="setup-done">
+          <Icon name="check" size={16} /> Sent {savedAtLabel(sent, data.timezone)}
+        </p>
+      )}
+      {data.canEdit && application.ready && (
+        <>
+          <label className="team-row__check">
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+            />
+            <span>These details are accurate and belong to this business.</span>
+          </label>
+          <div className="setup-actions">
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={!confirmed}
+              onClick={() => void send()}
+            >
+              {sent ? 'Send again with changes' : 'Send my application'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function SetupPage({
+  me,
+  accessToken,
+  onApplied = () => undefined,
+}: {
+  me: Me;
+  accessToken: string;
+  /** Called once the texting application is sent, so the portal can show where it stands. */
+  onApplied?: () => void;
+}) {
   const [onboarding, reload, replace] = useApi<Onboarding>('/portal/onboarding', accessToken);
   const [current, setCurrent] = useState<OnboardingStep | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -608,7 +882,7 @@ export function SetupPage({ me, accessToken }: { me: Me; accessToken: string }) 
       if (e instanceof ApiError && e.status === 422) {
         return (e.body.fields ?? {}) as Record<string, string>;
       }
-      return null;
+      return {};
     } finally {
       setBusy(false);
     }
@@ -643,7 +917,7 @@ export function SetupPage({ me, accessToken }: { me: Me; accessToken: string }) 
         <p className="page__lede">
           {allDone
             ? `${me.tenant.name} is set up. You can come back and change any step.`
-            : `Six steps to get ${me.tenant.name} ready. Each one saves on its own.`}
+            : `${data.steps.length} steps to get ${me.tenant.name} ready. Each one saves on its own.`}
         </p>
       </header>
       {!data.canEdit && (
@@ -699,6 +973,7 @@ export function SetupPage({ me, accessToken }: { me: Me; accessToken: string }) 
               }}
             />
           )}
+          {step === 'apply' && <ApplyStep {...props} onApplied={onApplied} />}
         </section>
       </div>
     </div>

@@ -13,7 +13,7 @@ describe('isUrgent', () => {
   it('marks emergencies, safety messages and crisis messages', () => {
     expect(isUrgent(lead({ urgency: 'emergency' }))).toBe(true);
     expect(isUrgent(lead({ reason: 'safety_message_sent' }))).toBe(true);
-    // Minimum-data leads have no urgency; the crisis reason alone is enough.
+    // A crisis lead may have no urgency set; the crisis reason alone is enough.
     expect(isUrgent(lead({ reason: 'crisis_message_sent' }))).toBe(true);
   });
 

@@ -24,11 +24,10 @@ export const sendTextBack: JobHandler = async (job, ctx) => {
     const { rows } = await client.query<{
       state: LeadState;
       texted: boolean;
-      clinic: boolean;
       settings: unknown;
       reading: { need?: string | null; answered: number[] } | null;
     }>(
-      `select l.state, cfg.clinic_minimum_data as clinic,
+      `select l.state,
               exists (select 1 from app.messages m
                         join app.conversations c on c.tenant_id = m.tenant_id and c.id = m.conversation_id
                        where c.tenant_id = l.tenant_id and c.lead_id = l.id and m.direction = 'out')
@@ -39,7 +38,6 @@ export const sendTextBack: JobHandler = async (job, ctx) => {
                 where a.tenant_id = l.tenant_id and a.lead_id = l.id and a.valid
                 order by a.created_at desc limit 1) as reading
          from app.leads l
-         join app.tenant_config cfg on cfg.tenant_id = l.tenant_id
         where l.tenant_id = $1 and l.id = $2`,
       [job.tenantId, leadId],
     );
@@ -51,8 +49,7 @@ export const sendTextBack: JobHandler = async (job, ctx) => {
     return { outcome: { kind: 'skipped', reason: 'already_answered' } };
   }
   const questions = aiSettings(facts.settings)?.questions ?? [];
-  // A clinic's text-back never carries anything read from a voicemail (CLAUDE.md rule 13).
-  const values = textBackValues(facts.clinic ? null : facts.reading, questions);
+  const values = textBackValues(facts.reading, questions);
 
   return {
     outcome: { kind: 'succeeded' },

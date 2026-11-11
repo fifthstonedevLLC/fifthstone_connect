@@ -26,7 +26,7 @@ export interface Appointment {
   name: string | null;
   phone: string | null;
   summary: string | null;
-  /** Where the job is, when the customer gave one (trades); clinics and studios have none. */
+  /** Where the job is, when the customer gave one (trades); studios have none. */
   address: string | null;
   start: string;
   end: string;

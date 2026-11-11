@@ -111,6 +111,7 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
         slug: 'mock-riverbend',
         timezone: 'America/Chicago',
       },
+      stage: 'live',
       services: { texting: 'approved', email: 'submitted' },
       calendar: { provider: 'google', status: 'connected' },
     });
@@ -171,11 +172,6 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
     const urgentCount = riverbend.filter((c) => c.urgent).length;
     expect(urgentCount).toBe(2); // Dana's no-heat emergency and Greg's gas smell
     expect(riverbend.slice(0, urgentCount).every((c) => c.urgent)).toBe(true);
-
-    // The crisis text is the oldest lead needing Prairie Path's front desk, and still comes first.
-    const prairie = await lanesFor('frontdesk@prairiepath.example.org');
-    expect(prairie[0]).toMatchObject({ urgent: true, reason: 'crisis_message_sent' });
-    expect(prairie.slice(1).some((c) => c.urgent)).toBe(false);
   });
 
   /** A Riverbend lead's ID, looked up by contact name (seed IDs are generated). */
@@ -282,21 +278,18 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
       }
     });
 
-    it('shows each business only its own calendar, Outlook included', async () => {
+    it('shows each business only its own calendar', async () => {
       const riverbend = await calendar('carla@riverbend.example.com', '?days=14');
-      const prairie = await calendar('helen@prairiepath.example.org', '?days=14');
-      expect(prairie.connection?.provider).toBe('microsoft');
+      const northline = await calendar('mara@northline.example.com', '?days=14');
+      expect(northline.connection?.provider).toBe('acuity');
       const names = new Set(riverbend.appointments.map((a) => a.name));
-      expect(prairie.appointments.some((a) => names.has(a.name) && a.name !== null)).toBe(false);
+      expect(northline.appointments.some((a) => names.has(a.name) && a.name !== null)).toBe(false);
     });
 
     it('gives each job its address for directions, when the customer gave one', async () => {
       const week = await calendar('carla@riverbend.example.com', '?days=14');
       const withAddress = week.appointments.filter((a) => a.address);
       expect(withAddress.length).toBeGreaterThan(0);
-      // A clinic keeps no address (minimum data), so its appointments have none.
-      const prairie = await calendar('helen@prairiepath.example.org', '?days=14');
-      expect(prairie.appointments.every((a) => a.address === null)).toBe(true);
     });
 
     it('rejects a date that is not a real day', async () => {

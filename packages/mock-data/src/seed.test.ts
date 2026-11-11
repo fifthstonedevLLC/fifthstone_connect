@@ -25,7 +25,10 @@ describe('mock catalog', () => {
     expect(unique(PORTAL_USERS.map((u) => u.key))).toBe(true);
     expect(unique(PORTAL_USERS.map((u) => u.email))).toBe(true);
     expect(
-      unique([...TENANTS.map((t) => t.connectNumber), ...PORTAL_USERS.map((u) => u.mobile)]),
+      unique([
+        ...TENANTS.flatMap((t) => (t.connectNumber ? [t.connectNumber] : [])),
+        ...PORTAL_USERS.map((u) => u.mobile),
+      ]),
     ).toBe(true);
   });
 
@@ -75,10 +78,7 @@ describe('mock catalog', () => {
           ok: true,
         },
       );
-      // Minimum-data tenants have no AI settings to edit (CLAUDE.md rule 13).
-      if (tenant.playbook !== 'clinic') {
-        expect(AiSettingsSchema.safeParse(v.ai).success, label).toBe(true);
-      }
+      expect(AiSettingsSchema.safeParse(v.ai).success, label).toBe(true);
     }
   });
 
@@ -92,28 +92,10 @@ describe('mock catalog', () => {
     expect(HOLD_STATES.filter((s) => !holds.has(s))).toEqual([]);
   });
 
-  it('gives every active tenant leads in its own playbook', () => {
-    for (const tenant of TENANTS) {
+  it('gives every tenant past onboarding leads in its own playbook', () => {
+    for (const tenant of TENANTS.filter((t) => t.status !== 'onboarding')) {
       expect(LEADS.filter((l) => l.tenant === tenant.key).length, tenant.key).toBeGreaterThan(0);
     }
-  });
-
-  // CLAUDE.md rule 13: nothing about a minimum-data lead comes from transcription or the AI layer.
-  it('keeps minimum-data leads free of transcripts, summaries and AI fields', () => {
-    const clinics = new Set(TENANTS.filter((t) => t.playbook === 'clinic').map((t) => t.key));
-    const clinicLeads = LEADS.filter((l) => clinics.has(l.tenant));
-    expect(clinicLeads.length).toBeGreaterThan(0);
-    for (const lead of clinicLeads) {
-      expect(lead.voicemail?.transcript, lead.key).toBeUndefined();
-      expect(lead.summary, lead.key).toBeUndefined();
-      expect(lead.category, lead.key).toBeUndefined();
-      expect(lead.urgency, lead.key).toBeUndefined();
-    }
-    const clinicLeadKeys = new Set(clinicLeads.map((l) => l.key));
-    const aiJobs = JOBS.filter(
-      (j) => clinicLeadKeys.has(j.lead) && /transcribe|analy[sz]e/.test(j.action),
-    );
-    expect(aiJobs).toEqual([]);
   });
 
   // Old Mill was disabled 30,000 minutes before load (12_audit_events.sql).
@@ -131,10 +113,9 @@ describe('mock catalog', () => {
     expect(IGNORED_EVENTS.every((e) => disabled.has(e.tenant))).toBe(true);
   });
 
-  it('shares phone numbers across tenants only as separate contacts (X-01, X-07)', () => {
+  it('shares phone numbers across tenants only as separate contacts (X-07)', () => {
     const tenantsFor = (phone: string) =>
       CONTACTS.filter((c) => c.phone === phone).map((c) => c.tenant);
-    expect(tenantsFor('+13195550142')).toEqual(['T1', 'T3']);
     expect(tenantsFor('+13195550120')).toEqual(['T1', 'T2']);
   });
 

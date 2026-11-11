@@ -1,11 +1,11 @@
--- Northline, Prairie Path and Old Mill load as MOCK_DATA.md describes, read the way the portal
+-- Northline and Old Mill load as MOCK_DATA.md describes, read the way the portal
 -- reads them: as the application role, in the tenant resolved from each business's own login.
 -- Rolled back; nothing is written.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(8);
 
 grant fsc_app to postgres;
 grant usage on schema extensions to fsc_app;
@@ -69,38 +69,6 @@ select results_eq(
   $$values ('approved'::text, 'converted'::text, 'Jules Park'::text),
            ('pending', 'active', null)$$,
   'Northline has Kira''s pending request and Mei''s consult approved by Jules in the portal'
-);
-
-reset role;
-
--- Prairie Path Counseling, as the front desk (U-06) -------------------------------------------
-
-select isnt(
-  set_config('app.tenant_id', pg_temp.tenant_of('frontdesk@prairiepath.example.org'), true),
-  null,
-  'the front desk login resolves to a tenant context'
-);
-set local role fsc_app;
-
-select results_eq(
-  $$select count(*), count(*) filter (where transcript is not null) from app.voicemails$$,
-  $$values (2::bigint, 0::bigint)$$,
-  'Prairie Path''s voicemails are kept as recordings only, never transcribed (rule 13)'
-);
-
-select results_eq(
-  $$select count(*) filter (where summary is not null or category is not null
-                              or urgency is not null),
-           (select count(*) from app.ai_analyses)
-      from app.leads$$,
-  $$values (0::bigint, 0::bigint)$$,
-  'no Prairie Path lead has a summary, category, urgency or AI analysis (rule 13)'
-);
-
-select results_eq(
-  $$select display_name from app.contacts where phone = '+13195550142'$$,
-  $$values ('Nick D.'::text)$$,
-  'a number shared with a Riverbend contact is a separate Prairie Path contact (X-01)'
 );
 
 reset role;

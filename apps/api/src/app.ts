@@ -11,7 +11,7 @@ import {
   URGENCIES,
 } from '@fsc/core';
 import { CALENDAR_PROVIDERS } from '@fsc/core/calendar-providers';
-import { NEEDS, NEXT_ACTIONS, PORTAL_ACTIONS } from '@fsc/conversation';
+import { NEEDS, NEXT_ACTIONS, PORTAL_ACTIONS, TRADES } from '@fsc/conversation';
 import { isLocalDate, localDate, weekStart } from '@fsc/scheduling';
 import Fastify, {
   type FastifyInstance,
@@ -41,7 +41,9 @@ import {
   type WriteResult,
 } from './repositories/settings.js';
 import {
+  chooseBusinessType,
   confirmBusinessType,
+  submitApplication,
   getOnboarding,
   markTemplatesReviewed,
   runTestCall,
@@ -150,6 +152,7 @@ const MeSchema = z.object({
   displayName: z.string(),
   role: z.enum(['owner', 'staff']),
   tenant: z.object({ name: z.string(), slug: z.string(), timezone: z.string() }),
+  stage: z.enum(['setting_up', 'applied', 'live']),
   services: z.object({
     texting: z.enum(SERVICE_REGISTRATION_STATES),
     email: z.enum(SERVICE_REGISTRATION_STATES),
@@ -240,7 +243,6 @@ const SettingsSchema = z.object({
     versions: z.array(z.object({ ...VersionMeta, content: z.record(TemplateKey, z.string()) })),
   }),
   ai: z.object({
-    available: z.boolean(),
     versions: z.array(z.object({ ...VersionMeta, content: AiSettingsSchema })),
   }),
 });
@@ -285,8 +287,9 @@ const OnboardingSchema = z.object({
       key: z.string(),
       name: z.string(),
       description: z.string(),
-      minimumData: z.boolean(),
       approverChannel: z.enum(['text', 'portal']),
+      trade: z.object({ key: z.string(), name: z.string() }).nullable(),
+      jobMinutes: z.number().int(),
       confirmedAt: IsoDate.nullable(),
     })
     .nullable(),
@@ -328,6 +331,18 @@ const OnboardingSchema = z.object({
     }),
   ),
   test: z.object({ simulatedAt: IsoDate.nullable() }),
+  application: z.object({
+    ready: z.boolean(),
+    submittedAt: IsoDate.nullable(),
+    preview: z
+      .object({
+        useCase: z.string(),
+        optIn: z.string(),
+        sampleMessages: z.array(z.string()),
+      })
+      .nullable(),
+  }),
+  stage: z.enum(['setting_up', 'applied', 'live']),
   connectNumber: z.string().nullable(),
 });
 
@@ -365,6 +380,9 @@ const OnboardingWriteResponses = {
   409: ErrorSchema,
   422: FieldProblemsSchema,
 };
+
+/** Portal routes a business can use before it is live: who am I, setup, and its wording. */
+const OPEN_BEFORE_LIVE = ['/portal/me', '/portal/onboarding', '/portal/settings'];
 
 /** Zod issues as `{ field: message }`, first message per field. */
 function fieldProblems(error: z.ZodError): Record<string, string> {
@@ -409,6 +427,15 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     async (portal) => {
       const typed = portal.withTypeProvider<ZodTypeProvider>();
       typed.addHook('preHandler', requirePortalUser(deps.pool, deps.verifyToken));
+      // Until a business is live, only setup is open (decision 35): its working pages stay
+      // locked even if someone types their address, and the engine sends nothing for it.
+      typed.addHook('preHandler', async (request, reply) => {
+        const user = request.portalUser;
+        if (!user || user.live) return;
+        const url = request.routeOptions.url ?? '';
+        if (OPEN_BEFORE_LIVE.some((prefix) => url.startsWith(prefix))) return;
+        return reply.code(403).send({ error: 'not_live' });
+      });
 
       typed.get(
         '/me',
@@ -706,6 +733,46 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           const user = request.portalUser!;
           return writeOnboarding(user, reply, (client) =>
             confirmBusinessType(client, user.tenantId, user.portalUserId),
+          );
+        },
+      );
+
+      // The owner sends the texting application once setup is done (decision 35).
+      typed.post(
+        '/onboarding/application',
+        {
+          schema: {
+            body: z.object({ confirmed: z.boolean() }),
+            response: OnboardingWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeOnboarding(user, reply, (client) =>
+            submitApplication(
+              client,
+              user.tenantId,
+              user.portalUserId,
+              user.role,
+              request.body.confirmed,
+            ),
+          );
+        },
+      );
+
+      // Picking a business type applies its starter wording and instructions (decision 34).
+      typed.put(
+        '/onboarding/business-type',
+        {
+          schema: {
+            body: z.object({ trade: z.enum(TRADES.map((t) => t.key) as [string, ...string[]]) }),
+            response: OnboardingWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeOnboarding(user, reply, (client) =>
+            chooseBusinessType(client, user.tenantId, user.portalUserId, request.body.trade),
           );
         },
       );

@@ -7,8 +7,8 @@ insert into app.audit_events (
 ) values
   ('e7c95bfb-04ce-5921-b5db-11558917a9a7', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'operator', null, 'tenant.provisioned', null, null, now() - interval '43000 minutes'),
   ('ea39c61d-1ef9-54c9-8382-f47aabdc3215', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'operator', null, 'tenant.provisioned', null, null, now() - interval '43000 minutes'),
-  ('501264e8-313b-5143-837c-a5b7b57e1da6', '72861613-42bb-5953-b39b-a821a84d3caa', 'operator', null, 'tenant.provisioned', null, null, now() - interval '43000 minutes'),
   ('576a3942-0753-5f25-8e23-c36a548daa95', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'operator', null, 'tenant.provisioned', null, null, now() - interval '43000 minutes'),
+  ('91ec5f04-c67a-5192-98bc-99ebc932911a', '03fc3a42-c218-5d93-a853-eafb4c857dd4', 'operator', null, 'tenant.provisioned', null, null, now() - interval '43000 minutes'),
   ('79992212-32c0-5833-8fe8-0f9e28049d3f', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'operator', null, 'tenant.disabled', null, null, now() - interval '30000 minutes'),
   ('3825ca92-b83a-5ca6-bab6-f104bd66785d', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'portal_user', '42e2474e-d512-5ff5-a543-cb4eeb309487', 'templates.version_activated', 'tenant_templates', 'b619c2b2-ae43-5bc5-be5a-c299e8f13fee', now() - interval '4320 minutes'),
   ('a670e879-093c-5852-9aac-b912fd1a1cfc', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'portal_user', '42e2474e-d512-5ff5-a543-cb4eeb309487', 'ai_settings.version_activated', 'ai_settings', 'ab263aa2-832d-5210-b1b6-506f045dcb80', now() - interval '4320 minutes'),
@@ -16,6 +16,5 @@ insert into app.audit_events (
   ('56e9dd51-cfb8-5b36-9ac6-e2be409350b7', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'portal_user', '42e2474e-d512-5ff5-a543-cb4eeb309487', 'request.approved', 'request', '67835cc0-ef89-536d-a498-3c67dbd72b1b', now() - interval '2870 minutes'),
   ('df0257b2-2d65-5c2c-ab7e-7888a6fbf8fa', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'portal_user', '42e2474e-d512-5ff5-a543-cb4eeb309487', 'request.changed', 'request', 'a19a09d4-3e4f-587c-9763-894a4b1d7a00', now() - interval '370 minutes'),
   ('cdeb3de0-396a-5c00-90bf-99b533594521', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'portal_user', 'd6b98a70-c80c-58f8-abcf-7bb819686db8', 'request.approved', 'request', '4fc44351-cb5f-599e-92d2-f72def9063ca', now() - interval '4270 minutes'),
-  ('af8c9f03-6fd8-50f8-93d0-39fa4eb28313', '72861613-42bb-5953-b39b-a821a84d3caa', 'portal_user', 'abc915ca-f3f5-5d35-bc26-3055e16f086d', 'request.approved', 'request', '84c58cf3-6a7e-509c-b285-d14cfb2e92cf', now() - interval '1970 minutes'),
   ('1133a2be-6752-5b93-9fca-43c7e1c1a8f8', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'portal_user', '8b65af8e-37a5-59bc-a35f-1b6d2c88780a', 'request.approved', 'request', '5cadbf9b-d89a-549a-9006-d35e5e9b0783', now() - interval '35970 minutes'),
   ('f5290afa-24ca-5ddd-bd64-38932a1cc44a', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'portal_user', '8b65af8e-37a5-59bc-a35f-1b6d2c88780a', 'request.declined', 'request', '3f7f91ff-7e88-54e9-8e1e-7bf78edc4d59', now() - interval '33970 minutes');

@@ -105,9 +105,9 @@ describe.skipIf(!ready)('phone webhook (local stack, mock adapter, test tenant)'
     await pool.query(
       `insert into app.tenants (id, slug, name) values ('${T}', 'mock-test-intake', 'Intake Test Co');
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes,
+         (tenant_id, playbook_key, business_hours, default_job_minutes,
           connect_number)
-         values ('${T}', 'hvac', false, '[]', 60, '${NUMBER}');`,
+         values ('${T}', 'service_call', '[]', 60, '${NUMBER}');`,
     );
   });
 
@@ -219,8 +219,8 @@ describe.skipIf(!ready)('phone webhook (local stack, mock adapter, test tenant)'
          join app.conversations c on c.id = m.conversation_id
          join app.leads l on l.id = c.lead_id
          join app.contacts ct on ct.id = l.contact_id
-        where ct.phone = $1`,
-      [caller(2)],
+        where ct.phone = $1 and ct.tenant_id = $2`,
+      [caller(2), T],
     );
     expect(thread.rows).toEqual([{ body: 'Do you service heat pumps?', direction: 'in' }]);
   });

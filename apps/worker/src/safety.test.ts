@@ -8,16 +8,16 @@ import { runOnce } from './runner.js';
 
 /**
  * Fixed safety and crisis messages against the local stack with labeled mock connectors, on two
- * test-only businesses: an HVAC company (`mock-test-safety`) and a clinic
- * (`mock-test-safety-clinic`). Removed afterwards (and before starting). Mock values only.
+ * test-only businesses: an HVAC company (`mock-test-safety`) and a tattoo studio
+ * (`mock-test-safety-studio`). Removed afterwards (and before starting). Mock values only.
  */
 
 const DATABASE_URL =
   process.env.DATABASE_URL_TEST ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 const HVAC = 'bb000000-0000-4000-8000-000000000001';
-const CLINIC = 'bb000000-0000-4000-8000-000000000002';
-const tenants = [HVAC, CLINIC];
+const STUDIO = 'bb000000-0000-4000-8000-000000000002';
+const tenants = [HVAC, STUDIO];
 const ids = (t: number, kind: string, n: number) =>
   `bb000000-0000-4000-8${kind}-000000000${t}0${n}`;
 const lead = (t: number, n: number) => ids(t, '001', n);
@@ -100,7 +100,7 @@ describe.skipIf(!ready)('safety and crisis messages (local stack, mocks)', () =>
     pool = createPool(DATABASE_URL);
     await removeTestTenants(pool);
     // Customer words: 1 gas (HVAC), 2 a quiet "might be at risk" (HVAC, via the clarify step),
-    // 3 crisis language (clinic), 4 gas from someone who opted out (HVAC).
+    // 3 crisis language (studio), 4 gas from someone who opted out (HVAC).
     const said = [
       [1, 1, "There's a strong gas smell by the furnace"],
       [1, 2, 'My elderly mom has no heat'],
@@ -111,14 +111,14 @@ describe.skipIf(!ready)('safety and crisis messages (local stack, mocks)', () =>
       .map(
         (t, i) => `
       insert into app.tenants (id, slug, name) values
-        ('${t}', '${i === 0 ? 'mock-test-safety' : 'mock-test-safety-clinic'}', '${i === 0 ? 'Safety Heating' : 'Safety Counseling'}');
+        ('${t}', '${i === 0 ? 'mock-test-safety' : 'mock-test-safety-studio'}', '${i === 0 ? 'Safety Heating' : 'Safety Ink'}');
       insert into auth.users (id, email, aud, role)
         values ('${approverAuth(i + 1)}', 'owner${i}@safety.example.com', 'authenticated', 'authenticated');
       insert into app.portal_users (id, tenant_id, auth_user_id, role, display_name, mobile, approves_requests)
         values ('${approver(i + 1)}', '${t}', '${approverAuth(i + 1)}', 'owner', 'Owner', '${APPROVER_MOBILE[i]}', true);
       insert into app.tenant_config
-        (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes, connect_number)
-        values ('${t}', '${i === 0 ? 'hvac' : 'clinic'}', ${i === 1}, '[]', 60, '${NUMBER[i]}');
+        (tenant_id, playbook_key, business_hours, default_job_minutes, connect_number)
+        values ('${t}', '${i === 0 ? 'service_call' : 'studio_appointment'}', '[]', 60, '${NUMBER[i]}');
       insert into app.service_registrations (tenant_id, service, state) values ('${t}', 'texting', 'approved');`,
       )
       .join('\n');
@@ -164,12 +164,12 @@ describe.skipIf(!ready)('safety and crisis messages (local stack, mocks)', () =>
     });
   });
 
-  it("sends a clinic's crisis message pointing to 911 only, and an alert that repeats nothing", async () => {
+  it('sends the crisis message pointing to 911 only, and an alert that repeats nothing', async () => {
     await queue(2, 3, 'send_safety_message', message(2, 3));
-    await drain(CLINIC);
+    await drain(STUDIO);
     const [crisis] = textsTo('+13195550163');
     expect(crisis).toBe(
-      'If you are in danger or thinking about hurting yourself, call 911 now. Safety Counseling will see your message as soon as someone is available.',
+      'If you are in danger or thinking about hurting yourself, call 911 now. Safety Ink will see your message as soon as someone is available.',
     );
     expect(crisis).not.toContain('988');
     expect(textsTo(APPROVER_MOBILE[1]!)).toEqual([

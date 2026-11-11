@@ -37,6 +37,12 @@ Tattoo, HVAC/plumbing, contractor and clinic tiles are playbooks: default questi
 rules, approver, job lengths and extras, loaded at onboarding into tenant settings. No
 industry-specific code paths except where a guardrail requires one (clinic minimum-data rule).
 
+_Updated (owner, 2026-11-11; decision 34):_ the playbooks are now five workflows (service
+call, estimate visit, recurring service, studio appointment, shop drop-off), each with trades
+that carry starter questions, AI instructions, job lengths and wording. The owner picks the
+workflow and trade in Setup instead of Fifth Stone Dev locking it at provisioning
+(`20261111181851_business_workflows.sql`). Still no industry-specific code paths.
+
 ### 3. Twilio under Fifth Stone Dev as ISV, one subaccount per tenant — Proposed
 
 Fifth Stone Dev registers its own primary business profile as an ISV. Each tenant gets a
@@ -121,6 +127,11 @@ safety layer are validated server-side on save and again at send time.
 A tenant flag set by the clinic playbook removes clinical fields from questions, skips the AI
 path for that tenant's voicemails and messages, and is covered by tests. A full clinical
 version (vendor BAAs) is out of scope.
+
+_Superseded in part (owner, 2026-11-11; decision 33):_ clinics and other healthcare practices are
+out of scope entirely. The clinic playbook is retired (`20261111160257_retire_clinic_playbook.sql`) and the
+minimum-data guard is gone from the code; the deprecated flag columns must stay false until a
+later migration drops them.
 
 ## Consequences
 

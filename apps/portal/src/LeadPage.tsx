@@ -16,6 +16,7 @@ import {
   actionErrorMessage,
 } from './format';
 import { Icon } from './icons';
+import { newId } from './ids';
 import type { LeadDetail, Me, PortalAction } from './types';
 import { useApi } from './useApi';
 
@@ -306,7 +307,7 @@ function ReplyBox({
   path: string;
 }) {
   const [choice, setChoice] = useState<string | null>(null);
-  const [messageId, setMessageId] = useState(() => crypto.randomUUID());
+  const [messageId, setMessageId] = useState(() => newId());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -322,7 +323,7 @@ function ReplyBox({
         messageId,
       });
       setChoice(null);
-      setMessageId(crypto.randomUUID());
+      setMessageId(newId());
       onSent(updated);
     } catch (e) {
       setError(actionErrorMessage(e instanceof ApiError ? e.code : 'error'));

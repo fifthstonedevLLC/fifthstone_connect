@@ -1,3 +1,4 @@
+import { TRADES, WORKFLOW_KEYS } from '@fsc/conversation';
 import {
   HOLD_STATES,
   LEAD_SOURCES,
@@ -29,8 +30,6 @@ export const MockEmailSchema = z
     message: 'Mock email addresses must use example.com, .org or .net',
   });
 
-export const PLAYBOOKS = ['hvac', 'tattoo', 'clinic', 'contractor'] as const;
-
 export const MockTenantSchema = z
   .object({
     key: z.string().regex(/^T\d+$/),
@@ -49,10 +48,23 @@ export const MockTenantSchema = z
       },
       { message: 'Unknown time zone' },
     ),
-    playbook: z.enum(PLAYBOOKS),
-    connectNumber: MockPhoneSchema,
+    // A workflow and one of its trades (decision 34), from @fsc/conversation's catalog. A
+    // business still onboarding may not have picked its trade yet.
+    playbook: z.enum(WORKFLOW_KEYS),
+    trade: z
+      .string()
+      .refine((key) => TRADES.some((t) => t.key === key), 'Unknown trade')
+      .optional(),
+    /** None until Fifth Stone Dev buys the number for an onboarding business. */
+    connectNumber: MockPhoneSchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (t) =>
+      t.trade === undefined ||
+      TRADES.find((trade) => trade.key === t.trade)?.workflow === t.playbook,
+    'The trade must belong to the workflow',
+  );
 
 export const MockPortalUserSchema = z
   .object({
@@ -82,7 +94,7 @@ export const MockVoicemailSchema = z
   .object({
     /** Evaluation-set code from MOCK_DATA.md, e.g. VM-02. */
     code: z.string().regex(/^VM-\d{2}$/),
-    /** Absent for minimum-data (clinic) tenants, whose voicemails are never transcribed. */
+    /** Absent while a voicemail has not been transcribed. */
     transcript: z.string().min(1).max(2000).optional(),
     confidence: z.number().min(0).max(1).optional(),
     seconds: z.number().int().min(1).max(600),
@@ -144,7 +156,7 @@ export const MockLeadSchema = z
       .string()
       .regex(/^[a-z][a-z_]+$/)
       .optional(),
-    /** Absent where nothing may summarize the lead (minimum-data tenants, rule 13). */
+    /** Absent until something has summarized the lead. */
     summary: z.string().min(1).max(500).optional(),
     address: z.string().max(300).optional(),
     minutesAgo: z.number().int().min(0),
