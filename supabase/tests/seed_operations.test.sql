@@ -1,20 +1,28 @@
--- The settings and operations seed matches MOCK_DATA.md: tenant config from the playbook catalog,
+-- The settings and operations seed matches MOCK_DATA.md: tenant config from the trade catalog,
 -- service status cards, Riverbend's two settings versions, jobs in every status, Wes's opt-out
 -- and the audit trail. Read as the application role in Riverbend (Rhett, U-01). Rolled back.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(8);
+select plan(9);
 
 grant fsc_app to postgres;
 grant usage on schema extensions to fsc_app;
 
-select is(
-  (select c.clinic_minimum_data from app.tenant_config c
-     join app.tenants t on t.id = c.tenant_id where t.slug = 'mock-prairie-path'),
-  true,
-  'Prairie Path runs the minimum-data clinic playbook'
+select is_empty(
+  $$select 1 from app.tenant_config where playbook_key = 'clinic' or clinic_minimum_data$$,
+  'no mock tenant runs the retired clinic playbook'
+);
+
+select results_eq(
+  $$select t.slug, c.playbook_key, c.trade_key, c.default_job_minutes
+      from app.tenant_config c join app.tenants t on t.id = c.tenant_id order by t.slug$$,
+  $$values ('mock-cedar-lane', 'service_call', null, 60),
+           ('mock-northline-ink', 'studio_appointment', 'tattoo', 60),
+           ('mock-old-mill-roofing', 'estimate_visit', 'roofing', 60),
+           ('mock-riverbend', 'service_call', 'hvac', 60)$$,
+  'each mock tenant runs its workflow and trade, with the trade''s job length (decision 34); Cedar Lane has not picked one'
 );
 
 select is(

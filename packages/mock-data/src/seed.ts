@@ -38,9 +38,9 @@ const ago = (minutes: number) => `now() - interval '${minutes} minutes'`;
 /** Mock calendar IDs say which provider they stand in for, and are never real IDs. */
 const CALENDAR_PREFIX = { google: 'MOCK-GCAL', microsoft: 'MOCK-OUTLOOK', acuity: 'MOCK-ACUITY' };
 const calendarIdOf = (tenant: string) => {
-  const ops = TENANT_OPS.find((o) => o.tenant === tenant);
-  if (!ops) throw new Error(`Unknown tenant ${tenant}`);
-  return `${CALENDAR_PREFIX[ops.calendar.provider]}-${tenant}`;
+  const calendar = TENANT_OPS.find((o) => o.tenant === tenant)?.calendar;
+  if (!calendar) throw new Error(`No calendar for ${tenant}`);
+  return `${CALENDAR_PREFIX[calendar.provider]}-${tenant}`;
 };
 
 /**
@@ -113,17 +113,19 @@ function tenantsFile(): string {
   const config = TENANTS.map((t) => {
     const ops = TENANT_OPS.find((o) => o.tenant === t.key);
     if (!ops) throw new Error(`No operations data for ${t.key}`);
-    // Copied from the playbook catalog, as provisioning does.
-    const fromPlaybook = (column: string) =>
-      `(select ${column} from app.playbooks where key = ${lit(t.playbook)})`;
+    // Copied from the trade catalog, as choosing a trade in Setup does; from the workflow
+    // until a trade is picked.
+    const jobMinutes = t.trade
+      ? `(select default_job_minutes from app.trades where key = ${lit(t.trade)})`
+      : `(select default_job_minutes from app.playbooks where key = ${lit(t.playbook)})`;
     return [
       lit(tenantId(t.key)),
       lit(t.playbook),
-      fromPlaybook('clinic_minimum_data'),
-      lit(t.connectNumber),
+      opt(t.trade),
+      opt(t.connectNumber),
       lit(`${t.slug}@inbound.example.com`),
       `${lit(JSON.stringify(ops.hours))}::jsonb`,
-      fromPlaybook('default_job_minutes'),
+      jobMinutes,
       lit(t.name),
     ];
   });
@@ -136,13 +138,13 @@ function tenantsFile(): string {
     ]),
   );
   return `${GENERATED}
--- Tenants, their config (playbook defaults copied from the catalog) and service status cards.
+-- Tenants, their config (trade defaults copied from the catalog) and service status cards.
 insert into app.tenants (id, slug, name, status, timezone) values
 ${rows(TENANTS.map((t) => [lit(tenantId(t.key)), lit(t.slug), lit(t.name), lit(t.status), lit(t.timezone)]))};
 
 insert into app.tenant_config (
-  tenant_id, playbook_key, clinic_minimum_data, connect_number, inbound_email, business_hours,
-  default_job_minutes, email_sender_name
+  tenant_id, playbook_key, trade_key, connect_number, inbound_email, business_hours, default_job_minutes,
+  email_sender_name
 ) values
 ${rows(config)};
 
@@ -185,7 +187,8 @@ ${rows(versions('ai'))};
 }
 
 function connectionsFile(): string {
-  const integrations = TENANTS.flatMap((t) => {
+  // A business still onboarding has no vendor accounts yet.
+  const integrations = TENANTS.filter((t) => t.status !== 'onboarding').flatMap((t) => {
     const enabled = String(t.status === 'active');
     return [
       [
@@ -206,16 +209,22 @@ function connectionsFile(): string {
       ],
     ];
   });
-  const calendars = TENANT_OPS.map((o) => [
-    lit(mockUuid('calendar-connection', o.tenant)),
-    lit(tenantId(o.tenant)),
-    lit(o.calendar.provider),
-    lit(calendarIdOf(o.tenant)),
-    lit(o.calendar.status),
-    lit(`mock-calendar-${o.tenant.toLowerCase()}`),
-    o.calendar.status === 'disconnected' ? 'null' : ago(20000),
-    o.calendar.status === 'connected' ? ago(3) : 'null',
-  ]);
+  const calendars = TENANT_OPS.flatMap(({ tenant, calendar }) =>
+    calendar
+      ? [
+          [
+            lit(mockUuid('calendar-connection', tenant)),
+            lit(tenantId(tenant)),
+            lit(calendar.provider),
+            lit(calendarIdOf(tenant)),
+            lit(calendar.status),
+            lit(`mock-calendar-${tenant.toLowerCase()}`),
+            calendar.status === 'disconnected' ? 'null' : ago(20000),
+            calendar.status === 'connected' ? ago(3) : 'null',
+          ],
+        ]
+      : [],
+  );
   return `${GENERATED}
 -- Vendor configuration (secret names only, all mock) and calendar connections.
 insert into app.integration_connections (id, tenant_id, type, config, secret_ref, enabled) values
@@ -296,7 +305,7 @@ ${rows(attempts)};
 
 function optOutsFile(): string {
   return `${GENERATED}
--- Opt-outs (Wes, RB-12; Ray, PP-08) and email delivery events (Ana, RB-07 and RB-21; Mei's
+-- Opt-outs (Wes, RB-12) and email delivery events (Ana, RB-07 and RB-21; Mei's
 -- complaint, X-08).
 insert into app.opt_outs (id, tenant_id, phone, source, opted_out_at) values
 ${rows(OPT_OUTS.map((o) => [lit(mockUuid('opt-out', `${o.tenant}:${o.phone}`)), lit(tenantId(o.tenant)), lit(o.phone), lit('stop_keyword'), ago(o.minutesAgo)]))};
@@ -506,7 +515,8 @@ function leadsFile(): string {
     lit(leadId(l.key)),
     lit(firstEvent(l).externalId),
     lit(find(CONTACTS, l.contact).phone),
-    lit(find(TENANTS, l.tenant).connectNumber),
+    // A call reached the business's number, so it has one.
+    lit(find(TENANTS, l.tenant).connectNumber!),
     ago(l.minutesAgo),
   ]);
   const voicemails = LEADS.flatMap((l) =>
@@ -526,8 +536,7 @@ function leadsFile(): string {
       : [],
   );
   return `${GENERATED}
--- Scenario leads, their missed calls and voicemail transcripts (the evaluation set). Prairie
--- Path's voicemails have no transcript: minimum-data tenants are never transcribed.
+-- Scenario leads, their missed calls and voicemail transcripts (the evaluation set).
 insert into app.leads (
   id, tenant_id, contact_id, source, state, state_reason, urgency, category, summary, address,
   first_event_id, state_changed_at, created_at, updated_at
@@ -586,7 +595,7 @@ ${rows(messages)};
 
 function requestsFile(): string {
   // Local wall-clock times on days counted from today in the tenant's own time zone.
-  const busy = TENANT_OPS.filter((o) => o.calendar.status === 'connected').flatMap((o) =>
+  const busy = TENANT_OPS.filter((o) => o.calendar?.status === 'connected').flatMap((o) =>
     o.busy.map((b) => [
       lit(tenantId(o.tenant)),
       lit(mockUuid('calendar-connection', o.tenant)),
@@ -701,8 +710,8 @@ function onboardingFile(): string {
   ]);
   const approvers = ONBOARDING.flatMap((o) => o.approvers.map((key) => lit(portalUserId(key))));
   return `${GENERATED}
--- Onboarding: Riverbend has done every step but the test call, Northline is partway through and
--- Prairie Path is done. Mock EINs start with 00, which the IRS never assigns.
+-- Onboarding: Riverbend has done every step but the test call and Northline is partway through.
+-- Mock EINs start with 00, which the IRS never assigns.
 insert into app.business_profiles (
   tenant_id, legal_name, ein, street, city, region, postal_code, website, contact_name,
   contact_email, contact_phone, updated_by

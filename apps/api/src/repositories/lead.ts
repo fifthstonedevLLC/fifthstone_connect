@@ -33,7 +33,7 @@ export interface LeadDetail {
   };
   voicemail: {
     durationSeconds: number;
-    /** Null when not transcribed (clinic minimum-data playbook, or not yet processed). */
+    /** Null until transcribed. */
     transcript: string | null;
     confidence: number | null;
     receivedAt: string;

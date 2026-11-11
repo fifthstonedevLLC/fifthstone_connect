@@ -309,7 +309,6 @@ const SETTINGS_ERROR: Record<string, string> = {
   template_keys_changed:
     'The set of templates changed. The latest is shown; make your change again.',
   owner_only: 'Only the owner can change these settings.',
-  minimum_data: 'This business does not use AI instructions.',
   version_breaks_rules:
     "That version no longer meets today's template rules, so it can't be made live. Edit the live version instead.",
   not_found: 'That version no longer exists. The latest is shown.',

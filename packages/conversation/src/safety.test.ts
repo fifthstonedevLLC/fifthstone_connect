@@ -35,7 +35,7 @@ describe('detectHazard', () => {
 
 describe('safetyMessage', () => {
   it('points to 911 only for a crisis, never 988', () => {
-    const crisis = safetyMessage('crisis', 'Prairie Path Counseling');
+    const crisis = safetyMessage('crisis', 'Northline Ink');
     expect(crisis).toContain('911');
     expect(crisis).not.toContain('988');
   });

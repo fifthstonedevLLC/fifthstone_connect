@@ -127,13 +127,7 @@ export async function recordPhoneEvent(
     return 'recorded';
   }
 
-  const clinic = await client.query<{ clinic: boolean }>(
-    `select clinic_minimum_data as clinic from app.tenant_config where tenant_id = $1`,
-    [tenantId],
-  );
-  const plan = planInbound(event.kind, lead?.state ?? null, {
-    clinic: clinic.rows[0]?.clinic ?? true,
-  });
+  const plan = planInbound(event.kind, lead?.state ?? null);
   if (plan.create) {
     const created = await client.query<{ id: string; state: LeadState }>(
       `insert into app.leads (tenant_id, contact_id, source, first_event_id)
@@ -161,7 +155,7 @@ export async function recordPhoneEvent(
       [tenantId, event.callId],
     );
     if (event.kind === 'voicemail') {
-      // Kept as a recording; `transcribe_voicemail` reads it (never for clinics).
+      // Kept as a recording; `transcribe_voicemail` reads it.
       await client.query(
         `insert into app.voicemails (tenant_id, call_id, recording_ref, duration_seconds)
          values ($1, $2, $3, $4)

@@ -9,9 +9,9 @@ select plan(5);
 
 select results_eq(
   'select slug, status from app.tenants order by slug',
-  $$values ('mock-northline-ink', 'active'), ('mock-old-mill-roofing', 'disabled'),
-           ('mock-prairie-path', 'active'), ('mock-riverbend', 'active')$$,
-  'the four mock tenants are seeded, with Old Mill disabled'
+  $$values ('mock-cedar-lane', 'onboarding'), ('mock-northline-ink', 'active'),
+           ('mock-old-mill-roofing', 'disabled'), ('mock-riverbend', 'active')$$,
+  'the four mock tenants are seeded: Old Mill disabled, Cedar Lane still onboarding'
 );
 
 select is_empty(
@@ -20,18 +20,17 @@ select is_empty(
 );
 
 select results_eq(
-  $$select u.email::text, t.slug, r.role
+  $$select u.email::text, t.slug, r.role, r.live
     from auth.users u
     cross join lateral app.resolve_portal_user(u.id) r
     join app.tenants t on t.id = r.tenant_id
     order by u.email$$,
-  $$values ('carla@riverbend.example.com', 'mock-riverbend', 'staff'),
-           ('frontdesk@prairiepath.example.org', 'mock-prairie-path', 'staff'),
-           ('helen@prairiepath.example.org', 'mock-prairie-path', 'owner'),
-           ('jules@northline.example.com', 'mock-northline-ink', 'staff'),
-           ('mara@northline.example.com', 'mock-northline-ink', 'owner'),
-           ('rhett@riverbend.example.com', 'mock-riverbend', 'owner')$$,
-  'every active login resolves to its own tenant and role'
+  $$values ('carla@riverbend.example.com', 'mock-riverbend', 'staff', true),
+           ('dee@cedarlane.example.com', 'mock-cedar-lane', 'owner', false),
+           ('jules@northline.example.com', 'mock-northline-ink', 'staff', true),
+           ('mara@northline.example.com', 'mock-northline-ink', 'owner', true),
+           ('rhett@riverbend.example.com', 'mock-riverbend', 'owner', true)$$,
+  'every login resolves to its own tenant and role; an onboarding business signs in, not live (decision 35)'
 );
 
 select is_empty(
@@ -44,8 +43,8 @@ select results_eq(
   $$select count(*) from auth.users u
     join auth.identities i on i.user_id = u.id and i.provider = 'email'
     where u.encrypted_password is not null and u.email_confirmed_at is not null$$,
-  $$values (7::bigint)$$,
-  'all seven logins have a password, a confirmed email and an email identity'
+  $$values (6::bigint)$$,
+  'all six logins have a password, a confirmed email and an email identity'
 );
 
 select * from finish();

@@ -34,12 +34,11 @@ export interface Settings {
   canEdit: boolean;
   businessName: string;
   templates: { versions: SettingsVersion<Record<string, string>>[] };
-  /** Unavailable for minimum-data (clinic) playbooks: nothing reaches the AI layer (rule 13). */
-  ai: { available: boolean; versions: SettingsVersion<AiSettings>[] };
+  ai: { versions: SettingsVersion<AiSettings>[] };
 }
 
 export type SettingsError =
-  'not_found' | 'stale_version' | 'template_keys_changed' | 'minimum_data' | 'version_breaks_rules';
+  'not_found' | 'stale_version' | 'template_keys_changed' | 'version_breaks_rules';
 
 export type WriteResult =
   | { ok: true }
@@ -50,21 +49,14 @@ export type WriteResult =
       problems: { key: string; problems: TemplateProblem[] }[];
     };
 
-async function tenantFacts(
-  client: DbClient,
-  tenantId: string,
-): Promise<{ businessName: string; minimumData: boolean }> {
-  // A tenant without config is treated as minimum-data: the safe default for the AI layer.
-  const { rows } = await client.query<{ name: string; minimum_data: boolean }>(
-    `select t.name, coalesce(c.clinic_minimum_data, true) as minimum_data
-       from app.tenants t
-       left join app.tenant_config c on c.tenant_id = t.id
-      where t.id = $1`,
+async function businessNameOf(client: DbClient, tenantId: string): Promise<string> {
+  const { rows } = await client.query<{ name: string }>(
+    `select name from app.tenants where id = $1`,
     [tenantId],
   );
   const row = rows[0];
   if (!row) throw new Error('tenant not visible in its own context');
-  return { businessName: row.name, minimumData: row.minimum_data };
+  return row.name;
 }
 
 async function versions(
@@ -104,21 +96,19 @@ export async function getSettings(
   tenantId: string,
   role: 'owner' | 'staff',
 ): Promise<Settings> {
-  const { businessName, minimumData } = await tenantFacts(client, tenantId);
+  const businessName = await businessNameOf(client, tenantId);
   const templates = (await versions(client, tenantId, 'templates')) as SettingsVersion<
     Record<string, string>
   >[];
-  const ai = minimumData
-    ? []
-    : (await versions(client, tenantId, 'ai')).map((v) => ({
-        ...v,
-        content: AiSettingsSchema.parse(v.content),
-      }));
+  const ai = (await versions(client, tenantId, 'ai')).map((v) => ({
+    ...v,
+    content: AiSettingsSchema.parse(v.content),
+  }));
   return {
     canEdit: role === 'owner',
     businessName,
     templates: { versions: templates },
-    ai: { available: !minimumData, versions: ai },
+    ai: { versions: ai },
   };
 }
 
@@ -170,8 +160,7 @@ export async function saveSettings(
   kind: SettingsKind,
   input: { id: string; baseVersion: number | null; content: Record<string, unknown> },
 ): Promise<WriteResult> {
-  const { businessName, minimumData } = await tenantFacts(client, tenantId);
-  if (kind === 'ai' && minimumData) return { ok: false, error: 'minimum_data' };
+  const businessName = await businessNameOf(client, tenantId);
 
   const existing = await client.query(
     `select 1 from ${TABLE[kind]} where tenant_id = $1 and id = $2`,
@@ -227,8 +216,7 @@ export async function restoreSettings(
   kind: SettingsKind,
   input: { version: number; baseVersion: number | null },
 ): Promise<WriteResult> {
-  const { businessName, minimumData } = await tenantFacts(client, tenantId);
-  if (kind === 'ai' && minimumData) return { ok: false, error: 'minimum_data' };
+  const businessName = await businessNameOf(client, tenantId);
 
   const active = await lockActive(client, tenantId, kind);
   if (active?.version === input.version) return { ok: true };
@@ -263,4 +251,62 @@ export async function restoreSettings(
     previousVersion: active?.version ?? null,
   });
   return { ok: true };
+}
+
+/**
+ * Makes a starter version live when the owner picks a business type (decision 34). The starter
+ * set replaces the live one as a new version, so the owner's earlier wording stays in the history
+ * and can be restored. Wording that is already live writes nothing. Starter templates pass the
+ * same rules as an owner's save, checked with this business's name.
+ */
+export async function applyStarterSettings(
+  client: DbClient,
+  tenantId: string,
+  portalUserId: string,
+  kind: SettingsKind,
+  starter: Record<string, unknown>,
+  reason: { workflow: string; trade: string },
+): Promise<
+  | { ok: true; version: number | null }
+  | {
+      ok: false;
+      error: 'template_problems';
+      problems: { key: string; problems: TemplateProblem[] }[];
+    }
+> {
+  const businessName = await businessNameOf(client, tenantId);
+  let content: Record<string, unknown>;
+  if (kind === 'templates') {
+    const strings = starter as Record<string, string>;
+    const checked = checkTemplateSet(Object.keys(strings), strings, businessName);
+    if (!checked.ok) {
+      if (checked.error === 'template_problems') return checked;
+      throw new Error('starter template keys are inconsistent');
+    }
+    content = checked.content;
+  } else {
+    content = AiSettingsSchema.parse(starter);
+  }
+
+  const active = await lockActive(client, tenantId, kind);
+  if (active && changedKeys(active.content, content).length === 0)
+    return { ok: true, version: null };
+
+  await client.query(`update ${TABLE[kind]} set active = false where tenant_id = $1 and active`, [
+    tenantId,
+  ]);
+  const inserted = await client.query<{ id: string; version: number }>(
+    `insert into ${TABLE[kind]} (tenant_id, version, content, active, created_by)
+     select $1, coalesce(max(version), 0) + 1, $2, true, $3
+       from ${TABLE[kind]} where tenant_id = $1
+     returning id, version`,
+    [tenantId, JSON.stringify(content), portalUserId],
+  );
+  const row = inserted.rows[0]!;
+  await audit(client, tenantId, portalUserId, `settings.${kind}_starter_applied`, kind, row.id, {
+    version: row.version,
+    previousVersion: active?.version ?? null,
+    ...reason,
+  });
+  return { ok: true, version: row.version };
 }

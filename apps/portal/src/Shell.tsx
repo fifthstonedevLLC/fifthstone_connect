@@ -15,6 +15,17 @@ const NAV: { label: string; icon: IconName; to?: string }[] = [
   { label: 'Settings', icon: 'settings' },
 ];
 
+/** Before go-live only setup is open (decision 35); staff have nothing to change yet. */
+function navFor(me: Me): typeof NAV {
+  if (me.stage === 'live') return NAV;
+  if (me.role !== 'owner') return [];
+  return [
+    ...(me.stage === 'applied' ? [{ label: 'Status', icon: 'clock' as const, to: '/' }] : []),
+    { label: 'Setup', icon: 'setup', to: '/setup' },
+    { label: 'Templates & AI', icon: 'templates', to: '/templates' },
+  ];
+}
+
 function ServiceRow({
   label,
   state,
@@ -94,7 +105,7 @@ export function Shell({
         <div id="sidebar-menu" className="sidebar__menu">
           <nav aria-label="Portal">
             <ul className="nav">
-              {NAV.map((item) =>
+              {navFor(me).map((item) =>
                 item.to ? (
                   <li key={item.label}>
                     <NavLink to={item.to} end className="nav__link" onClick={close}>

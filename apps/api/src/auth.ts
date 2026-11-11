@@ -5,7 +5,7 @@ import { withoutTenant } from './db.js';
 
 /**
  * Portal sign-in. The browser signs in with Supabase Auth and sends the access token; the API
- * verifies it, then resolves the login to one active portal user and tenant. Everything after
+ * verifies it, then resolves the login to one active portal user and tenant (live or still onboarding). Everything after
  * that runs in that tenant's context.
  */
 
@@ -13,6 +13,8 @@ export interface PortalUser {
   portalUserId: string;
   tenantId: string;
   role: 'owner' | 'staff';
+  /** False while the business is onboarding: only setup is open (decision 35). */
+  live: boolean;
 }
 
 /** Verifies an access token and returns the Supabase Auth user ID, or null if invalid. */
@@ -51,7 +53,10 @@ export function requirePortalUser(pool: pg.Pool, verify: TokenVerifier) {
         portal_user_id: string;
         tenant_id: string;
         role: 'owner' | 'staff';
-      }>('select portal_user_id, tenant_id, role from app.resolve_portal_user($1)', [authUserId]);
+        live: boolean;
+      }>('select portal_user_id, tenant_id, role, live from app.resolve_portal_user($1)', [
+        authUserId,
+      ]);
       return rows[0];
     });
     if (!resolved) {
@@ -62,6 +67,7 @@ export function requirePortalUser(pool: pg.Pool, verify: TokenVerifier) {
       portalUserId: resolved.portal_user_id,
       tenantId: resolved.tenant_id,
       role: resolved.role,
+      live: resolved.live,
     };
   };
 }

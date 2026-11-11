@@ -102,7 +102,7 @@ export const BusinessHoursListSchema = z
 
 export type BusinessHoursList = z.output<typeof BusinessHoursListSchema>;
 
-/** The six setup steps, in order (SCOPE.md v0.2). */
+/** The setup steps, in order (SCOPE.md v0.2); the last sends the texting application. */
 export const ONBOARDING_STEPS = [
   'business_type',
   'details',
@@ -110,6 +110,7 @@ export const ONBOARDING_STEPS = [
   'templates',
   'team',
   'test',
+  'apply',
 ] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
@@ -122,9 +123,26 @@ export interface OnboardingFacts {
   templatesReviewed: boolean;
   approvers: number;
   testRun: boolean;
+  applicationSent: boolean;
 }
 
 /** Each step and whether it is done. A step is done only when its data says so. */
+/**
+ * Where a business stands (decision 35): finishing setup, application sent and waiting for
+ * approval, or live. Only live businesses use the portal's working pages.
+ */
+export type SetupStage = 'setting_up' | 'applied' | 'live';
+
+export function setupStage(live: boolean, applicationSent: boolean): SetupStage {
+  if (live) return 'live';
+  return applicationSent ? 'applied' : 'setting_up';
+}
+
+/** Whether everything before the application is done, so it can be sent. */
+export function readyToApply(steps: readonly { key: OnboardingStep; done: boolean }[]): boolean {
+  return steps.filter((s) => s.key !== 'apply').every((s) => s.done);
+}
+
 export function onboardingSteps(facts: OnboardingFacts): { key: OnboardingStep; done: boolean }[] {
   const done: Record<OnboardingStep, boolean> = {
     business_type: facts.typeConfirmed,
@@ -133,6 +151,7 @@ export function onboardingSteps(facts: OnboardingFacts): { key: OnboardingStep; 
     templates: facts.templatesReviewed,
     team: facts.approvers > 0,
     test: facts.testRun,
+    apply: facts.applicationSent,
   };
   return ONBOARDING_STEPS.map((key) => ({ key, done: done[key] }));
 }

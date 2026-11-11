@@ -12,6 +12,168 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-11 — Locked until live: setup and the texting application
+
+**Change:** a business cannot use the portal's working pages until it is live (owner,
+2026-11-11; decision 35).
+
+- Migration `20261111185635_go_live_gate.sql`: tenant status `onboarding`; sign-in
+  (`app.resolve_portal_user`) now resolves onboarding businesses too and says whether the
+  business is live; `onboarding_progress` records when and by whom the texting application was
+  sent. Calls, texts, job claims and calendar syncs already run only for `active` businesses, so
+  nothing reaches customers before go-live. Ledger row added.
+- `@fsc/core`: setup step 7, `apply`; `setupStage` (setting up, applied, live) and
+  `readyToApply`. `@fsc/conversation`: `registrationPreview`, the application's use case, opt-in
+  description and sample messages, built from the owner's live templates and the trade's typical
+  need (a sentence without a value is left out, so a sample never describes another trade).
+- API: a portal guard refuses every route but `/portal/me`, `/portal/onboarding*` and
+  `/portal/settings*` with `403 not_live` for a business that is not live, whatever the portal
+  shows. `/portal/me` returns `stage`. `POST /portal/onboarding/application` (owner only, needs
+  `confirmed: true` and every other step done) records the application and audits it. Nothing is
+  sent to a vendor: Fifth Stone Dev submits it by hand until the Phase 4 adapter.
+- Portal: before go-live the menu shows only Setup and Templates & AI (plus Status once the
+  application is sent); other addresses go back to Setup. Step 7 shows the application for
+  review with an "accurate" checkbox. The status page shows setup, texting registration and
+  going live; staff see only that page.
+- Mock data: T5 Cedar Lane Lawn Care (`onboarding`, nothing set up) and its owner U-08 Dee
+  Alvarez (`dee@cedarlane.example.com`). A tenant's number, trade and calendar are optional in
+  the catalog.
+- Docs: `SCOPE.md` (onboarding step 7, locked until live), decision 35, `ONBOARDING.md`,
+  `MOCK_DATA.md`, `CLAUDE.md`.
+
+**Rationale:** the owner wants businesses to finish setup and apply for texting before using the
+app, and chose to keep everything locked until go-live rather than open an empty Front Desk
+while texting approval is pending.
+
+**Not decided:** the use-case and opt-in wording is a draft until the owner approves it.
+Provisioning still defaults new tenants to `active` in the database; the operator's
+`tenant create` (decision 23) must create them as `onboarding`. Go-live is a manual status change
+until the operator CLI has a command for it.
+
+**Test evidence:** core tests (seven steps, stage, ready-to-apply); registration preview tests;
+API tests on the local stack (an onboarding business gets `not_live` on the Front Desk and
+calendar for owner and staff, settings stay open, the application is refused before setup is
+done or without confirmation, staff cannot send it, a live business has nothing to apply for,
+sent is not live, setting `active` opens the pages); pgTAP (four mock tenants, an onboarding
+login resolves with `live` false, Cedar Lane has no trade). Checked in the browser on mock data:
+Dee lands on Setup with a two-item menu, `/calendar` returns to Setup, step 7 shows the
+application, sending it opens the status page, and setting the business `active` opens the
+Front Desk; the database was reset afterwards.
+
+## 2026-11-11 — Business types: five workflows with trades
+
+**Change:** a business type is now a workflow and a trade inside it (owner, 2026-11-11; decision
+34, superseding decision 28). The five workflows are service call, estimate visit, recurring
+service, studio appointment and shop drop-off; each offers four named trades and an "other"
+choice (25 in all).
+
+- `packages/conversation/src/playbooks.ts`: the catalog. Each workflow has a starter template
+  set (same keys in every workflow, so the engine is unchanged) and an approval channel; each
+  trade has starter AI instructions (what we do, what we don't, emergencies, questions, tone), a
+  job length and a test-call sample. The simulated test call now uses the trade's sample.
+- Migration `20261111181851_business_workflows.sql`: the five workflows replace the hvac, tattoo
+  and contractor playbooks (existing tenants move to the matching workflow); new reference table
+  `app.trades`; `tenant_config.trade_key`, which must belong to the tenant's workflow (foreign
+  key on trade and workflow); the application may now update the workflow and trade. Ledger row
+  added.
+- API: `PUT /portal/onboarding/business-type` (owner only) applies a trade: workflow, trade and
+  job length on the config; the workflow's starter templates and the trade's starter AI
+  instructions as new live versions (earlier versions stay restorable); the step is confirmed,
+  and the template review is asked for again when the wording changed. Choosing the same trade
+  again writes nothing. Each write is audited. `GET /portal/onboarding` returns the trade and job
+  length.
+- Portal: Setup's Business type step shows the workflow and trade, and the owner can change it:
+  pick a workflow tile, then a trade, see the questions, approval channel and job length, then
+  "Use these settings".
+- Mock data: Riverbend is service call / heating and cooling, Northline studio appointment /
+  tattoo studio, Old Mill estimate visit / roofing; job lengths come from the trade.
+- Docs: `SCOPE.md` (business types table, onboarding step 1, release scope), `BACKLOG.md`
+  (per-trade extras), decisions 28 and 34, ADR-0002 decision 2, `CLAUDE.md`, `SYSTEM_OVERVIEW.md`,
+  `SITE_BRIEF.md` (tiles per workflow), `MOCK_DATA.md`.
+
+**Rationale:** the owner wants to sell to many kinds of small businesses, each set up for how it
+books, without separate products. Five booking patterns cover the trades that fit the loop; the
+trade is just a starting point the owner edits.
+
+**Not decided:** the starter wording is a draft until the owner approves it (customer-facing
+messaging). Waiver and deposit links, estimate follow-up and times per artist are not built
+(backlog).
+
+**Test evidence:** catalog tests (every starter template passes the template rules, every
+trade's AI settings validate, every trade's test call fills completely); API tests on the local
+stack (owner-only, unknown trade refused, applying a trade, re-applying writes nothing, switching
+workflows keeps history, the code catalog matches `app.playbooks` and `app.trades`); pgTAP (the
+five workflows, read-only trades, a trade must match the workflow, seeded workflow and trade).
+Checked in the browser at desktop and phone width on mock data (Northline switched to shop
+drop-off / auto repair, then the database was reset).
+
+**Test fix:** the webhook test that reads a new texter's thread now filters by its own test
+business. Its caller number is also the safety test's business number, so a parallel run could
+pick up the other test's message.
+
+## 2026-11-11 — Scope: no healthcare practices
+
+**Change:** clinics, dental offices, therapists and other healthcare practices are out of scope
+(owner, 2026-11-11; decision 33). Updated `SCOPE.md` (audience, playbook table, release scope,
+exclusions, acceptance criteria), `BACKLOG.md`, `SITE_BRIEF.md`, `STYLE_GUIDE.md`, ADR-0002
+(decision 11 superseded in part), `ONBOARDING.md` and `CLAUDE.md` (purpose, rule 9, rule 13).
+
+**Rationale:** the owner does not want the launch burden that health information brings
+(agreements with every vendor in the chain, stricter handling). Three playbooks remain: tattoo,
+HVAC/plumbing and contractors.
+
+**Code (same day):** the clinic playbook is retired.
+
+- Migration `20261111160257_retire_clinic_playbook.sql` deletes the `clinic` playbook (it refuses
+  to run if any tenant still uses it) and makes `clinic_minimum_data` default to false and always
+  false on `playbooks` and `tenant_config`. This is the expand step of DATABASE.md rule 6; a later
+  migration drops the two columns. Ledger row added.
+- The minimum-data guard is gone from the engine (intake, text-back, voicemail transcription,
+  clarify, approval texts), the API (`minimumData` in onboarding, `ai.available` and the
+  `minimum_data` error in settings) and the portal (Setup and Templates & AI notes).
+- Mock data: Prairie Path Counseling (T3), its two logins (U-05, U-06), its nine scenario leads
+  and case X-01 are removed; three tenants and five logins remain. Northline now has saved
+  business details, so the onboarding isolation test still reads another business's row. The
+  crisis-message worker test runs on a test tattoo studio instead of a test clinic.
+- Docs: `MOCK_DATA.md`, `CLAUDE.md` (rule 13 and the phase notes), ADR-0002, decision 33,
+  `SYSTEM_OVERVIEW.md` and `THREAT_MODEL.md` (A20).
+
+**Test evidence:** `npm run seed:build`, `npm run db:reset` and `npm run db:test` pass (pgTAP,
+including new checks that the clinic playbook is gone and no tenant runs the flag);
+`npm run check` passes (typecheck, lint, format, 378 tests with 1 skipped, against the local
+stack). Mock data only.
+
+## 2026-11-10 — Portal: try it on a phone on the same Wi-Fi
+
+**Change:** `npm run dev -w @fsc/portal` listens only on this computer, and its sign-in goes to the
+local Supabase stack at 127.0.0.1, which a phone cannot reach. `npm run dev:phone -w @fsc/portal`
+(Vite mode `phone`) is an opt-in way to use the real portal on a phone:
+
+- It listens on the local network at port 5174, so a phone on the same Wi-Fi opens
+  `http://<this computer's IP>:5174`. The normal dev server on 5173 is unchanged and can run beside
+  it.
+- Sign-in goes through the portal's own address (`/supabase`, forwarded to the local stack), like
+  the API already does (`/api`), so the phone only needs to reach one address.
+- **Safety:** anyone on the same Wi-Fi can open the sign-in page while it runs. It serves mock data
+  only and stops with the command; nothing is exposed beyond the local network. Windows may ask to
+  let Node.js through the firewall on private networks; that choice is the owner's.
+- `.claude/launch.json` has a `portal-phone` entry.
+- **Fix: opening a contact on the phone blanked the app.** The reply box and the Templates & AI
+  page made their one-time keys with `crypto.randomUUID`, which browsers only offer on secure pages
+  (https or localhost); over `http://<IP>:5174` it is missing, the page threw, and the whole portal
+  went blank (it looked frozen). `newId` (`apps/portal/src/ids.ts`, tested) uses it when present and
+  otherwise builds the same kind of ID from `crypto.getRandomValues`. A page that still fails now
+  shows a short notice with Reload inside the portal (`PageErrorBoundary`) instead of a blank
+  screen; the menu stays and nothing is retried or sent.
+
+**Test evidence:** typecheck and lint pass. At phone size over the Wi-Fi address (not a secure
+page, `randomUUID` missing), Dana M.'s contact page opened with its reply box and Templates & AI
+loaded, with no errors. In the in-app browser at phone size, through
+`http://192.168.1.20:5174` (this computer's Wi-Fi address, as a phone would use it): sign-in as
+Carla went through `/supabase/auth/v1/token` (200), the Front Desk and Calendar loaded through
+`/api`, there was no sideways scroll, and Navigate linked to directions. Not yet tried from a
+physical phone. Mock data only.
+
 ## 2026-11-10 — Phase 3 closed: a review of the loop's edges
 
 **Change:** a review of the whole engine before Phase 4. Four real problems found and fixed, each

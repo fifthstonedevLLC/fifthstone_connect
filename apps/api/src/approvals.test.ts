@@ -130,9 +130,9 @@ describe.skipIf(!ready)('approving by text (local stack, mock adapter, test tena
          values ('${OWNER}', '${T}', '${OWNER_AUTH}', 'owner', 'Approvals Owner',
                  '${APPROVER_MOBILE}', true);
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes,
+         (tenant_id, playbook_key, business_hours, default_job_minutes,
           connect_number)
-         values ('${T}', 'hvac', false, '[]', 60, '${NUMBER}');
+         values ('${T}', 'service_call', '[]', 60, '${NUMBER}');
        ${[1, 2]
          .map(
            (n) => `

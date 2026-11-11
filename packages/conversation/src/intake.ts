@@ -51,31 +51,23 @@ export interface InboundPlan {
  * - A missed call from someone without an open lead starts one and gets the text-back. A call on
  *   an open lead joins it quietly.
  * - A voicemail is transcribed and read first (`transcribe_voicemail`), and the text-back for a
- *   new caller follows from what they said. A clinic's voicemail is never transcribed (CLAUDE.md
- *   rule 13): a new clinic caller gets the plain text-back.
+ *   new caller follows from what they said.
  * - A text while times are on offer goes to the offer step (`handle_offer_reply`).
  * - A text while the lead is being clarified, or a first text from someone new, goes to the
- *   clarify step (`clarify_lead`). Not for clinics: their texts never reach the AI layer
- *   (CLAUDE.md rule 13), so a person reads them.
+ *   clarify step (`clarify_lead`).
  * - Any other text needs a person: the lead goes to Reply on the Front Desk. A lead already
  *   waiting on a person keeps its reason (an emergency stays one), and a lead waiting for
  *   approval stays in the Approve queue with the text in its thread.
  */
-export function planInbound(
-  kind: InboundKind,
-  openLead: LeadState | null,
-  options: { clinic?: boolean } = {},
-): InboundPlan {
+export function planInbound(kind: InboundKind, openLead: LeadState | null): InboundPlan {
   const create = openLead === null ? 'missed_call' : null;
-  if (kind === 'voicemail' && !options.clinic) {
-    return { create, move: null, job: 'transcribe_voicemail' };
-  }
-  if (kind === 'missed_call' || kind === 'voicemail') {
+  if (kind === 'voicemail') return { create, move: null, job: 'transcribe_voicemail' };
+  if (kind === 'missed_call') {
     return { create, move: null, job: openLead === null ? 'send_text_back' : null };
   }
   if (openLead === 'offered') return { create: null, move: null, job: 'handle_offer_reply' };
   const clarifying = openLead === null || openLead === 'new' || openLead === 'clarifying';
-  if (clarifying && !options.clinic) {
+  if (clarifying) {
     return { create: openLead === null ? 'text' : null, move: null, job: 'clarify_lead' };
   }
   // Already in front of a person, or waiting on an approver: the text joins the thread and the

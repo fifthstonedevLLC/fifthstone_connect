@@ -7,8 +7,6 @@ insert into app.integration_connections (id, tenant_id, type, config, secret_ref
   ('6eb7cbb6-3204-5431-b08c-127e393f9553', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'ses', '{"fromName":"Riverbend Heating & Air","fromAddress":"hello@mock-riverbend.example.com"}'::jsonb, null, true),
   ('b1119122-42bf-5b4d-8d14-5f096fea29b0', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'twilio', '{"subaccount":"MOCK-AC-T2","messagingService":"MOCK-MG-T2"}'::jsonb, 'mock-twilio-t2', true),
   ('8807c76e-7e24-5550-b139-f1fbb675eb83', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'ses', '{"fromName":"Northline Ink","fromAddress":"hello@mock-northline-ink.example.com"}'::jsonb, null, true),
-  ('aac17fc4-729b-5530-9d00-0e475a1f4de3', '72861613-42bb-5953-b39b-a821a84d3caa', 'twilio', '{"subaccount":"MOCK-AC-T3","messagingService":"MOCK-MG-T3"}'::jsonb, 'mock-twilio-t3', true),
-  ('31aba506-d5d3-5bee-a7de-64c01058c139', '72861613-42bb-5953-b39b-a821a84d3caa', 'ses', '{"fromName":"Prairie Path Counseling","fromAddress":"hello@mock-prairie-path.example.com"}'::jsonb, null, true),
   ('d77b62a3-970a-558c-963d-a4522ef23e69', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'twilio', '{"subaccount":"MOCK-AC-T4","messagingService":"MOCK-MG-T4"}'::jsonb, 'mock-twilio-t4', false),
   ('09d81e3a-99e2-56dc-892c-30cbbb9e2e17', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'ses', '{"fromName":"Old Mill Roofing","fromAddress":"hello@mock-old-mill-roofing.example.com"}'::jsonb, null, false);
 
@@ -17,5 +15,4 @@ insert into app.calendar_connections (
 ) values
   ('c43ab3b8-78d2-5bff-a20c-c067f1e75a1e', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'google', 'MOCK-GCAL-T1', 'connected', 'mock-calendar-t1', now() - interval '20000 minutes', now() - interval '3 minutes'),
   ('9c7c6d8e-cc79-5571-9599-868f5b2237e1', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'acuity', 'MOCK-ACUITY-T2', 'connected', 'mock-calendar-t2', now() - interval '20000 minutes', now() - interval '3 minutes'),
-  ('228fc62f-82ee-57bf-9a05-da58e6f7cb61', '72861613-42bb-5953-b39b-a821a84d3caa', 'microsoft', 'MOCK-OUTLOOK-T3', 'connected', 'mock-calendar-t3', now() - interval '20000 minutes', now() - interval '3 minutes'),
   ('53903fa0-314b-54a1-8e53-51b19f7e9fcc', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'google', 'MOCK-GCAL-T4', 'disconnected', 'mock-calendar-t4', null, null);

@@ -12,9 +12,8 @@ insert into auth.users (
   ('00000000-0000-0000-0000-000000000000', '65134492-28ec-50a2-9c83-b844b8814867', 'authenticated', 'authenticated', 'carla@riverbend.example.com', extensions.crypt('mock-local-only', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"name":"Carla Nunez"}', now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '850f7f15-d80e-5732-9e09-a7a78426e822', 'authenticated', 'authenticated', 'mara@northline.example.com', extensions.crypt('mock-local-only', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"name":"Mara Quinn"}', now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', 'a23234d6-3aa4-52c0-96df-e975d44e7ba3', 'authenticated', 'authenticated', 'jules@northline.example.com', extensions.crypt('mock-local-only', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"name":"Jules Park"}', now(), now(), '', '', '', ''),
-  ('00000000-0000-0000-0000-000000000000', 'b0f249f1-091c-5aa1-884c-00eaa721ea45', 'authenticated', 'authenticated', 'helen@prairiepath.example.org', extensions.crypt('mock-local-only', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"name":"Helen Ortiz"}', now(), now(), '', '', '', ''),
-  ('00000000-0000-0000-0000-000000000000', 'c7858bcd-2540-540b-9cf3-604f3f33c1e5', 'authenticated', 'authenticated', 'frontdesk@prairiepath.example.org', extensions.crypt('mock-local-only', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"name":"Tess Albright"}', now(), now(), '', '', '', ''),
-  ('00000000-0000-0000-0000-000000000000', 'd8bafc70-ca69-521a-a62f-f3f47d06915f', 'authenticated', 'authenticated', 'owen@oldmill.example.net', extensions.crypt('mock-local-only', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"name":"Owen Mills"}', now(), now(), '', '', '', '');
+  ('00000000-0000-0000-0000-000000000000', 'd8bafc70-ca69-521a-a62f-f3f47d06915f', 'authenticated', 'authenticated', 'owen@oldmill.example.net', extensions.crypt('mock-local-only', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"name":"Owen Mills"}', now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'ceaeb460-4100-5d80-931c-dcc0ff954d6e', 'authenticated', 'authenticated', 'dee@cedarlane.example.com', extensions.crypt('mock-local-only', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"name":"Dee Alvarez"}', now(), now(), '', '', '', '');
 
 insert into auth.identities (
   id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at
@@ -23,9 +22,8 @@ insert into auth.identities (
   ('faab9f63-4ecb-56d7-ad63-ea9cf9cbc97c', '65134492-28ec-50a2-9c83-b844b8814867', '65134492-28ec-50a2-9c83-b844b8814867', 'email', '{"sub":"65134492-28ec-50a2-9c83-b844b8814867","email":"carla@riverbend.example.com","email_verified":true}', now(), now(), now()),
   ('0d3e27b7-a0db-5305-b5b8-374c7c785059', '850f7f15-d80e-5732-9e09-a7a78426e822', '850f7f15-d80e-5732-9e09-a7a78426e822', 'email', '{"sub":"850f7f15-d80e-5732-9e09-a7a78426e822","email":"mara@northline.example.com","email_verified":true}', now(), now(), now()),
   ('58c65ca2-35f6-5b49-b870-775cbfd34f65', 'a23234d6-3aa4-52c0-96df-e975d44e7ba3', 'a23234d6-3aa4-52c0-96df-e975d44e7ba3', 'email', '{"sub":"a23234d6-3aa4-52c0-96df-e975d44e7ba3","email":"jules@northline.example.com","email_verified":true}', now(), now(), now()),
-  ('abeaab43-8a29-5400-beda-f7fff026e158', 'b0f249f1-091c-5aa1-884c-00eaa721ea45', 'b0f249f1-091c-5aa1-884c-00eaa721ea45', 'email', '{"sub":"b0f249f1-091c-5aa1-884c-00eaa721ea45","email":"helen@prairiepath.example.org","email_verified":true}', now(), now(), now()),
-  ('3ca0b7eb-cd14-55df-a7bc-bb2e767cdffd', 'c7858bcd-2540-540b-9cf3-604f3f33c1e5', 'c7858bcd-2540-540b-9cf3-604f3f33c1e5', 'email', '{"sub":"c7858bcd-2540-540b-9cf3-604f3f33c1e5","email":"frontdesk@prairiepath.example.org","email_verified":true}', now(), now(), now()),
-  ('e861c302-76d2-57dd-85a4-10f819913d2b', 'd8bafc70-ca69-521a-a62f-f3f47d06915f', 'd8bafc70-ca69-521a-a62f-f3f47d06915f', 'email', '{"sub":"d8bafc70-ca69-521a-a62f-f3f47d06915f","email":"owen@oldmill.example.net","email_verified":true}', now(), now(), now());
+  ('e861c302-76d2-57dd-85a4-10f819913d2b', 'd8bafc70-ca69-521a-a62f-f3f47d06915f', 'd8bafc70-ca69-521a-a62f-f3f47d06915f', 'email', '{"sub":"d8bafc70-ca69-521a-a62f-f3f47d06915f","email":"owen@oldmill.example.net","email_verified":true}', now(), now(), now()),
+  ('f27561bb-ccd7-5c72-b009-2448a28ca221', 'ceaeb460-4100-5d80-931c-dcc0ff954d6e', 'ceaeb460-4100-5d80-931c-dcc0ff954d6e', 'email', '{"sub":"ceaeb460-4100-5d80-931c-dcc0ff954d6e","email":"dee@cedarlane.example.com","email_verified":true}', now(), now(), now());
 
 -- Portal users: owner and staff per tenant (Old Mill is disabled, so its owner cannot sign in).
 insert into app.portal_users (id, tenant_id, auth_user_id, role, display_name, mobile) values
@@ -33,6 +31,5 @@ insert into app.portal_users (id, tenant_id, auth_user_id, role, display_name, m
   ('f1400805-7cba-53aa-b3c5-e1343d812c32', 'b1cc670c-e099-5600-93ef-793a69d710b0', '65134492-28ec-50a2-9c83-b844b8814867', 'staff', 'Carla Nunez', '+13195550105'),
   ('9b8e8a28-49fe-55ad-9ced-016b53a3238b', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', '850f7f15-d80e-5732-9e09-a7a78426e822', 'owner', 'Mara Quinn', '+13195550106'),
   ('d6b98a70-c80c-58f8-abcf-7bb819686db8', '1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'a23234d6-3aa4-52c0-96df-e975d44e7ba3', 'staff', 'Jules Park', '+13195550107'),
-  ('20528651-58a5-546c-952c-3b5ef671f05e', '72861613-42bb-5953-b39b-a821a84d3caa', 'b0f249f1-091c-5aa1-884c-00eaa721ea45', 'owner', 'Helen Ortiz', '+13195550108'),
-  ('abc915ca-f3f5-5d35-bc26-3055e16f086d', '72861613-42bb-5953-b39b-a821a84d3caa', 'c7858bcd-2540-540b-9cf3-604f3f33c1e5', 'staff', 'Tess Albright', '+13195550109'),
-  ('8b65af8e-37a5-59bc-a35f-1b6d2c88780a', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'd8bafc70-ca69-521a-a62f-f3f47d06915f', 'owner', 'Owen Mills', '+13195550110');
+  ('8b65af8e-37a5-59bc-a35f-1b6d2c88780a', '056fbffc-9435-54ec-8428-ce0b343f1db9', 'd8bafc70-ca69-521a-a62f-f3f47d06915f', 'owner', 'Owen Mills', '+13195550110'),
+  ('758e18e6-84e7-518c-947b-92bb0b151d92', '03fc3a42-c218-5d93-a853-eafb4c857dd4', 'ceaeb460-4100-5d80-931c-dcc0ff954d6e', 'owner', 'Dee Alvarez', '+13195550108');

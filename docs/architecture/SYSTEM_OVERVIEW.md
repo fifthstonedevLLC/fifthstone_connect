@@ -42,7 +42,7 @@ sequenceDiagram
     TW->>API: Voice webhook (signed)
     API->>DB: BEGIN; inbound_event (unique CallSid); upsert contact + lead;<br/>enqueue text-back (+ transcribe if voicemail); COMMIT
     W->>TW: Send first text (template)
-    W->>AI: Transcribe voicemail; analyze (skipped for clinic tenants)
+    W->>AI: Transcribe voicemail; analyze
     W->>DB: Store schema-validated result; engine picks next state
     C->>TW: Replies (details, urgency number)
     TW->>API: SMS webhook (signed) -> commit message + jobs
@@ -80,7 +80,7 @@ requests, emergencies), **Waiting on customer** (`clarifying`, `offered`), **Boo
 | `packages/core`         | Contact/lead/tenant/event types, Zod validators, normalization, status rules                                                                                                                                                                                                   |
 | `packages/connectors`   | Interfaces + adapters: `EmailSender` and `EmailEvents` (SES), `SmsSender` and `PhoneEvents` (Twilio), `CalendarProvider` (Google, Acuity), `TranscriptionProvider`, `LanguageModel`; labeled mocks in `@fsc/connectors/mock`. `LeadDestination` (Sheets) waits for decision 20 |
 | `packages/workflow`     | Job claim/lease, backoff with jitter, attempt caps, dead-letter, idempotency keys                                                                                                                                                                                              |
-| `packages/conversation` | Lead/request state machine, playbook application, clarifying-question selection, template rendering with locked pieces                                                                                                                                                         |
+| `packages/conversation` | Lead/request state machine, business types (workflows and trades), clarifying-question selection, template rendering with locked pieces                                                                                                                                        |
 | `packages/scheduling`   | Slot calculation (hours, job length, urgency, events, holds), hold lifecycle                                                                                                                                                                                                   |
 | `packages/ai`           | Prompt compiler from structured settings inside the locked safety layer; output schemas                                                                                                                                                                                        |
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, authenticated portal routes, health                                                                                                                                                                             |
@@ -96,7 +96,7 @@ requests, emergencies), **Waiting on customer** (`clarifying`, `offered`), **Boo
 | AI settings: what we do / don't do, emergency definition, questions, tone | Safety layer, output schema, no times/prices/commitments from AI  |
 | Job types, job lengths, hours, urgency rules                              | Vendor configuration, API keys, sending limits                    |
 | Approvers, alert recipients, staff logins                                 | Domain verification, deliverability monitoring                    |
-| Email sender name and reply-to                                            | Clinic minimum-data flag (set by playbook)                        |
+| Email sender name and reply-to                                            | Playbook (set at provisioning)                                    |
 
 ## Canonical lead shape (v0.1, implemented)
 
@@ -131,7 +131,7 @@ v0.1: `tenants`, `tenant_config`, `integration_connections`, `inbound_events`, `
 
 v0.2 adds: `contacts` (matched by phone/email), `conversations`, `messages`, `calls`,
 `voicemails` (recording reference + transcript), `ai_analyses`, `requests`, `calendar_holds`,
-`playbooks`, `tenant_templates` (versioned), `ai_settings` (versioned), `portal_users`,
+`playbooks` (workflows), `trades`, `tenant_templates` (versioned), `ai_settings` (versioned), `portal_users`,
 `opt_outs`, `service_registrations`, `calendar_connections`, `business_profiles` and
 `onboarding_progress` (onboarding), with `portal_users.approves_requests`.
 

@@ -30,7 +30,8 @@ that never get offered.
 ## Who it is for
 
 Businesses of 1–20 people where the person doing the work also answers the phone:
-service trades, contractors, tattoo studios, small clinics and practices.
+service trades, contractors and tattoo studios. Clinics and other healthcare practices are out
+of scope (owner, 2026-11-11; decision 33).
 
 ## Offer promise (draft)
 
@@ -42,7 +43,7 @@ Do not use "never miss a lead," "fully hands-off," or invented statistics (style
 
 ## The core loop
 
-Every industry runs the same five steps. Industries differ only by playbook settings.
+Every business runs the same five steps. Business types differ only by their settings.
 
 1. **Capture.** A missed call forwards to the tenant's Fifth Stone Connect number. Every
    missed call gets a text, voicemail or not. Texts to that number and forwarded emails
@@ -75,27 +76,38 @@ Every industry runs the same five steps. Industries differ only by playbook sett
 - **Uncertain matches go to a person.** If the system cannot tell whether a contact is new or
   existing, or cannot classify a message, the lead goes to **Needs you** instead of a guess.
 
-## Industry playbooks
+## Business types: workflows and trades
 
-A playbook is a set of defaults loaded at onboarding: questions asked, urgency rules,
-approver, and extras. Owners can edit the defaults after approval.
+A business type is a **workflow** (how a booking works) and a **trade** inside it (owner,
+2026-11-11; decision 34). The owner picks both in Setup. Picking loads the trade's starter
+questions, AI instructions and job length, and the workflow's starter wording, as new versions the
+owner can edit or restore. Every business runs the same five steps; nothing in the engine runs
+differently per trade, and the fixed safety messages apply to all of them.
 
-|                 | Tattoo studios                           | HVAC and plumbing           | Contractors                             | Clinics and practices                 |
-| --------------- | ---------------------------------------- | --------------------------- | --------------------------------------- | ------------------------------------- |
-| Lead source     | Website form, text                       | Missed call                 | Missed call, form                       | Form, missed call                     |
-| Asks            | Placement, size, reference photo, artist | Problem, address, urgency   | Project type, address, timeline, photos | Callback number, preferred times only |
-| Offers          | Times per artist                         | Same-day or this-week slots | Site visit times                        | Open slots or waitlist spot           |
-| Approver        | Artist, in portal                        | Owner, by text              | Owner, by text                          | Front desk, in portal                 |
-| Extras          | Waiver link, deposit link                | Emergency alert             | Estimate follow-up                      | Waitlist backfill on cancellation     |
-| Reference build | WayMaker Ink request portal              | —                           | —                                       | —                                     |
+| Workflow           | What the customer books                                              | Approver         | Starter length                     | Trades                                                                                      |
+| ------------------ | -------------------------------------------------------------------- | ---------------- | ---------------------------------- | ------------------------------------------------------------------------------------------- |
+| Service call       | A visit to fix something; asks how soon (today, this week, flexible) | Owner, by text   | 60 min                             | Heating and cooling, plumbing, electrical, garage doors, other repair or service            |
+| Estimate visit     | A visit to look at the job and give a quote                          | Owner, by text   | 60 min                             | Roofing, remodeling, painting, landscaping and hardscape, other project work                |
+| Recurring service  | A first visit; a person sets up the regular schedule after that      | Owner, by text   | 60 min (house cleaning 120)        | Lawn care, house cleaning, pool service, pest control, other regular service                |
+| Studio appointment | A consult or session at the business                                 | Staff, in portal | 60 min (salon 45, pet grooming 90) | Tattoo studio, salon or barber, pet grooming, photography, other studio or appointment      |
+| Shop drop-off      | A time to bring the item in; the work happens at the shop            | Owner, by text   | 30 min                             | Auto repair, small engine repair, phone and computer repair, bike repair, other shop repair |
 
-**Clinics run a minimum-data playbook.** No reason for visit, symptoms or clinical detail is
-requested by text or email, voicemails are not sent to the AI layer, and staff confirm inside
-the scheduler they already use. A full clinical version requires a business associate
-agreement with every vendor in the chain and is out of scope.
+The starter questions and wording live in `packages/conversation/src/playbooks.ts`; the database
+holds the workflow and trade keys (`app.playbooks`, `app.trades`). Starter wording is a draft
+until the owner approves it, like all customer-facing wording. Recurring service books the first
+visit only: repeat visits are arranged by a person (rule 14, no automatic rescheduling). The
+"other" trade in each workflow is for businesses the list does not name.
 
-**Marketing claims:** only the tattoo playbook has a delivered reference build. Other tiles
-describe the playbook, not past results. No client names on public pages without written
+Not built, still in `BACKLOG.md`: waiver and deposit links for studios, estimate follow-up after
+an estimate visit, and times per artist or technician.
+
+**No healthcare.** Clinics, dental offices, therapists and other healthcare practices are not
+onboarded (owner, 2026-11-11; decision 33): protected health information brings agreements with
+every vendor in the chain and a launch burden this service does not take on. The earlier clinic
+minimum-data playbook is retired (migration `retire_clinic_playbook`).
+
+**Marketing claims:** only the tattoo studio trade has a delivered reference build (the
+WayMaker Ink request portal). Other tiles describe the workflow, not past results. No client names on public pages without written
 permission.
 
 ## Owner portal
@@ -141,16 +153,23 @@ or email address. Repeat contacts keep one history.
 
 ### Onboarding inside the portal
 
-1. Pick business type (loads the playbook).
+1. Pick business type: a workflow and a trade (loads starter questions, wording and job length).
 2. Business details: legal name, EIN, address, website. Feeds texting registration.
 3. Hours and calendar connection.
 4. Review pre-filled questions and templates.
 5. Approvers and staff logins.
 6. **Test it:** call the new number, hang up, receive the text back.
+7. **Apply for texting:** review what goes to the carriers (business details, how texts are
+   used, how customers agree to them, sample messages from the owner's own templates), confirm
+   it is accurate and send it.
 
-Each service shows a status card (Texting: pending registration → live; Email: pending
-domain setup → live). The dashboard is usable from day one; features unlock as Fifth Stone
-Dev approves each service.
+**Locked until live** (owner, 2026-11-11; decision 35). A business signs in to a portal that
+shows only Setup and Templates & AI until it is live. After the application is sent, the owner
+sees a status page (setup finished, texting registration, going live); staff see only that
+page. The Front Desk, lead pages and calendar stay locked on the server, and no calls, texts,
+jobs or calendar syncs run for the business. Fifth Stone Dev submits the application (by hand
+until the Phase 4 adapter), moves the texting status card, and turns the business on once
+texting is approved.
 
 ## Channels and vendors
 
@@ -188,19 +207,19 @@ production Supabase projects takes minutes and happens when each environment is 
 
 ## Release scope
 
-| Release            | Includes                                                                                                                                                                                                                           |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MVP**            | Core loop; HVAC/plumbing and tattoo playbooks; Twilio toll-free texting; Google Calendar; portal with Today dashboard, lead page, template and AI settings, onboarding and test call; SES confirmations and alerts; operator tools |
-| **Second release** | Contractor playbook with estimate follow-up; clinic minimum-data playbook with waitlist backfill; Acuity; forwarded email intake; weekly owner summary email; local 10DLC numbers                                                  |
-| **Later**          | See `BACKLOG.md`                                                                                                                                                                                                                   |
+| Release            | Includes                                                                                                                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MVP**            | Core loop; the five workflows and their trades (decision 34); Twilio toll-free texting; Google Calendar; portal with Today dashboard, lead page, template and AI settings, onboarding and test call; SES confirmations and alerts; operator tools |
+| **Second release** | Estimate follow-up for estimate visits; Acuity; forwarded email intake; weekly owner summary email; local 10DLC numbers                                                                                                                           |
+| **Later**          | See `BACKLOG.md`                                                                                                                                                                                                                                  |
 
 ## Exclusions
 
 Automatic rescheduling of existing customers · routing across multiple technicians or
 calendars per job · deposits and payments outside existing booking tools · quoting and
 pricing · Jobber, Housecall Pro and other field-service
-sync · full mailbox connection · texting from the tenant's existing number · clinical or
-other regulated data · marketing or promotional texts · visual workflow editor · 24/7
+sync · full mailbox connection · texting from the tenant's existing number · clinics, dental,
+therapy and other healthcare practices · clinical or other regulated data · marketing or promotional texts · visual workflow editor · 24/7
 support · compliance certification.
 
 ## Acceptance criteria
@@ -219,7 +238,6 @@ support · compliance certification.
 | Owner settings       | Edits are versioned, audited and reversible; required template pieces cannot be removed   |
 | Tenant isolation     | No portal user can read or change another tenant's data; covered by tests                 |
 | Opt-out              | STOP is honored immediately and recorded; no further texts to that number                 |
-| Clinic playbook      | No clinical fields requested; no voicemail sent to the AI layer                           |
 | Error handling       | A vendor outage never silently loses a call, text or email                                |
 | Visibility           | A sample lead is traceable end to end by correlation ID                                   |
 | Privacy              | A customer-approved deletion request can be honored                                       |

@@ -14,6 +14,7 @@ import {
   settingsErrorMessage,
   templateProblemMessage,
 } from './format';
+import { newId } from './ids';
 import type { AiSettings, Me, Settings, SettingsKind, SettingsVersion } from './types';
 import { useApi } from './useApi';
 
@@ -167,7 +168,7 @@ function TemplatesEditor({
   const base = useMemo(() => current?.content ?? {}, [current]);
   const [draft, setDraft] = useState(base);
   const [serverProblems, setServerProblems] = useState<Problems>({});
-  const [saveId, setSaveId] = useState(() => crypto.randomUUID());
+  const [saveId, setSaveId] = useState(() => newId());
   const keys = Object.keys(base);
   const edited = keys.filter((k) => draft[k] !== base[k]);
   const blocked = keys.some(
@@ -192,7 +193,7 @@ function TemplatesEditor({
       }),
     );
     if (problems) setServerProblems(problems);
-    else setSaveId(crypto.randomUUID());
+    else setSaveId(newId());
   }
 
   if (keys.length === 0) {
@@ -345,7 +346,7 @@ function AiEditor({
   const current = live(settings.ai.versions);
   const base = useMemo(() => toForm(current?.content ?? {}), [current]);
   const [form, setForm] = useState(base);
-  const [saveId, setSaveId] = useState(() => crypto.randomUUID());
+  const [saveId, setSaveId] = useState(() => newId());
   const baseValue = JSON.stringify(fromForm(base));
   const value = fromForm(form);
   const dirty = JSON.stringify(value) !== baseValue;
@@ -369,7 +370,7 @@ function AiEditor({
         content: value,
       }),
     );
-    setSaveId(crypto.randomUUID());
+    setSaveId(newId());
   }
 
   return (
@@ -680,25 +681,18 @@ export function SettingsPage({ me, accessToken }: { me: Me; accessToken: string 
               />
             </div>
             <div hidden={tab !== 'ai'}>
-              {data.ai.available ? (
-                <AiEditor
-                  key={`ai-${live(data.ai.versions)?.version ?? 0}`}
-                  settings={data}
-                  busy={busy}
-                  saved={savedNote('ai')}
-                  submit={submit}
-                  accessToken={accessToken}
-                  onDirty={(d) => setDirty((s) => ({ ...s, ai: d }))}
-                />
-              ) : (
-                <p className="notice">
-                  {data.businessName} uses the minimum-data setup: customer messages never go to the
-                  AI layer, so there are no AI instructions to set.
-                </p>
-              )}
+              <AiEditor
+                key={`ai-${live(data.ai.versions)?.version ?? 0}`}
+                settings={data}
+                busy={busy}
+                saved={savedNote('ai')}
+                submit={submit}
+                accessToken={accessToken}
+                onDirty={(d) => setDirty((s) => ({ ...s, ai: d }))}
+              />
             </div>
           </div>
-          {(tab === 'templates' || data.ai.available) && versions.length > 0 && (
+          {versions.length > 0 && (
             <VersionHistory<object>
               versions={versions}
               timeZone={me.tenant.timezone}

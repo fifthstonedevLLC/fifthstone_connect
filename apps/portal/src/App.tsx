@@ -1,12 +1,14 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { LeadPage } from './LeadPage';
 import { CalendarPage } from './CalendarPage';
 import { FrontDeskPage } from './FrontDeskPage';
+import { PageErrorBoundary } from './PageErrorBoundary';
 import { SettingsPage } from './SettingsPage';
 import { SetupPage } from './SetupPage';
 import { Shell } from './Shell';
+import { StatusPage } from './StatusPage';
 import { SignIn } from './SignIn';
 import { supabase } from './supabase';
 
@@ -19,7 +21,9 @@ function signOut() {
 
 /** Signed in: load who this is, then show the portal or explain why there is no access. */
 function SignedIn({ accessToken }: { accessToken: string }) {
-  const [me, reload] = useApi<Me>('/portal/me', accessToken);
+  const [me, reload, , refresh] = useApi<Me>('/portal/me', accessToken);
+  const location = useLocation();
+  const navigate = useNavigate();
   const expired = me.status === 'error' && me.error.status === 401;
 
   // The API no longer accepts this session (expired or revoked): back to the sign-in screen.
@@ -62,19 +66,71 @@ function SignedIn({ accessToken }: { accessToken: string }) {
     );
   }
 
+  // Until the business is live only setup is open (decision 35). The server refuses the
+  // working pages too; this only keeps people from landing on a page that cannot load.
+  if (me.data.stage !== 'live') {
+    const owner = me.data.role === 'owner';
+    const applied = async () => {
+      await refresh();
+      void navigate('/');
+    };
+    return (
+      <Shell me={me.data} onSignOut={signOut}>
+        <PageErrorBoundary key={location.pathname}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                owner && me.data.stage === 'setting_up' ? (
+                  <Navigate to="/setup" replace />
+                ) : (
+                  <StatusPage me={me.data} />
+                )
+              }
+            />
+            {owner && (
+              <Route
+                path="/setup"
+                element={
+                  <SetupPage
+                    me={me.data}
+                    accessToken={accessToken}
+                    onApplied={() => void applied()}
+                  />
+                }
+              />
+            )}
+            {owner && (
+              <Route
+                path="/templates"
+                element={<SettingsPage me={me.data} accessToken={accessToken} />}
+              />
+            )}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </PageErrorBoundary>
+      </Shell>
+    );
+  }
+
   return (
     <Shell me={me.data} onSignOut={signOut}>
-      <Routes>
-        <Route path="/" element={<FrontDeskPage me={me.data} accessToken={accessToken} />} />
-        <Route path="/leads/:id" element={<LeadPage me={me.data} accessToken={accessToken} />} />
-        <Route path="/calendar" element={<CalendarPage me={me.data} accessToken={accessToken} />} />
-        <Route path="/setup" element={<SetupPage me={me.data} accessToken={accessToken} />} />
-        <Route
-          path="/templates"
-          element={<SettingsPage me={me.data} accessToken={accessToken} />}
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <PageErrorBoundary key={location.pathname}>
+        <Routes>
+          <Route path="/" element={<FrontDeskPage me={me.data} accessToken={accessToken} />} />
+          <Route path="/leads/:id" element={<LeadPage me={me.data} accessToken={accessToken} />} />
+          <Route
+            path="/calendar"
+            element={<CalendarPage me={me.data} accessToken={accessToken} />}
+          />
+          <Route path="/setup" element={<SetupPage me={me.data} accessToken={accessToken} />} />
+          <Route
+            path="/templates"
+            element={<SettingsPage me={me.data} accessToken={accessToken} />}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </PageErrorBoundary>
     </Shell>
   );
 }

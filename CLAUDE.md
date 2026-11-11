@@ -14,8 +14,10 @@ numbered urgency) → open times offered from the tenant's calendar with a tenta
 owner or staff approves by text or in the owner portal → calendar event + confirmation.
 
 Each tenant gets an owner portal (Today dashboard, lead pages, owner-editable templates and
-AI settings, onboarding with a test call). Industry playbooks (tattoo, HVAC/plumbing,
-contractors, clinics) are configuration on one engine, not separate products. Fifth Stone Dev
+AI settings, onboarding with a test call). Business types are configuration on one engine,
+not separate products: five workflows (service call, estimate visit, recurring service, studio
+appointment, shop drop-off), each with trades the owner picks in Setup (decision 34). Healthcare practices are
+out of scope (decision 33). Fifth Stone Dev
 operates the plumbing (Twilio ISV account, SES, keys, deliverability); owners control wording
 and rules.
 
@@ -32,8 +34,9 @@ Phase 4, after the portal works and multi-tenant isolation is proven.
 Phase 1 complete. Done: core types and validation (`packages/core`), connector interfaces
 with labeled mocks (`packages/connectors`), the tenancy migration (`app.tenants`,
 `app.portal_users`, RLS) with its isolation tests, the mock-data catalog with generated seed files
-for the four mock tenants and seven local logins, the lead-domain migration (contacts through
-calendar holds) with scenario leads for all four mock tenants, and the settings and operations
+for the mock tenants and local logins (four tenants and six logins: the clinic was retired, and
+Cedar Lane is a business still onboarding), the lead-domain migration (contacts through calendar holds) with scenario leads for
+every mock tenant, and the settings and operations
 migration (playbooks, config, versioned settings, registrations, connections, jobs, opt-outs,
 audit) with its seed. Phase 1 is complete: `db:reset` builds cleanly and isolation tests pass for
 every table.
@@ -51,7 +54,12 @@ The Calendar page shows the week: business hours, held and booked appointments, 
 from the connected calendar (Google, Outlook or Acuity; start and end only) and the open time left
 (`/portal/calendar`, `packages/scheduling`; the sync itself is mocked until Phase 4). The Setup page walks the owner through onboarding (business type, details for texting
 registration, hours and calendar, template review, approvers) and a labeled simulated test call
-(decision 29); nothing is sent to a vendor. That completes the Phase 2 screens.
+(decision 29); nothing is sent to a vendor. Business type is a workflow and a trade
+(`packages/conversation/src/playbooks.ts`, `app.playbooks`, `app.trades`); picking one applies its
+starter templates, AI instructions and job length as new versions (decision 34). Until a business
+is live it is locked (decision 35): status `onboarding` signs in to Setup and Templates & AI only,
+the API refuses the working pages (`not_live`), setup step 7 sends the texting application, and
+nothing runs for it until Fifth Stone Dev sets it `active`. That completes the Phase 2 screens.
 
 Phase 3 complete (engine on mocks): `apps/worker` claims due jobs of the types it has
 handlers for (`app.claim_jobs` with action types), runs them against labeled mock connectors and
@@ -73,8 +81,8 @@ approver's 1, 2 or 3 goes through the same `applyAction` as the portal (decided 
 a customer's text queues `clarify_lead`; the model (via `packages/ai`: locked safety layer, prompt
 compiler, Zod-validated output) only says which of the owner's questions are answered, and
 `planClarify` asks the next one word for word, offers times, or hands the lead to a person.
-Clinics never reach the model. Locally the worker uses `MockRulesModel` (fixed rules, not AI). Voicemails:
-intake queues `transcribe_voicemail` (never for clinics); the transcript is read by the same step,
+Locally the worker uses `MockRulesModel` (fixed rules, not AI). Voicemails:
+intake queues `transcribe_voicemail`; the transcript is read by the same step,
 and the text-back follows from it (`{need}`, a guarded phrase, and `{question}`, the owner's first
 unanswered question). Locally the worker uses the mock transcriber. The loop runs end to end on
 mocks with no step done by hand. If nobody decides:
@@ -82,7 +90,7 @@ mocks with no step done by hand. If nobody decides:
 `afterOpenMinutes`), and `expire_hold` releases the hold when it runs out (decision 19), marks the
 request expired and puts the lead in front of a person. Emergencies skip the
 queue: a hazard in the customer's own words (gas, flooding, crisis language; a fixed phrase list in
-`packages/conversation/src/safety.ts`, never AI, so it covers clinics) sends a fixed message that
+`packages/conversation/src/safety.ts`, never AI) sends a fixed message that
 owners cannot edit (`send_safety_message`; crisis points to 911 only) and alerts the approvers at
 once; a clarify-step emergency alerts them too (`emergency_alert`). The exact wording waits on
 decision 32, the customer's "still confirming" text on decision 31. Phase 3 closed on
@@ -110,6 +118,7 @@ npm run db:stop
 npm run seed:build     # regenerate supabase/seed/ from packages/mock-data (never edit seeds by hand)
 npm run dev -w @fsc/api # API on http://127.0.0.1:8787 (reads .env; needs the local stack)
 npm run dev -w @fsc/portal # portal on http://127.0.0.1:5173 (apps/portal/.env.local; needs the API)
+npm run dev:phone -w @fsc/portal # portal for a phone on the same Wi-Fi, http://<this PC's IP>:5174 (mock data)
 npm run dev -w @fsc/worker # worker, polling for due jobs (mock connectors only)
 npm run once -w @fsc/worker # run every due job once, then exit
 ```
@@ -163,7 +172,8 @@ functions, return output.
 9. **Out of scope → `docs/product/BACKLOG.md`**, not code. SCOPE.md v0.2 is the list of what
    is in. Excluded: automatic rescheduling of existing customers, multi-technician routing,
    billing/payments, quoting, field-service sync (Jobber, Housecall Pro), full
-   mailbox access, texting from a tenant's existing number, clinical or other regulated data,
+   mailbox access, texting from a tenant's existing number, clinics and other healthcare
+   practices, clinical or other regulated data,
    promotional texts, visual workflow editor.
 10. **AI understands; templates promise.** AI may transcribe, summarize, classify, find
     missing details and draft clarifying questions. Times, confirmations, prices and any
@@ -175,8 +185,10 @@ functions, return output.
     owner edits. The portal UI is not the enforcement point.
 12. **Opt-out is absolute.** STOP is honored immediately, recorded per tenant and number,
     and checked before every outbound text.
-13. **Clinic playbook is minimum-data, enforced in code.** No clinical fields requested, and
-    no voicemail or message content from a clinic tenant is sent to the AI layer.
+13. **No healthcare practices** (owner, 2026-11-11; decision 33). Clinics, dental offices,
+    therapists and other healthcare practices are not onboarded, and no playbook asks for
+    clinical detail. The clinic playbook is retired (`retire_clinic_playbook` migration); its
+    deprecated `clinic_minimum_data` columns must stay false until a later migration drops them.
 14. **No automatic rescheduling.** The system may suggest moving a job; only a person moves
     an existing customer.
 15. **Schema changes only through migrations** (`npm run db:new`), with the header, ledger row

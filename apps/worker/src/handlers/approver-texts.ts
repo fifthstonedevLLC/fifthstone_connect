@@ -40,8 +40,7 @@ export async function queueApproverText(
 /**
  * `send_approval_request:<request id>`, queued when a customer picks a time. One text per
  * approver from the owner's `approval_request` template. A business that approves in the portal
- * (its playbook's channel) gets none; the request is in the Approve queue either way. A clinic's
- * text leaves out the job summary (minimum data, CLAUDE.md rule 13).
+ * (its playbook's channel) gets none; the request is in the Approve queue either way.
  */
 export const sendApprovalRequest: JobHandler = async (job, ctx) => {
   const requestId = keyId(job.idempotencyKey);
@@ -56,11 +55,10 @@ export const sendApprovalRequest: JobHandler = async (job, ctx) => {
       phone: string | null;
       timezone: string;
       channel: 'text' | 'portal';
-      clinic: boolean;
       template: string | null;
     }>(
       `select r.state as request_state, r.slot_start, l.summary, c.display_name as name, c.phone,
-              t.timezone, p.default_approver_channel as channel, cfg.clinic_minimum_data as clinic,
+              t.timezone, p.default_approver_channel as channel,
               tt.content ->> 'approval_request' as template
          from app.requests r
          join app.leads l on l.tenant_id = r.tenant_id and l.id = r.lead_id
@@ -93,7 +91,7 @@ export const sendApprovalRequest: JobHandler = async (job, ctx) => {
   const values = {
     slot: formatSlot(facts.slot_start, facts.timezone),
     ...(name ? { name } : {}),
-    ...(facts.summary && !facts.clinic ? { summary: facts.summary.replace(/[.!?]+$/, '') } : {}),
+    ...(facts.summary ? { summary: facts.summary.replace(/[.!?]+$/, '') } : {}),
   };
   const rendered = renderTemplate(
     withoutUnfilled(facts.template, values, ['summary', 'name']),

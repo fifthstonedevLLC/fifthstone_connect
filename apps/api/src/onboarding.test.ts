@@ -1,3 +1,4 @@
+import { TRADES, WORKFLOWS } from '@fsc/conversation';
 import type { InjectOptions } from 'fastify';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,8 +9,7 @@ import { createPool } from './db.js';
 /**
  * Onboarding routes against the local stack. Writes run on a test-only business
  * (`mock-test-onboarding`) with an owner and a staff login, removed afterwards (and before
- * starting, in case an earlier run was interrupted). The clinic check reads the seeded Prairie
- * Path tenant and writes nothing. Mock values only.
+ * starting, in case an earlier run was interrupted). Mock values only.
  */
 
 const DATABASE_URL =
@@ -61,6 +61,7 @@ async function removeTestTenant(pool: pg.Pool) {
      delete from app.onboarding_progress where tenant_id = $1;
      delete from app.calendar_connections where tenant_id = $1;
      delete from app.tenant_templates where tenant_id = $1;
+     delete from app.ai_settings where tenant_id = $1;
      delete from app.tenant_config where tenant_id = $1;
      delete from app.portal_users where tenant_id = $1;
      delete from auth.users where id in ('${OWNER_AUTH}', '${STAFF_AUTH}');
@@ -81,12 +82,13 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
     await removeTestTenant(pool);
     const { rows } = await pool.query<{ email: string; id: string }>(
       `select email, id from auth.users
-        where email in ('frontdesk@prairiepath.example.org', 'rhett@riverbend.example.com')`,
+        where email = 'rhett@riverbend.example.com'`,
     );
     for (const r of rows) tokens.set(r.email, r.id);
 
     await pool.query(
-      `insert into app.tenants (id, slug, name) values ('${T}', 'mock-test-onboarding', '${BUSINESS}');
+      `insert into app.tenants (id, slug, name, status)
+         values ('${T}', 'mock-test-onboarding', '${BUSINESS}', 'onboarding');
        insert into auth.users (id, email, aud, role) values
          ('${OWNER_AUTH}', 'owner@onboarding.example.com', 'authenticated', 'authenticated'),
          ('${STAFF_AUTH}', 'staff@onboarding.example.com', 'authenticated', 'authenticated');
@@ -94,9 +96,9 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
          ('${OWNER}', '${T}', '${OWNER_AUTH}', 'owner', 'Onboarding Owner', '+13195550191'),
          ('${STAFF}', '${T}', '${STAFF_AUTH}', 'staff', 'Onboarding Staff', null);
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes,
+         (tenant_id, playbook_key, business_hours, default_job_minutes,
           connect_number)
-         values ('${T}', 'hvac', false, '[]', 60, '+13195550190');`,
+         values ('${T}', 'service_call', '[]', 60, '+13195550190');`,
     );
   });
 
@@ -126,11 +128,41 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
     const body = res.json();
     expect(body.canEdit).toBe(false);
     expect(body.steps.every((s: { done: boolean }) => !s.done)).toBe(true);
-    expect(body.businessType).toMatchObject({ key: 'hvac', minimumData: false, confirmedAt: null });
+    expect(body.businessType).toMatchObject({
+      key: 'service_call',
+      trade: null,
+      jobMinutes: 60,
+      confirmedAt: null,
+    });
 
     const write = await call('POST', '/portal/onboarding/business-type', 'staff');
     expect(write.statusCode).toBe(403);
     expect(write.json()).toEqual({ error: 'owner_only' });
+  });
+
+  // Decision 35: a business that is not live can sign in, but only setup is open.
+  it('keeps the working pages locked while the business is onboarding', async () => {
+    const me = await call('GET', '/portal/me', 'owner');
+    expect(me.statusCode).toBe(200);
+    expect(me.json().stage).toBe('setting_up');
+    for (const url of ['/portal/today', '/portal/calendar']) {
+      for (const who of ['owner', 'staff']) {
+        const res = await call('GET', url, who);
+        expect({ url, who, status: res.statusCode, body: res.json() }).toEqual({
+          url,
+          who,
+          status: 403,
+          body: { error: 'not_live' },
+        });
+      }
+    }
+    expect((await call('GET', '/portal/settings', 'owner')).statusCode).toBe(200);
+  });
+
+  it('refuses the texting application until every other step is done', async () => {
+    const res = await call('POST', '/portal/onboarding/application', 'owner', { confirmed: true });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'setup_incomplete' });
   });
 
   it('confirms the business type', async () => {
@@ -254,7 +286,12 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
       `Sorry we missed your call! This is ${BUSINESS}. Reply STOP to opt out.`,
     );
     expect(body.steps[6]).toMatchObject({ kind: 'approval_request', channel: 'text' });
-    expect(body.onboarding.steps.every((s: { done: boolean }) => s.done)).toBe(true);
+    expect(
+      body.onboarding.steps
+        .filter((s: { done: boolean }) => !s.done)
+        .map((s: { key: string }) => s.key),
+    ).toEqual(['apply']);
+    expect(body.onboarding.application.ready).toBe(true);
 
     const { rows } = await pool.query<{ n: string }>(
       `select (select count(*) from app.leads where tenant_id = $1)
@@ -269,10 +306,171 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
     });
   });
 
-  it('shows a minimum-data business no AI questions', async () => {
-    const res = await call('GET', '/portal/onboarding', 'frontdesk@prairiepath.example.org');
+  it('shows what goes to the carriers, built from the live templates', async () => {
+    const res = await call('GET', '/portal/onboarding', 'owner');
+    const { preview } = res.json().application;
+    expect(preview.useCase).toContain(BUSINESS);
+    expect(preview.optIn).toContain('Reply STOP to opt out.');
+    expect(preview.sampleMessages[0]).toBe(
+      `Sorry we missed your call! This is ${BUSINESS}. Reply STOP to opt out.`,
+    );
+  });
+
+  it('sends the application only when the owner confirms it, then waits for go-live', async () => {
+    const unconfirmed = await call('POST', '/portal/onboarding/application', 'owner', {
+      confirmed: false,
+    });
+    expect(unconfirmed.json()).toEqual({ error: 'not_confirmed' });
+    expect(
+      (await call('POST', '/portal/onboarding/application', 'staff', { confirmed: true }))
+        .statusCode,
+    ).toBe(403);
+
+    const res = await call('POST', '/portal/onboarding/application', 'owner', { confirmed: true });
     expect(res.statusCode).toBe(200);
-    expect(res.json().businessType).toMatchObject({ key: 'clinic', minimumData: true });
-    expect(res.json().templates.questions).toEqual([]);
+    expect(res.json().stage).toBe('applied');
+    expect(res.json().application.submittedAt).not.toBeNull();
+    expect(res.json().steps.every((s: { done: boolean }) => s.done)).toBe(true);
+    expect((await audits()).at(-1)).toMatchObject({
+      action: 'onboarding.application_submitted',
+      detail: { resubmitted: false },
+    });
+
+    // Sent is not live: the working pages stay locked until Fifth Stone Dev turns it on.
+    expect((await call('GET', '/portal/me', 'staff')).json().stage).toBe('applied');
+    expect((await call('GET', '/portal/today', 'owner')).statusCode).toBe(403);
+  });
+
+  it('a live business has nothing to apply for', async () => {
+    const res = await call(
+      'POST',
+      '/portal/onboarding/application',
+      'rhett@riverbend.example.com',
+      {
+        confirmed: true,
+      },
+    );
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'already_live' });
+  });
+
+  it('opens the working pages once the business is live', async () => {
+    await pool.query(`update app.tenants set status = 'active' where id = $1`, [T]);
+    expect((await call('GET', '/portal/me', 'owner')).json().stage).toBe('live');
+    expect((await call('GET', '/portal/today', 'staff')).statusCode).toBe(200);
+    await pool.query(`update app.tenants set status = 'onboarding' where id = $1`, [T]);
+  });
+
+  // Decision 34: the owner picks a workflow and trade; its starter settings become live versions.
+  describe('choosing a business type', () => {
+    const live = async (table: 'tenant_templates' | 'ai_settings') =>
+      (
+        await pool.query<{ version: number; content: Record<string, unknown> }>(
+          `select version, content from app.${table} where tenant_id = $1 and active`,
+          [T],
+        )
+      ).rows[0];
+
+    it('staff cannot choose, and an unknown trade is refused', async () => {
+      expect(
+        (await call('PUT', '/portal/onboarding/business-type', 'staff', { trade: 'lawn_care' }))
+          .statusCode,
+      ).toBe(403);
+      expect(
+        (await call('PUT', '/portal/onboarding/business-type', 'owner', { trade: 'clinic' }))
+          .statusCode,
+      ).toBe(400);
+    });
+
+    it('applies the trade: workflow, job length, starter wording and questions', async () => {
+      const before = await live('tenant_templates');
+      const res = await call('PUT', '/portal/onboarding/business-type', 'owner', {
+        trade: 'house_cleaning',
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.businessType).toMatchObject({
+        key: 'recurring_service',
+        name: 'Recurring service',
+        approverChannel: 'text',
+        trade: { key: 'house_cleaning', name: 'House cleaning' },
+        jobMinutes: 120,
+      });
+      expect(body.templates.questions[0]).toBe('How many bedrooms and bathrooms?');
+      // New wording reaches customers, so the template review is asked for again.
+      expect(body.templates.reviewedAt).toBeNull();
+      expect(done(body, 'templates')).toBe(false);
+
+      const templates = await live('tenant_templates');
+      expect(templates?.version).toBe((before?.version ?? 0) + 1);
+      expect(templates?.content.confirmation).toContain('first visit');
+      expect((await audits()).map((a) => a.action)).toEqual(
+        expect.arrayContaining([
+          'settings.templates_starter_applied',
+          'settings.ai_starter_applied',
+          'onboarding.business_type_chosen',
+        ]),
+      );
+    });
+
+    it('choosing the same trade again writes no new versions', async () => {
+      const before = [await live('tenant_templates'), await live('ai_settings')];
+      const res = await call('PUT', '/portal/onboarding/business-type', 'owner', {
+        trade: 'house_cleaning',
+      });
+      expect(res.statusCode).toBe(200);
+      expect([await live('tenant_templates'), await live('ai_settings')]).toEqual(before);
+    });
+
+    it('switching workflows keeps the earlier wording restorable', async () => {
+      const res = await call('PUT', '/portal/onboarding/business-type', 'owner', {
+        trade: 'auto_repair',
+      });
+      expect(res.json().businessType).toMatchObject({
+        key: 'shop_dropoff',
+        trade: { key: 'auto_repair' },
+        jobMinutes: 30,
+      });
+      const { rows } = await pool.query<{ version: number }>(
+        `select version from app.tenant_templates where tenant_id = $1 order by version`,
+        [T],
+      );
+      expect(rows.length).toBeGreaterThanOrEqual(3);
+      expect((await live('tenant_templates'))?.content.slot_offer).toContain('drop-off');
+
+      const call2 = await call('POST', '/portal/onboarding/test-call', 'owner');
+      expect(call2.json().steps[2]).toEqual({
+        kind: 'caller_replies',
+        body: '2016 Civic, brakes are grinding.',
+      });
+    });
+
+    it('the code catalog matches the database catalog', async () => {
+      const flows = await pool.query<{ key: string; name: string; channel: string }>(
+        `select key, name, default_approver_channel as channel from app.playbooks order by key`,
+      );
+      expect(flows.rows).toEqual(
+        WORKFLOWS.map((w) => ({ key: w.key, name: w.name, channel: w.approverChannel })).sort(
+          (a, b) => a.key.localeCompare(b.key),
+        ),
+      );
+      const trades = await pool.query<{
+        key: string;
+        workflow: string;
+        name: string;
+        minutes: number;
+      }>(
+        `select key, playbook_key as workflow, name, default_job_minutes as minutes
+           from app.trades order by key`,
+      );
+      expect(trades.rows).toEqual(
+        TRADES.map((t) => ({
+          key: t.key,
+          workflow: t.workflow,
+          name: t.name,
+          minutes: t.jobMinutes,
+        })).sort((a, b) => a.key.localeCompare(b.key)),
+      );
+    });
   });
 });

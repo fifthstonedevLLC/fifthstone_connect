@@ -5,7 +5,8 @@ import { z } from 'zod';
  * credentials live in the secret store and are referenced by name only.
  */
 
-export const TENANT_STATUSES = ['active', 'disabled'] as const;
+/** `onboarding`: can sign in to finish setup, but nothing reaches customers (decision 35). */
+export const TENANT_STATUSES = ['onboarding', 'active', 'disabled'] as const;
 export type TenantStatus = (typeof TENANT_STATUSES)[number];
 
 /** Opaque, unguessable ID embedded in public forms. Never the internal UUID. */

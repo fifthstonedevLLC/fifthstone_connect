@@ -106,9 +106,9 @@ describe.skipIf(!ready)('approval reminders and hold expiry (local stack, mocks)
                                      approves_requests)
          values ('${OWNER}', '${T}', '${AUTH}', 'owner', 'Timers Owner', '${APPROVER}', true);
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes,
+         (tenant_id, playbook_key, business_hours, default_job_minutes,
           connect_number)
-         values ('${T}', 'hvac', false, '[]', 60, '${NUMBER}');
+         values ('${T}', 'service_call', '[]', 60, '${NUMBER}');
        insert into app.service_registrations (tenant_id, service, state)
          values ('${T}', 'texting', 'approved');
        ${requests

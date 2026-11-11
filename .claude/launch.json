@@ -18,6 +18,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "@fsc/portal"],
       "port": 5173
+    },
+    {
+      "name": "portal-phone",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:phone", "-w", "@fsc/portal"],
+      "port": 5174
     }
   ]
 }

@@ -5,7 +5,7 @@ organization: 'Fifth Stone Dev'
 status: 'Approved'
 version: '1.0'
 owner: 'Phil (Fifth Stone Dev)'
-last_updated: '2026-11-04'
+last_updated: '2026-11-11'
 ---
 
 # Migration Ledger
@@ -32,6 +32,9 @@ succeeds against that environment.
 | `20261109194419_approver_texts.sql`            | `approver_texts`: approval requests, approver replies and answers, kept apart from the customer thread, with RLS                                                                                       | active |               |         |            |
 | `20261109210831_voicemail_transcripts.sql`     | Column-level update grant on `voicemails` (`transcript`, `transcript_confidence`) for the worker                                                                                                       | active |               |         |            |
 | `20261110002752_emergency_alerts.sql`          | `approver_texts.kind` adds `alert`, for emergency alerts to approvers                                                                                                                                  | active |               |         |            |
+| `20261111160257_retire_clinic_playbook.sql`    | Removes the clinic playbook (decision 33); `clinic_minimum_data` must be false and defaults to false (expand step; a later migration drops the columns)                                                | active |               |         |            |
+| `20261111185635_go_live_gate.sql`              | Status `onboarding` (sign in, nothing reaches customers); `resolve_portal_user` returns `live`; texting application columns on `onboarding_progress` (decision 35)                                     | active |               |         |            |
+| `20261111181851_business_workflows.sql`        | Five workflows replace the three playbooks; `trades` per workflow; `tenant_config.trade_key`; owners may change workflow and trade (decision 34)                                                       | active |               |         |            |
 
 ## Squash record
 

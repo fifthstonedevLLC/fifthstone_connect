@@ -1,3 +1,4 @@
+import { trade } from './playbooks.js';
 import { sampleText, type SampleValues } from './templates.js';
 
 /**
@@ -17,7 +18,8 @@ export type TestCallStep =
 
 export interface TestCallInput {
   businessName: string;
-  playbook: string;
+  /** The trade the business chose (decision 34); its sample is what the caller says. */
+  trade: string | null;
   /** The business's Fifth Stone Connect number. */
   connectNumber: string | null;
   /** The person running the test, who plays the customer, and their mobile. */
@@ -29,31 +31,14 @@ export interface TestCallInput {
   templates: Record<string, string>;
 }
 
-/**
- * What the owner, playing the customer, says in each playbook. Nothing clinical for the clinic
- * playbook, which only ever asks for times (CLAUDE.md rule 13).
- */
-const PLAYBOOK_SAMPLES: Record<string, { reply: string; values: SampleValues }> = {
-  hvac: {
-    reply: 'My furnace stopped heating. 9900 Main St.',
-    values: { need: 'your furnace is not heating', summary: 'Furnace not heating' },
-  },
-  tattoo: {
-    reply: 'A small forearm piece, about palm-sized.',
-    values: { need: "you'd like a new tattoo", summary: 'Small forearm tattoo' },
-  },
-  contractor: {
-    reply: 'I need a deck repaired. 9900 Main St.',
-    values: { need: 'you need a deck repaired', summary: 'Deck repair' },
-  },
-  clinic: {
-    reply: 'Weekday mornings work best.',
-    values: { need: "you'd like an appointment", summary: 'Appointment request' },
-  },
+/** What the caller says when no trade is chosen yet. */
+const GENERAL_SAMPLE: { reply: string; values: SampleValues } = {
+  reply: 'I need some help. 9900 Main St.',
+  values: { need: 'you need some help', summary: 'New request' },
 };
 
 export function simulateTestCall(input: TestCallInput): TestCallStep[] {
-  const sample = PLAYBOOK_SAMPLES[input.playbook] ?? PLAYBOOK_SAMPLES.hvac!;
+  const sample = (input.trade ? trade(input.trade)?.sample : null) ?? GENERAL_SAMPLE;
   const values: SampleValues = { ...sample.values, name: firstName(input.callerName) };
   const text = (templateKey: string): TestCallStep => {
     const template = input.templates[templateKey];

@@ -89,9 +89,9 @@ describe.skipIf(!ready)('missed-call text-back (local stack, mock connectors)', 
     await pool.query(
       `insert into app.tenants (id, slug, name) values ('${T}', 'mock-test-textback', 'Text Back Co');
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes,
+         (tenant_id, playbook_key, business_hours, default_job_minutes,
           connect_number)
-         values ('${T}', 'hvac', false, '[]', 60, '+13195550194');
+         values ('${T}', 'service_call', '[]', 60, '+13195550194');
        insert into app.service_registrations (tenant_id, service, state)
          values ('${T}', 'texting', 'approved');
        insert into app.tenant_templates (tenant_id, version, content, active)

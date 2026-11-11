@@ -99,8 +99,8 @@ describe.skipIf(!ready)('calendar sync (local stack, mock calendar, test tenant)
        insert into app.portal_users (id, tenant_id, auth_user_id, role, display_name)
          values ('${OWNER}', '${T}', '${OWNER_AUTH}', 'owner', 'Sync Owner');
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes)
-         values ('${T}', 'hvac', false, '[]', 60);
+         (tenant_id, playbook_key, business_hours, default_job_minutes)
+         values ('${T}', 'service_call', '[]', 60);
        insert into app.calendar_connections (id, tenant_id, provider, calendar_id, status, connected_at)
          values ('${CONNECTED}', '${T}', 'google', '${CALENDAR_ID}', 'connected', now()),
                 ('${DISCONNECTED}', '${T}', 'microsoft', 'MOCK-OUTLOOK-SYNC', 'disconnected', null);

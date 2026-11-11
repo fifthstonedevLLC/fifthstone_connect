@@ -6,7 +6,7 @@ import { MockEmailSchema, MockPhoneSchema } from './schemas.js';
 /**
  * Settings and operations data from docs/product/MOCK_DATA.md: per-tenant services, calendars,
  * settings versions (Riverbend has two, for restore-previous, case X-06), jobs in every status
- * (X-09), opt-outs (Wes, RB-12, X-07; Ray, PP-08), email events (Ana, RB-07 and RB-21; Mei's
+ * (X-09), opt-outs (Wes, RB-12, X-07), email events (Ana, RB-07 and RB-21; Mei's
  * complaint, X-08) and the audit trail.
  */
 
@@ -15,24 +15,24 @@ const TenantOpsSchema = z
     tenant: z.string().regex(/^T\d+$/),
     texting: z.enum(SERVICE_REGISTRATION_STATES),
     email: z.enum(SERVICE_REGISTRATION_STATES),
+    /** None until the owner connects one in setup. */
     calendar: z
       .object({
         provider: z.enum(CALENDAR_PROVIDERS),
         status: z.enum(['connected', 'revoked', 'disconnected']),
       })
-      .strict(),
+      .strict()
+      .optional(),
     /** Business hours: ISO weekdays 1-7 with 24-hour open and close. */
-    hours: z
-      .array(
-        z
-          .object({
-            days: z.array(z.number().int().min(1).max(7)),
-            open: z.string().regex(/^\d\d:\d\d$/),
-            close: z.string().regex(/^\d\d:\d\d$/),
-          })
-          .strict(),
-      )
-      .min(1),
+    hours: z.array(
+      z
+        .object({
+          days: z.array(z.number().int().min(1).max(7)),
+          open: z.string().regex(/^\d\d:\d\d$/),
+          close: z.string().regex(/^\d\d:\d\d$/),
+        })
+        .strict(),
+    ),
     /**
      * Busy times on the connected calendar (the owner's own events), as the worker's sync would
      * store them: days from today in the business's time zone, a local start and a length.
@@ -84,23 +84,18 @@ export const TENANT_OPS = [
     ],
   },
   {
-    tenant: 'T3',
-    texting: 'approved',
-    email: 'approved',
-    calendar: { provider: 'microsoft', status: 'connected' },
-    hours: [{ days: [1, 2, 3, 4, 5], open: '08:00', close: '17:00' }],
-    busy: [
-      { day: 0, at: '12:00', minutes: 60 },
-      { day: 2, at: '08:00', minutes: 60 },
-      { day: 4, at: '13:00', minutes: 180 },
-    ],
-  },
-  {
     tenant: 'T4',
     texting: 'disabled',
     email: 'disabled',
     calendar: { provider: 'google', status: 'disconnected' },
     hours: [{ days: [1, 2, 3, 4, 5], open: '07:00', close: '16:00' }],
+  },
+  {
+    // Onboarding: nothing registered, no calendar and no hours yet.
+    tenant: 'T5',
+    texting: 'not_started',
+    email: 'not_started',
+    hours: [],
   },
 ].map((t) => TenantOpsSchema.parse(t));
 
@@ -180,18 +175,6 @@ export const SETTINGS_VERSIONS = [
     minutesAgo: 20160,
     templates: BASE_TEMPLATES,
     ai: { tone: 'Warm.' },
-  },
-  {
-    tenant: 'T3',
-    version: 1,
-    active: true,
-    minutesAgo: 20160,
-    templates: {
-      ...BASE_TEMPLATES,
-      missed_call_text_back:
-        'Thanks, {business} received your request. Our front desk will confirm a time with you. Reply STOP to opt out.',
-    },
-    ai: { minimum_data: true },
   },
   {
     tenant: 'T4',
@@ -275,15 +258,11 @@ export const JOBS = [
   { lead: 'NL-12', action: 'send_slot_offer', status: 'queued', attempts: 0, runInMinutes: 0 },
   done('NL-07', 'send_confirmation_email', 4200),
   done('NL-08', 'send_owner_alert_email', 7299),
-  done('PP-05', 'send_confirmation', 1960),
-  done('PP-07', 'send_crisis_message', 599),
-  done('PP-07', 'alert_front_desk', 599),
   done('OM-01', 'send_confirmation', 35900),
 ].map((j) => JobSchema.parse(j));
 
 export const OPT_OUTS = [
   { tenant: 'T1', phone: MockPhoneSchema.parse('+13195550120'), minutesAgo: 1995 },
-  { tenant: 'T3', phone: MockPhoneSchema.parse('+13195550149'), minutesAgo: 2990 },
 ];
 
 export const EMAIL_EVENTS = [

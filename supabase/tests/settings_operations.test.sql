@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(28);
 
 -- Fixtures: Alpha and Bravo (active) and Closed (disabled), each configured, with jobs in every
 -- state the claim function cares about.
@@ -14,10 +14,10 @@ insert into app.tenants (id, slug, name, status) values
   ('10000000-0000-4000-8000-00000000000b', 'mock-test-bravo', 'Bravo Test Co', 'active'),
   ('10000000-0000-4000-8000-00000000000c', 'mock-test-closed', 'Closed Test Co', 'disabled');
 
-insert into app.tenant_config (tenant_id, playbook_key, clinic_minimum_data, connect_number, inbound_email, business_hours, default_job_minutes) values
-  ('10000000-0000-4000-8000-00000000000a', 'hvac', false, '+13195550190', 'mock-test-alpha@inbound.example.com', '[]', 60),
-  ('10000000-0000-4000-8000-00000000000b', 'clinic', true, '+13195550191', 'mock-test-bravo@inbound.example.com', '[]', 50),
-  ('10000000-0000-4000-8000-00000000000c', 'contractor', false, '+13195550192', 'mock-test-closed@inbound.example.com', '[]', 60);
+insert into app.tenant_config (tenant_id, playbook_key, connect_number, inbound_email, business_hours, default_job_minutes) values
+  ('10000000-0000-4000-8000-00000000000a', 'service_call', '+13195550190', 'mock-test-alpha@inbound.example.com', '[]', 60),
+  ('10000000-0000-4000-8000-00000000000b', 'studio_appointment', '+13195550191', 'mock-test-bravo@inbound.example.com', '[]', 60),
+  ('10000000-0000-4000-8000-00000000000c', 'estimate_visit', '+13195550192', 'mock-test-closed@inbound.example.com', '[]', 60);
 
 insert into app.tenant_templates (tenant_id, version, content, active) values
   ('10000000-0000-4000-8000-00000000000a', 1, '{"slot_offer": "Reply with a number."}', true),
@@ -78,7 +78,22 @@ select results_eq(
   'every settings and operations table shows only the current tenant''s rows'
 );
 
-select is((select count(*) from app.playbooks), 4::bigint, 'the playbook catalog is readable');
+select results_eq(
+  'select key from app.playbooks order by key',
+  $$values ('estimate_visit'), ('recurring_service'), ('service_call'), ('shop_dropoff'),
+           ('studio_appointment')$$,
+  'the catalog is the five workflows (decision 34)'
+);
+
+select is(
+  (select count(distinct playbook_key) from app.trades), 5::bigint,
+  'every workflow offers trades, and the trade list is readable'
+);
+
+select is_empty(
+  $$select 1 from app.playbooks where key = 'clinic' or clinic_minimum_data$$,
+  'the clinic playbook is retired (decision 33)'
+);
 
 select throws_ok(
   $$insert into app.playbooks (key, name, clinic_minimum_data, default_approver_channel, default_job_minutes, description)
@@ -86,15 +101,26 @@ select throws_ok(
   '42501', null, 'the playbook catalog is read-only to the application'
 );
 
+select throws_ok(
+  $$insert into app.trades (key, playbook_key, name, default_job_minutes)
+    values ('spa', 'studio_appointment', 'Spa', 60)$$,
+  '42501', null, 'the trade list is read-only to the application'
+);
+
 -- Locked config ------------------------------------------------------------------------------
 select throws_ok(
   'update app.tenant_config set clinic_minimum_data = false',
-  '42501', null, 'the clinic minimum-data flag cannot be changed by the application'
+  '42501', null, 'the retired clinic flag cannot be changed by the application'
+);
+
+select lives_ok(
+  $$update app.tenant_config set playbook_key = 'shop_dropoff', trade_key = 'auto_repair'$$,
+  'the owner can change the workflow and trade (decision 34)'
 );
 
 select throws_ok(
-  $$update app.tenant_config set playbook_key = 'tattoo'$$,
-  '42501', null, 'the playbook cannot be changed by the application'
+  $$update app.tenant_config set trade_key = 'tattoo'$$,
+  '23503', null, 'a trade must belong to the business''s workflow'
 );
 
 select lives_ok(

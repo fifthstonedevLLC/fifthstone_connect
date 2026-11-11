@@ -10,7 +10,7 @@ import { MockConnector, type MockOptions } from './base.js';
 
 /**
  * Mock transcription and language model. Both record every request, so tests can prove what
- * did and did not reach the AI layer (for example: nothing from a clinic tenant).
+ * did and did not reach the AI layer.
  */
 
 /** Mock recordings for local runs: `MOCK-SAYS-` and the words, base64url-encoded. */

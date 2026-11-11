@@ -100,9 +100,9 @@ describe.skipIf(!ready)('worker (local stack, mock connectors, test tenant)', ()
        insert into app.portal_users (id, tenant_id, auth_user_id, role, display_name)
          values ('${OWNER}', '${T}', '${OWNER_AUTH}', 'owner', 'Worker Owner');
        insert into app.tenant_config
-         (tenant_id, playbook_key, clinic_minimum_data, business_hours, default_job_minutes,
+         (tenant_id, playbook_key, business_hours, default_job_minutes,
           connect_number)
-         values ('${T}', 'hvac', false, '[]', 60, '+13195550192');
+         values ('${T}', 'service_call', '[]', 60, '+13195550192');
        insert into app.service_registrations (tenant_id, service, state)
          values ('${T}', 'texting', 'approved');
        insert into app.calendar_connections (tenant_id, provider, calendar_id, status, connected_at)

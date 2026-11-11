@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MockCalendar } from './index.js';
 
 const T1 = 'tenant-mock-riverbend';
-const T3 = 'tenant-mock-prairie-path';
+const T2 = 'tenant-mock-northline-ink';
 const cal = { tenantId: T1, calendarId: 'MOCK-GCAL-T1' };
 const at = (hour: number) => new Date(Date.UTC(2026, 10, 5, hour));
 const slot = (start: number, end = start + 1) => ({ start: at(start), end: at(end) });
@@ -13,7 +13,7 @@ describe('MockCalendar', () => {
     const calendar = new MockCalendar();
     calendar.addEvent(T1, cal.calendarId, slot(15));
     expect(await calendar.busy({ ...cal, range: day })).toEqual({ ok: true, value: [slot(15)] });
-    expect(await calendar.busy({ tenantId: T3, calendarId: cal.calendarId, range: day })).toEqual({
+    expect(await calendar.busy({ tenantId: T2, calendarId: cal.calendarId, range: day })).toEqual({
       ok: true,
       value: [],
     });
@@ -129,7 +129,7 @@ describe('MockCalendar', () => {
       ok: false,
       error: { kind: 'permanent', code: 'auth_revoked' },
     });
-    expect((await calendar.busy({ tenantId: T3, calendarId: 'MOCK-GCAL-T3', range: day })).ok).toBe(
+    expect((await calendar.busy({ tenantId: T2, calendarId: 'MOCK-GCAL-T2', range: day })).ok).toBe(
       true,
     );
   });

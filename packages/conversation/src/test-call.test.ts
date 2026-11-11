@@ -3,7 +3,7 @@ import { simulateTestCall, type TestCallInput } from './test-call.js';
 
 const input: TestCallInput = {
   businessName: 'Riverbend Heating & Air',
-  playbook: 'hvac',
+  trade: 'hvac',
   connectNumber: '+13195550100',
   callerName: 'Rhett Boyd',
   callerNumber: '+13195550104',
@@ -44,8 +44,8 @@ describe('simulateTestCall', () => {
     });
   });
 
-  it('shows approval in the portal for portal-approval playbooks', () => {
-    const steps = simulateTestCall({ ...input, playbook: 'tattoo', approverChannel: 'portal' });
+  it('shows approval in the portal for portal-approval workflows', () => {
+    const steps = simulateTestCall({ ...input, trade: 'tattoo', approverChannel: 'portal' });
     expect(steps[6]).toEqual({
       kind: 'approval_request',
       channel: 'portal',
@@ -67,10 +67,5 @@ describe('simulateTestCall', () => {
       templateKey: 'confirmation',
       body: null,
     });
-  });
-
-  it('keeps the clinic sample free of clinical detail', () => {
-    const steps = simulateTestCall({ ...input, playbook: 'clinic', approverChannel: 'portal' });
-    expect(steps[2]).toEqual({ kind: 'caller_replies', body: 'Weekday mornings work best.' });
   });
 });
