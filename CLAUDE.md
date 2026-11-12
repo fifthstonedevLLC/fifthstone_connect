@@ -45,7 +45,8 @@ Phase 2 complete: `apps/api` (Fastify) serves `/health`, `/portal/me`, `/portal/
 `/portal/leads/:id`, `POST /portal/leads/:id/actions`, `POST /portal/leads/:id/replies` and the
 settings routes with Supabase sign-in and tenant-scoped transactions; `apps/portal` (React + Vite) shows the Front Desk (work queues)
 with counts (`nextStep` and `QUEUES` in `packages/conversation`), the selected lead open beside
-the list, and the full lead page, takes actions (approve, suggest another time, nudge, close; owners and staff, decision 25) and sends template-only replies (decision 26). Each action writes
+the list, and the full lead page, takes actions (approve, suggest another time, nudge, close; owners and staff, decision 25) and sends replies: owner-approved templates, or the person's own words where the owner
+switched free text on (decision 39). Each action writes
 the decision, its jobs and an audit event in one transaction; the portal shows only
 server-confirmed state (decision 24). The Templates & AI page edits versioned templates and AI
 settings with restore (`/portal/settings`; owner-only writes, decision 27); template rules live in
@@ -58,8 +59,13 @@ registration, hours and calendar, template review, approvers) and a labeled simu
 (`packages/conversation/src/playbooks.ts`, `app.playbooks`, `app.trades`); picking one applies its
 starter templates, AI instructions and job length as new versions (decision 34). Until a business
 is live it is locked (decision 35): status `onboarding` signs in to Setup and Templates & AI only,
-the API refuses the working pages (`not_live`), setup step 7 sends the texting application, and
-nothing runs for it until Fifth Stone Dev sets it `active`. That completes the Phase 2 screens.
+the API refuses the working pages (`not_live`), setup step 7 is a choice (send the texting
+application or go without texting; decision 36), and nothing runs for it until Fifth Stone Dev turns
+it on with `npm run operator -- go-live <slug>` (finished setup and a number; never texting
+approval). The Settings page (`/portal/business`) holds the team, what staff can do
+(capabilities in `packages/core/src/permissions.ts`, checked on every API route; decision 40), the
+free-text switch and the Act now limit; new people choose a password from a one-time link the
+operator CLI prints. That completes the Phase 2 screens.
 
 Phase 3 complete (engine on mocks): `apps/worker` claims due jobs of the types it has
 handlers for (`app.claim_jobs` with action types), runs them against labeled mock connectors and
@@ -97,7 +103,9 @@ decision 32, the customer's "still confirming" text on decision 31. Phase 3 clos
 2026-11-10 after a review of the loop's edge cases (changelog). Next: Phase 4 integrations, each
 real adapter run against a real test resource with owner approval: provider choices (decisions 6,
 15, 16), Twilio toll-free registration, SES domain verification and Google/Microsoft calendar app
-verification, plus the wording in decisions 31 and 32 (`docs/adr/0003-database-platform-and-hosting.md`). Track status in `docs/changelog.md`; open
+verification, plus the wording in decisions 31 and 32 (`docs/adr/0003-database-platform-and-hosting.md`). The proposed order of work after that (every channel, free-text replies, permissions, order
+support, and the Contacts, Reporting and Settings pages) is `docs/product/ROADMAP.md`; its open
+choices are decisions 38 to 43. Track status in `docs/changelog.md`; open
 decisions live in `docs/adr/DECISIONS_PENDING.md`.
 
 ## Commands
@@ -121,6 +129,7 @@ npm run dev -w @fsc/portal # portal on http://127.0.0.1:5173 (apps/portal/.env.l
 npm run dev:phone -w @fsc/portal # portal for a phone on the same Wi-Fi, http://<this PC's IP>:5174 (mock data)
 npm run dev -w @fsc/worker # worker, polling for due jobs (mock connectors only)
 npm run once -w @fsc/worker # run every due job once, then exit
+npm run operator -- list  # operator CLI: list, show, create, add-person, password-link, number, texting, go-live, disable (guarded)
 ```
 
 Database rules, environments and local setup: `docs/engineering/DATABASE.md`.
@@ -143,7 +152,7 @@ and worker tests (which must run there, not skip). Mock data only; no secrets.
 | `apps/api`              | Form, signed webhooks, Twilio voice/SMS webhooks, SES inbound, portal API, health                                 |
 | `apps/worker`           | Runs every engine job (built, on labeled mocks until Phase 4): texts, calendar, clarify, offers, approvals        |
 | `apps/portal`           | Owner portal (React + Vite): sign-in, Front Desk, lead pages, Templates & AI, Setup; calls only `apps/api`        |
-| `apps/operator`         | Guarded CLI for onboarding, status, replay, export/delete                                                         |
+| `apps/operator`         | Guarded CLI (built: create, number, texting status, go-live, disable, list, show; later replay, export/delete)    |
 | `apps/marketing`        | Static marketing page (local review only, not deployed)                                                           |
 | `supabase/migrations`   | Every schema change; the only SQL that reaches a hosted database (ledger: `docs/engineering/MIGRATION_LEDGER.md`) |
 | `supabase/seed`         | Local-only mock data, `NN_name.sql`, loaded by `db:reset`                                                         |

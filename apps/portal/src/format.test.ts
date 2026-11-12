@@ -19,6 +19,7 @@ import {
   needLine,
   waitingLabel,
   sentence,
+  waitLimitLabel,
 } from './format';
 import type { LeadCard } from './types';
 
@@ -34,6 +35,7 @@ const card = (over: Partial<LeadCard>): LeadCard => ({
   createdAt: '2026-11-05T14:15:00Z',
   slotStart: null,
   requestState: null,
+  holdExpiresAt: null,
   urgent: false,
   waitingSince: '2026-11-05T14:15:00Z',
   next: { need: 'their_move', action: null },
@@ -204,5 +206,17 @@ describe('sentence', () => {
   it('never doubles the period after an initial', () => {
     expect(sentence('Next: Ben C.')).toBe('Next: Ben C.');
     expect(sentence('Next: Ivy')).toBe('Next: Ivy.');
+  });
+});
+
+describe('waitLimitLabel', () => {
+  it("names the business's Act now limit in plain words", () => {
+    expect([1, 4, 8, 24, 48].map(waitLimitLabel)).toEqual([
+      'an hour',
+      '4 hours',
+      '8 hours',
+      'a day',
+      '2 days',
+    ]);
   });
 });

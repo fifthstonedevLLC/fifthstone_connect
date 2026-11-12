@@ -12,6 +12,7 @@ export * from './test-call.js';
 export * from './intake.js';
 export * from './next-step.js';
 export * from './offers.js';
+export * from './free-text.js';
 export * from './playbooks.js';
 export * from './registration.js';
 export * from './queues.js';

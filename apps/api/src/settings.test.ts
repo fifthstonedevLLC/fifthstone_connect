@@ -126,7 +126,7 @@ describe.skipIf(!ready)('portal settings (local stack, test tenant)', () => {
       content: TEMPLATES_V1,
     });
     expect(edit.statusCode).toBe(403);
-    expect(edit.json()).toEqual({ error: 'owner_only' });
+    expect(edit.json()).toEqual({ error: 'not_permitted' });
   });
 
   it('saves a new live version once, and audits what changed', async () => {

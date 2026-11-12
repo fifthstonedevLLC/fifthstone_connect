@@ -1,12 +1,15 @@
 import type { CalendarProviderKey } from '@fsc/core/calendar-providers';
 import {
   BusinessHoursListSchema,
+  factsFromProgress,
   onboardingSteps,
   readyToApply,
+  setupDone,
   setupStage,
   type BusinessHoursList,
   type BusinessProfile,
   type OnboardingStep,
+  type ServiceRegistrationState,
   type SetupStage,
 } from '@fsc/core';
 import {
@@ -61,6 +64,10 @@ export interface Onboarding {
   application: {
     ready: boolean;
     submittedAt: string | null;
+    /** When the owner chose to go without texting (decision 36); null otherwise. */
+    declinedAt: string | null;
+    /** The texting status card Fifth Stone Dev moves. */
+    registration: ServiceRegistrationState;
     preview: RegistrationPreview | null;
   };
   stage: SetupStage;
@@ -76,9 +83,24 @@ export type OnboardingError =
   | 'template_problems'
   | 'setup_incomplete'
   | 'not_confirmed'
-  | 'already_live';
+  | 'already_approved'
+  | 'application_sent';
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
+
+/** Each setup step and whether it is done, from `app.setup_progress` (shared with the operator). */
+export async function setupSteps(
+  client: DbClient,
+  tenantId: string,
+): Promise<{ key: OnboardingStep; done: boolean }[]> {
+  const { rows } = await client.query<Parameters<typeof factsFromProgress>[0]>(
+    `select * from app.setup_progress where tenant_id = $1`,
+    [tenantId],
+  );
+  const row = rows[0];
+  if (!row) throw new Error('tenant not visible in its own context');
+  return onboardingSteps(factsFromProgress(row));
+}
 
 /** What a typical customer of this trade needs, and the first question asked, for samples. */
 function sampleValues(
@@ -109,6 +131,8 @@ export async function getOnboarding(
     templates_reviewed_at: Date | null;
     test_simulated_at: Date | null;
     application_submitted_at: Date | null;
+    texting_declined_at: Date | null;
+    texting: ServiceRegistrationState | null;
     live: boolean;
   }>(
     `select t.timezone, t.status = 'active' as live, c.playbook_key, p.name as playbook_name, p.description,
@@ -116,7 +140,9 @@ export async function getOnboarding(
             c.trade_key, tr.name as trade_name, c.default_job_minutes,
             c.connect_number, c.business_hours,
             o.type_confirmed_at, o.templates_reviewed_at, o.test_simulated_at,
-            o.application_submitted_at
+            o.application_submitted_at, o.texting_declined_at,
+            (select state from app.service_registrations
+              where tenant_id = t.id and service = 'texting') as texting
        from app.tenants t
        left join app.tenant_config c on c.tenant_id = t.id
        left join app.playbooks p on p.key = c.playbook_key
@@ -180,16 +206,7 @@ export async function getOnboarding(
   const p = profile.rows[0];
   const cal = calendar.rows[0] ?? null;
 
-  const steps = onboardingSteps({
-    typeConfirmed: b.type_confirmed_at !== null,
-    profileSaved: p !== undefined,
-    hoursSet: hours.success,
-    calendarConnected: cal?.status === 'connected',
-    templatesReviewed: b.templates_reviewed_at !== null,
-    approvers: team.rows.filter((u) => u.approves_requests).length,
-    testRun: b.test_simulated_at !== null,
-    applicationSent: b.application_submitted_at !== null,
-  });
+  const steps = await setupSteps(client, tenantId);
   const flow = b.playbook_key ? workflow(b.playbook_key) : null;
 
   return {
@@ -241,6 +258,8 @@ export async function getOnboarding(
     application: {
       ready: readyToApply(steps),
       submittedAt: iso(b.application_submitted_at),
+      declinedAt: iso(b.texting_declined_at),
+      registration: b.texting ?? 'not_started',
       preview:
         templates && flow
           ? registrationPreview({
@@ -251,7 +270,7 @@ export async function getOnboarding(
             })
           : null,
     },
-    stage: setupStage(b.live, b.application_submitted_at !== null),
+    stage: setupStage(b.live, setupDone(steps)),
     connectNumber: b.connect_number,
   };
 }
@@ -327,10 +346,10 @@ export async function chooseBusinessType(
   const updated = await client.query(
     `update app.tenant_config c
         set playbook_key = tr.playbook_key, trade_key = tr.key,
-            default_job_minutes = tr.default_job_minutes
+            default_job_minutes = tr.default_job_minutes, act_now_after_hours = $4
        from app.trades tr
       where c.tenant_id = $1 and tr.key = $2 and tr.playbook_key = $3`,
-    [tenantId, chosen.key, flow.key],
+    [tenantId, chosen.key, flow.key, flow.actNowAfterHours],
   );
   if (!updated.rowCount) return { ok: false, error: 'unknown_trade' };
 
@@ -511,10 +530,10 @@ export async function runTestCall(
 }
 
 /**
- * The owner sends the texting application once every other step is done (decision 35). It is
- * recorded here; Fifth Stone Dev submits it to the carriers (by hand until the Phase 4 adapter)
- * and moves the texting status card. Sending again after a fix records the latest time. A live
- * business has nothing to apply for.
+ * The owner sends the texting application once every step before it is done (decisions 35 and
+ * 36). It is recorded here; Fifth Stone Dev submits it to the carriers (by hand until the Phase 4
+ * adapter) and moves the texting status card. A business can apply later, live or not, if it
+ * chose no texting at first; sending again after a fix records the latest time.
  */
 export async function submitApplication(
   client: DbClient,
@@ -525,7 +544,9 @@ export async function submitApplication(
 ): Promise<{ ok: true } | { ok: false; error: OnboardingError }> {
   if (!confirmed) return { ok: false, error: 'not_confirmed' };
   const current = await getOnboarding(client, tenantId, role);
-  if (current.stage === 'live') return { ok: false, error: 'already_live' };
+  if (current.application.registration === 'approved') {
+    return { ok: false, error: 'already_approved' };
+  }
   if (!current.application.ready) return { ok: false, error: 'setup_incomplete' };
 
   await client.query(
@@ -534,12 +555,40 @@ export async function submitApplication(
      values ($1, now(), $2)
      on conflict (tenant_id) do update set
        application_submitted_at = excluded.application_submitted_at,
-       application_submitted_by = excluded.application_submitted_by`,
+       application_submitted_by = excluded.application_submitted_by,
+       texting_declined_at = null`,
     [tenantId, portalUserId],
   );
   await audit(client, tenantId, portalUserId, 'onboarding.application_submitted', {
     resubmitted: current.application.submittedAt !== null,
     templateVersion: current.templates.version,
   });
+  return { ok: true };
+}
+
+/**
+ * The owner chooses to go without texting for now (decision 36). Missed calls and voicemails
+ * still reach the Front Desk to call back; no text is sent. Once an application is on record the
+ * choice is Fifth Stone Dev's to undo, since it is with the carriers.
+ */
+export async function declineTexting(
+  client: DbClient,
+  tenantId: string,
+  portalUserId: string,
+  role: 'owner' | 'staff',
+): Promise<{ ok: true } | { ok: false; error: OnboardingError }> {
+  const current = await getOnboarding(client, tenantId, role);
+  if (current.application.registration === 'approved') {
+    return { ok: false, error: 'already_approved' };
+  }
+  if (current.application.submittedAt !== null) return { ok: false, error: 'application_sent' };
+  if (current.application.declinedAt !== null) return { ok: true };
+
+  await client.query(
+    `insert into app.onboarding_progress (tenant_id, texting_declined_at) values ($1, now())
+     on conflict (tenant_id) do update set texting_declined_at = excluded.texting_declined_at`,
+    [tenantId],
+  );
+  await audit(client, tenantId, portalUserId, 'onboarding.texting_declined', {});
   return { ok: true };
 }

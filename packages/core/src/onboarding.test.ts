@@ -4,8 +4,10 @@ import {
   BusinessProfileSchema,
   normalizeEin,
   ONBOARDING_STEPS,
+  goLiveProblems,
   onboardingSteps,
   readyToApply,
+  setupDone,
   setupStage,
 } from './onboarding.js';
 
@@ -93,11 +95,12 @@ describe('onboardingSteps', () => {
     approvers: 0,
     testRun: false,
     applicationSent: false,
+    textingDeclined: false,
   };
 
   it('lists the seven steps in order, none done for a new business', () => {
     expect(onboardingSteps(none)).toEqual(
-      ['business_type', 'details', 'hours', 'templates', 'team', 'test', 'apply'].map((key) => ({
+      ['business_type', 'details', 'hours', 'templates', 'team', 'test', 'texting'].map((key) => ({
         key,
         done: false,
       })),
@@ -116,20 +119,42 @@ describe('onboardingSteps', () => {
       true,
     );
   });
+
+  it('counts the texting step done once the owner applies or chooses no texting (decision 36)', () => {
+    const texting = (facts: Partial<typeof none>) =>
+      onboardingSteps({ ...none, ...facts }).find((s) => s.key === 'texting')?.done;
+    expect(texting({})).toBe(false);
+    expect(texting({ applicationSent: true })).toBe(true);
+    expect(texting({ textingDeclined: true })).toBe(true);
+  });
 });
 
-describe('setup stage', () => {
+describe('setup stage and go-live', () => {
+  const allDone = ONBOARDING_STEPS.map((key) => ({ key, done: true }));
+
   it('is live only when Fifth Stone Dev has turned the business on', () => {
     expect(setupStage(false, false)).toBe('setting_up');
-    expect(setupStage(false, true)).toBe('applied');
+    expect(setupStage(false, true)).toBe('ready');
     expect(setupStage(true, false)).toBe('live');
   });
 
-  it('allows the application once every other step is done', () => {
-    const steps = ONBOARDING_STEPS.map((key) => ({ key, done: key !== 'apply' }));
-    expect(readyToApply(steps)).toBe(true);
-    expect(readyToApply(steps.map((s) => (s.key === 'test' ? { ...s, done: false } : s)))).toBe(
+  it('allows the application once every step before it is done', () => {
+    const before = allDone.map((s) => (s.key === 'texting' ? { ...s, done: false } : s));
+    expect(readyToApply(before)).toBe(true);
+    expect(setupDone(before)).toBe(false);
+    expect(readyToApply(before.map((s) => (s.key === 'test' ? { ...s, done: false } : s)))).toBe(
       false,
     );
+  });
+
+  it('goes live on finished setup and a number, never on texting approval', () => {
+    const ok = { status: 'onboarding' as const, setupDone: true, connectNumber: '+13195550100' };
+    expect(goLiveProblems(ok)).toEqual([]);
+    expect(goLiveProblems({ ...ok, setupDone: false, connectNumber: null })).toEqual([
+      'setup_incomplete',
+      'no_number',
+    ]);
+    expect(goLiveProblems({ ...ok, status: 'active' })).toEqual(['already_live']);
+    expect(goLiveProblems({ ...ok, status: 'disabled' })).toEqual(['disabled']);
   });
 });

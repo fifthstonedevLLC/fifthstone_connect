@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(10);
 
 grant fsc_app to postgres;
 grant usage on schema extensions to fsc_app;
@@ -55,6 +55,13 @@ select results_eq(
   'select service, state from app.service_registrations order by service',
   $$values ('email', 'submitted'), ('texting', 'approved')$$,
   'Riverbend''s status cards: texting approved, email submitted'
+);
+
+select results_eq(
+  $$select s.type_confirmed, s.test_run, s.texting_declined
+      from app.setup_progress s join app.tenants t on t.id = s.tenant_id$$,
+  $$values (true, false, false)$$,
+  'setup progress shows only Riverbend''s own row (decision 36): type confirmed, test not run'
 );
 
 select results_eq(

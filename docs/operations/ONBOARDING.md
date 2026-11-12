@@ -22,16 +22,30 @@ Procedure for setting up a new pilot business. Draft; finalized during Phase 4â€
 - [ ] Processor disclosure (AWS SES, Google, Cloudflare, Supabase, hosting) in the agreement
 - [ ] Confirm no regulated data (PHI, card data) will be collected; clinics and other healthcare practices are not onboarded (decision 33)
 
-## In the portal (v0.2, decision 35)
+## In the portal (v0.2, decisions 35 and 36)
 
-1. Fifth Stone Dev creates the business with status `onboarding` and the owner's login. The
-   owner can sign in, but sees only Setup and Templates & AI; nothing runs for the business.
-2. The owner works through Setup and sends the texting application (step 7).
-3. Fifth Stone Dev reviews it, submits it to Twilio (by hand until the Phase 4 adapter) and moves
-   the texting status card (`submitted`, then `approved` or `rejected`). On `rejected`, tell the
-   owner what to fix; they send it again from Setup.
-4. Once texting is approved and the number is in place, Fifth Stone Dev sets the business to
-   `active`. The Front Desk opens and calls and texts start flowing.
+Fifth Stone Dev's side runs through the operator CLI (`npm run operator -- <command>`; `list` and
+`show <slug>` show where every business stands). `OPERATOR_CONFIRM_ENV` in `.env` names the
+database it points at: on development only mock businesses are allowed, and staging or
+production changes need `--confirm <environment>`.
+
+1. **Create:** `create --slug <s> --name <n> --owner-name <n> --owner-email <e> [--workflow <w>]`.
+   The business starts `onboarding`. The command prints a one-time set-password link; send it to
+   the owner yourself (no email is sent). Needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+2. The owner works through Setup. The last step is a choice: send the texting application, or go
+   without texting for now.
+3. **Number:** buy the Fifth Stone Connect number (cost: owner approval), then
+   `number <slug> <+1...>`. The owner forwards unanswered calls to it.
+4. **Texting**, only if they applied: submit the application to Twilio (by hand until the Phase 4
+   adapter), then `texting <slug> submitted`, later `approved` or `rejected --note "<what to fix>"`.
+   On `rejected`, tell the owner what to fix; they send it again from Setup.
+5. **Go live:** `go-live <slug>`. It needs finished setup and a number, never texting approval.
+   Until texting is approved, missed calls reach the Front Desk to call back and no text is sent.
+6. **Staff:** `add-person <slug> --name <n> --email <e> [--mobile <+1...>]` adds a staff member
+   and prints their set-password link; the owner decides what staff can do in Settings. A link
+   that has expired: `password-link <email>`. Links land on `PORTAL_URL` (local default
+   `http://127.0.0.1:5173`), which Supabase Auth must list as a redirect URL.
+7. **Offboard:** `disable <slug>`, then release the number in Twilio.
 
 ## Setup steps (v0.1)
 

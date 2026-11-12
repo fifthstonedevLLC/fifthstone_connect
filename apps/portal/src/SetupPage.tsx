@@ -36,7 +36,7 @@ const STEP_TITLE: Record<OnboardingStep, string> = {
   templates: 'Templates and questions',
   team: 'Who approves requests',
   test: 'Test it',
-  apply: 'Apply for texting',
+  texting: 'Texting',
 };
 
 const ERROR: Record<string, string> = {
@@ -50,7 +50,8 @@ const ERROR: Record<string, string> = {
   unknown_trade: 'That business type is not available. Pick another one.',
   setup_incomplete: 'Finish the other steps first. The latest setup is shown.',
   not_confirmed: 'Confirm the details are accurate before sending.',
-  already_live: 'Your business is already live.',
+  already_approved: 'Texting is already approved.',
+  application_sent: 'Your application is with Fifth Stone Dev. Contact them to withdraw it.',
   template_problems:
     "The starting wording doesn't fit your business name. Fifth Stone Dev will help set it up.",
 };
@@ -739,33 +740,126 @@ function TestStep({
 // Page ---------------------------------------------------------------------------------------
 
 /**
- * The texting application (decision 35): what goes to the carriers, built from the business's
- * details and live templates. Fifth Stone Dev submits it; nothing goes to a vendor from here.
+ * The texting step (decisions 35 and 36): text customers back, which means sending the
+ * application the carriers review, or go without texting for now. Either choice finishes setup;
+ * a business without texting still gets missed calls and voicemails on its Front Desk. Fifth
+ * Stone Dev submits the application; nothing goes to a vendor from here.
  */
-function ApplyStep({
+function TextingStep({
   data,
   save,
   token,
-  onApplied,
+  onDecided,
 }: {
   data: Onboarding;
   save: Save;
   token: string;
-  onApplied: () => void;
+  onDecided: () => void;
+}) {
+  const { application } = data;
+  const [applying, setApplying] = useState(false);
+
+  async function decline() {
+    const problems = await save(() =>
+      apiPost<Onboarding>('/portal/onboarding/no-texting', token, {}),
+    );
+    if (!problems) onDecided();
+  }
+
+  if (application.registration === 'approved') {
+    return (
+      <p className="setup-done">
+        <Icon name="check" size={16} /> Texting is approved and on.
+      </p>
+    );
+  }
+  if (application.submittedAt || applying) {
+    return <Application data={data} save={save} token={token} onSent={onDecided} />;
+  }
+  if (application.declinedAt) {
+    return (
+      <div className="setup-step">
+        <p className="setup-done">
+          <Icon name="check" size={16} /> No texting for now. Chosen{' '}
+          {savedAtLabel(application.declinedAt, data.timezone)}.
+        </p>
+        <p>
+          Missed calls and voicemails come to your Front Desk to call back. No texts are sent to
+          customers.
+        </p>
+        {data.canEdit && (
+          <div className="setup-actions">
+            <button className="button" type="button" onClick={() => setApplying(true)}>
+              Turn on texting
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="setup-step">
+      <p>Texting is optional. Choose how you want to reach customers who call and miss you.</p>
+      <div className="setup-card">
+        <h3 className="setup-card__title">Text customers back</h3>
+        <p className="meta">
+          A missed call gets a text from your business, asks what is needed and offers open times.
+          The phone carriers review an application first. Going live does not wait for it: texting
+          switches on once it is approved.
+        </p>
+        {data.canEdit && (
+          <div className="setup-actions">
+            <button
+              className="button button--primary"
+              type="button"
+              onClick={() => setApplying(true)}
+            >
+              Review my application
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="setup-card">
+        <h3 className="setup-card__title">No texting for now</h3>
+        <p className="meta">
+          Missed calls and voicemails come to your Front Desk to call back. You can turn on texting
+          later from this step.
+        </p>
+        {data.canEdit && (
+          <div className="setup-actions">
+            <button className="button" type="button" onClick={() => void decline()}>
+              Go without texting
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** What goes to the carriers, built from the business's details and live templates. */
+function Application({
+  data,
+  save,
+  token,
+  onSent,
+}: {
+  data: Onboarding;
+  save: Save;
+  token: string;
+  onSent: () => void;
 }) {
   const [confirmed, setConfirmed] = useState(false);
   const { application, details } = data;
   const sent = application.submittedAt;
-  const live = data.stage === 'live';
 
   async function send() {
     const problems = await save(() =>
       apiPost<Onboarding>('/portal/onboarding/application', token, { confirmed: true }),
     );
-    if (!problems) onApplied();
+    if (!problems) onSent();
   }
 
-  if (live) return <p className="meta">{'Texting is live. There is nothing to apply for.'}</p>;
   return (
     <div className="setup-step">
       <p>
@@ -846,12 +940,12 @@ function ApplyStep({
 export function SetupPage({
   me,
   accessToken,
-  onApplied = () => undefined,
+  onSetupChange = () => undefined,
 }: {
   me: Me;
   accessToken: string;
-  /** Called once the texting application is sent, so the portal can show where it stands. */
-  onApplied?: () => void;
+  /** Called when the texting choice is made, so the portal can show where setup stands. */
+  onSetupChange?: () => void;
 }) {
   const [onboarding, reload, replace] = useApi<Onboarding>('/portal/onboarding', accessToken);
   const [current, setCurrent] = useState<OnboardingStep | null>(null);
@@ -973,7 +1067,7 @@ export function SetupPage({
               }}
             />
           )}
-          {step === 'apply' && <ApplyStep {...props} onApplied={onApplied} />}
+          {step === 'texting' && <TextingStep {...props} onDecided={onSetupChange} />}
         </section>
       </div>
     </div>

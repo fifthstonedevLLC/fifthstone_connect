@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { countSegments } from '@fsc/connectors';
+import { workflow } from '@fsc/conversation';
 import { MOCK_LOCAL_PASSWORD, PORTAL_USERS, TENANTS } from './catalog.js';
 import { mockUuid } from './ids.js';
 import { ONBOARDING } from './onboarding.js';
@@ -126,6 +127,7 @@ function tenantsFile(): string {
       lit(`${t.slug}@inbound.example.com`),
       `${lit(JSON.stringify(ops.hours))}::jsonb`,
       jobMinutes,
+      String(workflow(t.playbook)!.actNowAfterHours),
       lit(t.name),
     ];
   });
@@ -144,7 +146,7 @@ ${rows(TENANTS.map((t) => [lit(tenantId(t.key)), lit(t.slug), lit(t.name), lit(t
 
 insert into app.tenant_config (
   tenant_id, playbook_key, trade_key, connect_number, inbound_email, business_hours, default_job_minutes,
-  email_sender_name
+  act_now_after_hours, email_sender_name
 ) values
 ${rows(config)};
 

@@ -3,8 +3,8 @@ import { Icon } from './icons';
 import type { Me, ServiceState } from './types';
 
 /**
- * What a business sees before it is live (decision 35). The owner lands here once the texting
- * application is sent; staff see it until the business goes live. The working pages stay locked
+ * What a business sees before it is live (decisions 35 and 36). The owner lands here once setup
+ * is finished; staff see it until the business goes live. Going live does not wait on texting. The working pages stay locked
  * on the server too, and nothing is sent to customers until Fifth Stone Dev turns the business on.
  */
 
@@ -58,7 +58,7 @@ export function StatusPage({ me }: { me: Me }) {
     <div className="page">
       <header className="page__header">
         <h1 className="page__title">
-          {owner ? 'Your texting application is in' : `${business} is almost ready`}
+          {owner ? 'Setup is finished' : `${business} is almost ready`}
         </h1>
         <p className="page__lede">
           The Front Desk opens when {business} goes live. Until then, nothing is sent to customers.
@@ -68,11 +68,19 @@ export function StatusPage({ me }: { me: Me }) {
         <Row done title="Setup finished">
           {owner ? 'You can still change any step.' : 'The owner finished setup.'}
         </Row>
-        <Row done={texting === 'approved'} title="Texting registration">
-          {TEXTING[texting]}
-        </Row>
+        {me.textingDeclined ? (
+          <Row done title="Texting">
+            {owner
+              ? 'Not used. Missed calls come to your Front Desk to call back; you can turn on texting later from Setup.'
+              : 'Not used. Missed calls come to the Front Desk to call back.'}
+          </Row>
+        ) : (
+          <Row done={texting === 'approved'} title="Texting registration">
+            {TEXTING[texting]}
+          </Row>
+        )}
         <Row done={false} title="Going live">
-          {`Fifth Stone Dev turns ${business} on once texting is approved, and lets you know.`}
+          {`Fifth Stone Dev turns ${business} on and lets you know. Texting does not hold this up: it switches on whenever it is approved.`}
         </Row>
       </ul>
       {owner && (

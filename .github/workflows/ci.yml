@@ -54,13 +54,13 @@ jobs:
       - name: pgTAP tests
         run: npm run db:test
 
-      # Route and worker tests against the stack, including a real token from local Supabase Auth.
+      # Route, worker and operator tests against the stack, including a real token from local Supabase Auth.
       # The anon key here is the local stack's own, generated fresh in this runner. The worker
       # runs with mock connectors only.
-      - name: API route and worker tests
+      - name: API route, worker and operator tests
         run: |
           eval "$(npx supabase status -o env | grep -E '^ANON_KEY=')"
-          SUPABASE_ANON_KEY="$ANON_KEY" FSC_REQUIRE_LOCAL_STACK=1 npx vitest run apps/api apps/worker
+          SUPABASE_ANON_KEY="$ANON_KEY" FSC_REQUIRE_LOCAL_STACK=1 npx vitest run apps/api apps/worker apps/operator
 
       - name: Stop Supabase
         if: always()

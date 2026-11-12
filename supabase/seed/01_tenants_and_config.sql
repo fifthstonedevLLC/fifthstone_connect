@@ -10,12 +10,12 @@ insert into app.tenants (id, slug, name, status, timezone) values
 
 insert into app.tenant_config (
   tenant_id, playbook_key, trade_key, connect_number, inbound_email, business_hours, default_job_minutes,
-  email_sender_name
+  act_now_after_hours, email_sender_name
 ) values
-  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'service_call', 'hvac', '+13195550100', 'mock-riverbend@inbound.example.com', '[{"days":[1,2,3,4,5],"open":"07:00","close":"18:00"},{"days":[6],"open":"08:00","close":"12:00"}]'::jsonb, (select default_job_minutes from app.trades where key = 'hvac'), 'Riverbend Heating & Air'),
-  ('1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'studio_appointment', 'tattoo', '+13195550101', 'mock-northline-ink@inbound.example.com', '[{"days":[2,3,4,5,6],"open":"11:00","close":"19:00"}]'::jsonb, (select default_job_minutes from app.trades where key = 'tattoo'), 'Northline Ink'),
-  ('056fbffc-9435-54ec-8428-ce0b343f1db9', 'estimate_visit', 'roofing', '+13195550103', 'mock-old-mill-roofing@inbound.example.com', '[{"days":[1,2,3,4,5],"open":"07:00","close":"16:00"}]'::jsonb, (select default_job_minutes from app.trades where key = 'roofing'), 'Old Mill Roofing'),
-  ('03fc3a42-c218-5d93-a853-eafb4c857dd4', 'service_call', null, null, 'mock-cedar-lane@inbound.example.com', '[]'::jsonb, (select default_job_minutes from app.playbooks where key = 'service_call'), 'Cedar Lane Lawn Care');
+  ('b1cc670c-e099-5600-93ef-793a69d710b0', 'service_call', 'hvac', '+13195550100', 'mock-riverbend@inbound.example.com', '[{"days":[1,2,3,4,5],"open":"07:00","close":"18:00"},{"days":[6],"open":"08:00","close":"12:00"}]'::jsonb, (select default_job_minutes from app.trades where key = 'hvac'), 4, 'Riverbend Heating & Air'),
+  ('1e61deb3-3314-5971-aa2e-a5c01f91acf5', 'studio_appointment', 'tattoo', '+13195550101', 'mock-northline-ink@inbound.example.com', '[{"days":[2,3,4,5,6],"open":"11:00","close":"19:00"}]'::jsonb, (select default_job_minutes from app.trades where key = 'tattoo'), 24, 'Northline Ink'),
+  ('056fbffc-9435-54ec-8428-ce0b343f1db9', 'estimate_visit', 'roofing', '+13195550103', 'mock-old-mill-roofing@inbound.example.com', '[{"days":[1,2,3,4,5],"open":"07:00","close":"16:00"}]'::jsonb, (select default_job_minutes from app.trades where key = 'roofing'), 24, 'Old Mill Roofing'),
+  ('03fc3a42-c218-5d93-a853-eafb4c857dd4', 'service_call', null, null, 'mock-cedar-lane@inbound.example.com', '[]'::jsonb, (select default_job_minutes from app.playbooks where key = 'service_call'), 4, 'Cedar Lane Lawn Care');
 
 insert into app.service_registrations (id, tenant_id, service, state) values
   ('d39d1697-2227-5df9-aa4a-762cc3222528', 'b1cc670c-e099-5600-93ef-793a69d710b0', 'texting', 'approved'),

@@ -1,3 +1,4 @@
+import { countSegments } from '@fsc/core/segments';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ApiError, apiPost } from './api';
@@ -19,6 +20,9 @@ import { Icon } from './icons';
 import { newId } from './ids';
 import type { LeadDetail, Me, PortalAction } from './types';
 import { useApi } from './useApi';
+
+/** Closed out: nothing more goes to the customer from here. */
+const CLOSED_STATES: readonly LeadDetail['state'][] = ['closed', 'spam', 'opted_out'];
 
 /**
  * One lead: what needs deciding, the details, then the whole conversation. Everything shown is
@@ -255,6 +259,7 @@ function Decision({
           request?.state === 'changed'
             ? request.state
             : null,
+        holdExpiresAt: null,
       },
       timeZone,
     );
@@ -291,38 +296,51 @@ function Decision({
 }
 
 /**
- * Template replies only (decision 26): pick one of the owner-approved replies, already filled in
- * for this customer, and send it. Nothing typed here reaches the customer. The message ID is made
- * once per reply, so a double click records one message.
+ * Replies: an owner-approved template (decision 26), or the person's own words where the owner
+ * switched free text on and lets them use it (decisions 39 and 40). The server checks all of it
+ * again. The message ID is made once per reply, so a double click records one message.
  */
 function ReplyBox({
   lead,
+  me,
   onSent,
   accessToken,
   path,
 }: {
   lead: LeadDetail;
+  me: Me;
   onSent: (lead: LeadDetail) => void;
   accessToken: string;
   path: string;
 }) {
+  const canTemplates = me.capabilities.includes('reply_templates') && lead.replyOptions.length > 0;
+  const canType =
+    me.capabilities.includes('reply_free_text') &&
+    me.freeTextChannels.includes('sms') &&
+    !CLOSED_STATES.includes(lead.state);
+  const [mode, setMode] = useState<'template' | 'text'>(canTemplates ? 'template' : 'text');
   const [choice, setChoice] = useState<string | null>(null);
+  const [text, setText] = useState('');
   const [messageId, setMessageId] = useState(() => newId());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (lead.replyOptions.length === 0) return null;
+  if (!canTemplates && !canType) return null;
+  const typing = mode === 'text' && canType;
+  const segments = countSegments(text.trim()).segments;
 
   async function send() {
-    if (!choice) return;
+    if (typing ? text.trim() === '' : !choice) return;
     setBusy(true);
     setError(null);
     try {
-      const updated = await apiPost<LeadDetail>(`${path}/replies`, accessToken, {
-        templateKey: choice,
-        messageId,
-      });
+      const updated = await apiPost<LeadDetail>(
+        `${path}/replies`,
+        accessToken,
+        typing ? { text, messageId } : { templateKey: choice, messageId },
+      );
       setChoice(null);
+      setText('');
       setMessageId(newId());
       onSent(updated);
     } catch (e) {
@@ -341,31 +359,72 @@ function ReplyBox({
         void send();
       }}
     >
-      <fieldset className="reply__options">
-        <legend className="section-title">Reply with a template</legend>
-        {lead.replyOptions.map((option) => (
-          <label key={option.key} className="reply__option">
-            <input
-              type="radio"
-              name="reply"
-              value={option.key}
-              checked={choice === option.key}
-              onChange={() => setChoice(option.key)}
-            />
-            <span>{option.body}</span>
-          </label>
-        ))}
-      </fieldset>
+      {canTemplates && canType && (
+        <div className="reply__modes" role="radiogroup" aria-label="How to reply">
+          {(['template', 'text'] as const).map((m) => (
+            <label key={m} className="day-toggle">
+              <input
+                type="radio"
+                name="reply-mode"
+                checked={mode === m}
+                onChange={() => {
+                  setMode(m);
+                  setError(null);
+                }}
+              />
+              <span>{m === 'template' ? 'Template' : 'Your own words'}</span>
+            </label>
+          ))}
+        </div>
+      )}
+      {typing ? (
+        <label className="field">
+          <span className="section-title">Reply in your own words</span>
+          <textarea
+            className="field__input reply__text"
+            rows={4}
+            maxLength={1600}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <span className="meta">
+            {segments <= 1 ? 'One text' : `${segments} texts`} when sent. Keep it short; no prices
+            you have not agreed.
+          </span>
+        </label>
+      ) : (
+        <fieldset className="reply__options">
+          <legend className="section-title">Reply with a template</legend>
+          {lead.replyOptions.map((option) => (
+            <label key={option.key} className="reply__option">
+              <input
+                type="radio"
+                name="reply"
+                value={option.key}
+                checked={choice === option.key}
+                onChange={() => setChoice(option.key)}
+              />
+              <span>{option.body}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
       <div className="reply__actions">
-        <button className="button button--primary" type="submit" disabled={!choice || busy}>
+        <button
+          className="button button--primary"
+          type="submit"
+          disabled={busy || (typing ? text.trim() === '' : !choice)}
+        >
           {busy ? 'Sending…' : 'Send reply'}
         </button>
-        <span className="meta">Only templates you approved can be sent from here.</span>
+        {!typing && (
+          <span className="meta">Only templates your business approved are sent from here.</span>
+        )}
       </div>
     </form>
   );
@@ -634,6 +693,7 @@ export function LeadWorkspace({
           reply={
             <ReplyBox
               lead={lead.data}
+              me={me}
               onSent={(updated) => {
                 replace(updated);
                 onChanged?.(id);

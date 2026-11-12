@@ -2859,3 +2859,30 @@ a {
     display: none;
   }
 }
+
+/* Settings (Iteration 1) */
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.settings-person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reply__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.reply__text {
+  min-height: 96px;
+  resize: vertical;
+}
