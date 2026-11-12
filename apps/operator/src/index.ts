@@ -1,7 +1,7 @@
 /**
- * @fsc/operator — guarded CLI for the operator (Fifth Stone Dev).
- *
- * Phase 0 placeholder. Phase 4 adds: create tenant, configure destination, enable/disable
- * tenant, list failed jobs, replay safe job, update lead status, export tenant data.
+ * @fsc/operator — guarded CLI for the operator (Fifth Stone Dev): create a business, record its
+ * number, move its texting status, turn it live and offboard it (`src/main.ts`). Later: list
+ * failed jobs, replay a safe job, export a business's data.
  */
-export const MODULE = 'operator' as const;
+export * from './commands.js';
+export * from './guard.js';

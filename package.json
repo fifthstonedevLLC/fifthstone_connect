@@ -2,7 +2,7 @@
   "name": "fifth-stone-connect",
   "version": "0.0.0",
   "private": true,
-  "description": "Fifth Stone Connect — managed missed-call-to-booked-job service by Fifth Stone Dev.",
+  "description": "Fifth Stone Connect \u00e2\u20ac\u201d managed missed-call-to-booked-job service by Fifth Stone Dev.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -24,7 +24,8 @@
     "db:reset": "supabase db reset",
     "db:new": "supabase migration new",
     "db:test": "supabase test db",
-    "seed:build": "tsx packages/mock-data/src/cli.ts"
+    "seed:build": "tsx packages/mock-data/src/cli.ts",
+    "operator": "npm run cli -w @fsc/operator --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -21,7 +21,26 @@ export type Urgency = 'emergency' | 'this_week' | 'flexible';
 
 export type ServiceState = 'not_started' | 'submitted' | 'approved' | 'rejected' | 'disabled';
 
-export type SetupStage = 'setting_up' | 'applied' | 'live';
+export type SetupStage = 'setting_up' | 'ready' | 'live';
+
+export type Capability = 'act_on_leads' | 'reply_templates' | 'reply_free_text' | 'edit_templates';
+
+/** The Settings page (Iteration 1): team, staff permissions, free text, Act now limit. */
+export interface BusinessSettings {
+  canEdit: boolean;
+  team: {
+    id: string;
+    name: string;
+    role: 'owner' | 'staff';
+    mobile: string | null;
+    approvesRequests: boolean;
+    active: boolean;
+  }[];
+  staffCapabilities: Capability[];
+  freeTextChannels: 'sms'[];
+  actNowAfterHours: number;
+  texting: { state: ServiceState; declined: boolean };
+}
 
 export interface Me {
   displayName: string;
@@ -29,6 +48,12 @@ export interface Me {
   tenant: { name: string; slug: string; timezone: string };
   /** Only a live business gets the working pages (decision 35). */
   stage: SetupStage;
+  /** The owner chose to go without texting (decision 36). */
+  textingDeclined: boolean;
+  /** What this person can do (decision 40). */
+  capabilities: Capability[];
+  /** Channels where free-text replies are switched on (decision 39). */
+  freeTextChannels: 'sms'[];
   services: { texting: ServiceState; email: ServiceState };
   calendar: {
     provider: CalendarProviderKey;
@@ -47,6 +72,8 @@ export interface LeadCard {
   createdAt: string;
   slotStart: string | null;
   requestState: 'pending' | 'approved' | 'changed' | null;
+  /** When the pending request's held time is released if nobody decides. */
+  holdExpiresAt: string | null;
   /** Set by the server: an emergency, safety or crisis lead, shown first and flagged. */
   urgent: boolean;
   /** When the lead entered its current state. */
@@ -79,6 +106,8 @@ export interface Today {
     booked: LeadCard[];
     wentQuiet: LeadCard[];
   };
+  /** How long a lead may wait on this business before it goes to Act now (decision 37). */
+  actNowAfterHours: number;
 }
 
 export type LeadSource = 'missed_call' | 'text' | 'email' | 'form';
@@ -159,7 +188,7 @@ export interface Settings {
 export type SettingsKind = 'templates' | 'ai';
 
 export type OnboardingStep =
-  'business_type' | 'details' | 'hours' | 'templates' | 'team' | 'test' | 'apply';
+  'business_type' | 'details' | 'hours' | 'templates' | 'team' | 'test' | 'texting';
 
 export interface HoursBlock {
   days: number[];
@@ -211,6 +240,8 @@ export interface Onboarding {
   application: {
     ready: boolean;
     submittedAt: string | null;
+    declinedAt: string | null;
+    registration: ServiceState;
     preview: { useCase: string; optIn: string; sampleMessages: string[] } | null;
   };
   stage: SetupStage;

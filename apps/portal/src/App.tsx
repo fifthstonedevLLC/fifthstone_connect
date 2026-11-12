@@ -2,9 +2,11 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { LeadPage } from './LeadPage';
+import { BusinessSettingsPage } from './BusinessSettingsPage';
 import { CalendarPage } from './CalendarPage';
 import { FrontDeskPage } from './FrontDeskPage';
 import { PageErrorBoundary } from './PageErrorBoundary';
+import { SetPassword } from './SetPassword';
 import { SettingsPage } from './SettingsPage';
 import { SetupPage } from './SetupPage';
 import { Shell } from './Shell';
@@ -70,9 +72,10 @@ function SignedIn({ accessToken }: { accessToken: string }) {
   // working pages too; this only keeps people from landing on a page that cannot load.
   if (me.data.stage !== 'live') {
     const owner = me.data.role === 'owner';
-    const applied = async () => {
-      await refresh();
-      void navigate('/');
+    // Once setup is finished the owner sees where things stand.
+    const setupChanged = async () => {
+      const next = await refresh();
+      if (next?.stage === 'ready') void navigate('/');
     };
     return (
       <Shell me={me.data} onSignOut={signOut}>
@@ -95,7 +98,7 @@ function SignedIn({ accessToken }: { accessToken: string }) {
                   <SetupPage
                     me={me.data}
                     accessToken={accessToken}
-                    onApplied={() => void applied()}
+                    onSetupChange={() => void setupChanged()}
                   />
                 }
               />
@@ -123,10 +126,23 @@ function SignedIn({ accessToken }: { accessToken: string }) {
             path="/calendar"
             element={<CalendarPage me={me.data} accessToken={accessToken} />}
           />
-          <Route path="/setup" element={<SetupPage me={me.data} accessToken={accessToken} />} />
+          <Route
+            path="/setup"
+            element={
+              <SetupPage
+                me={me.data}
+                accessToken={accessToken}
+                onSetupChange={() => void refresh()}
+              />
+            }
+          />
           <Route
             path="/templates"
             element={<SettingsPage me={me.data} accessToken={accessToken} />}
+          />
+          <Route
+            path="/settings"
+            element={<BusinessSettingsPage me={me.data} accessToken={accessToken} />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -137,10 +153,15 @@ function SignedIn({ accessToken }: { accessToken: string }) {
 
 export function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  // Opened from a one-time set-password link: choose a password before anything else.
+  const [choosingPassword, setChoosingPassword] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') setChoosingPassword(true);
+      setSession(next);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -150,6 +171,9 @@ export function App() {
         Loading…
       </p>
     );
+  }
+  if (session && choosingPassword) {
+    return <SetPassword onDone={() => setChoosingPassword(false)} />;
   }
   return session ? <SignedIn accessToken={session.access_token} /> : <SignIn />;
 }

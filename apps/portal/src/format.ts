@@ -244,6 +244,12 @@ const ACTION_ERROR: Record<string, string> = {
   not_reply_template: "That template can't be sent as a reply.",
   template_not_found: 'That reply template no longer exists. Pick another.',
   unfilled_placeholder: "That template has a blank we can't fill for this customer.",
+  not_permitted: "Your owner hasn't given you permission to do that. Ask them in Settings.",
+  free_text_off: 'Replies in your own words are switched off. Pick a template instead.',
+  empty: 'Type a reply first.',
+  too_long: 'That reply is too long for a text. Keep it to a few sentences.',
+  needs_business_name:
+    "This is the first text this customer gets from you, so say who it's from: include your business name.",
   network: "We couldn't reach the server. Nothing was changed; try again.",
 };
 
@@ -377,4 +383,12 @@ export function guidanceFor(reason: string | null): string | null {
 /** Ends text with one period, even when it already ends in an initial ("Next: Ben C."). */
 export function sentence(text: string): string {
   return text.endsWith('.') ? text : `${text}.`;
+}
+
+/** "4 hours", "a day", "2 days": how long a lead may wait before Act now (decision 37). */
+export function waitLimitLabel(hours: number): string {
+  if (hours === 1) return 'an hour';
+  if (hours === 24) return 'a day';
+  if (hours % 24 === 0) return `${hours / 24} days`;
+  return `${hours} hours`;
 }

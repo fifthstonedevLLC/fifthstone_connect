@@ -79,6 +79,13 @@ a failed run can be re-run safely:
 The owner then finishes onboarding in the portal (business details for registration, calendar
 connection, templates, approvers, test call). Offboarding follows `docs/operations/OFFBOARDING.md`.
 
+_Status (2026-11-11; decisions 35 and 36):_ `create` is built for steps 1, 2 and 4: the business
+starts as `onboarding` with no templates (the owner's business type choice applies them), and
+the owner gets a one-time set-password link from the operator instead of an emailed invite.
+Step 3 (Twilio subaccount and number) waits for Phase 4 and owner approval; until then the
+number is bought by hand and recorded with `number`. `texting`, `go-live`, `disable`, `list` and
+`show` are built too.
+
 ### 6. Tenant context on every transaction, enforced by row-level security — Proposed
 
 Every request resolves its tenant before touching data: the Twilio number called, the inbound

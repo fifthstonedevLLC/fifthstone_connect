@@ -1,6 +1,7 @@
 import { AiSettingsSchema, type AiSettings } from '@fsc/core';
 import { checkTemplateSet, type TemplateProblem } from '@fsc/conversation';
 import type { DbClient } from '../db.js';
+import { userCan } from './permissions.js';
 
 /**
  * Versioned templates and AI settings (SCOPE.md v0.2, "Settings the owner controls"). Runs inside
@@ -105,7 +106,7 @@ export async function getSettings(
     content: AiSettingsSchema.parse(v.content),
   }));
   return {
-    canEdit: role === 'owner',
+    canEdit: await userCan(client, tenantId, role, 'edit_templates'),
     businessName,
     templates: { versions: templates },
     ai: { versions: ai },

@@ -3,10 +3,10 @@ import { priorityOf, type PriorityFacts } from './priority.js';
 
 /**
  * Work queues: leads grouped by what they need, so a person can work one kind of task at a
- * time. "Act now" comes first: every lead at the red priority level (someone may be at risk, or
- * it has waited over a day), whatever its task. Each lead also sits in exactly one task queue. A
- * lead's need comes from `nextStep`, so the queues always agree with the action the server will
- * accept.
+ * time. "Act now" comes first: every lead at the red priority level (someone may be at risk, a
+ * time is about to be lost, or it has waited longer than the business allows), whatever its task.
+ * Each lead also sits in exactly one task queue. A lead's need comes from `nextStep`, so the
+ * queues always agree with the action the server will accept.
  */
 
 export const QUEUES = [

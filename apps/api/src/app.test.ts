@@ -112,6 +112,9 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
         timezone: 'America/Chicago',
       },
       stage: 'live',
+      textingDeclined: false,
+      capabilities: ['act_on_leads', 'reply_templates', 'reply_free_text', 'edit_templates'],
+      freeTextChannels: [],
       services: { texting: 'approved', email: 'submitted' },
       calendar: { provider: 'google', status: 'connected' },
     });
@@ -296,6 +299,24 @@ describe.skipIf(!reachable)('portal routes (local stack)', () => {
       const res = await get('/portal/calendar?from=2026-02-30', 'carla@riverbend.example.com');
       expect(res.statusCode).toBe(400);
     });
+  });
+
+  // Decision 37: each business's own limit, and held times, for the Act now rules.
+  it("gives the Front Desk the business's Act now limit and each request's hold", async () => {
+    const res = await get('/portal/today', 'rhett@riverbend.example.com');
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.actNowAfterHours).toBe(4);
+    const cards = Object.values(body.lanes).flat() as {
+      next: { need: string };
+      holdExpiresAt: string | null;
+    }[];
+    const approve = cards.filter((c) => c.next.need === 'approve');
+    expect(approve.length).toBeGreaterThan(0);
+    expect(approve.every((c) => c.holdExpiresAt !== null)).toBe(true);
+    expect((await get('/portal/today', 'mara@northline.example.com')).json().actNowAfterHours).toBe(
+      24,
+    );
   });
 
   it('keeps tokens and customer details out of the logs', async () => {

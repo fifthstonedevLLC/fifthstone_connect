@@ -290,7 +290,7 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
       body.onboarding.steps
         .filter((s: { done: boolean }) => !s.done)
         .map((s: { key: string }) => s.key),
-    ).toEqual(['apply']);
+    ).toEqual(['texting']);
     expect(body.onboarding.application.ready).toBe(true);
 
     const { rows } = await pool.query<{ n: string }>(
@@ -316,7 +316,26 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
     );
   });
 
-  it('sends the application only when the owner confirms it, then waits for go-live', async () => {
+  // Decision 36: texting is optional; going without it finishes setup too.
+  it('lets the owner go without texting, which finishes setup', async () => {
+    expect((await call('POST', '/portal/onboarding/no-texting', 'staff')).statusCode).toBe(403);
+    const res = await call('POST', '/portal/onboarding/no-texting', 'owner');
+    expect(res.statusCode).toBe(200);
+    expect(res.json().stage).toBe('ready');
+    expect(res.json().application.declinedAt).not.toBeNull();
+    expect(res.json().steps.every((s: { done: boolean }) => s.done)).toBe(true);
+    const me = (await call('GET', '/portal/me', 'owner')).json();
+    expect(me).toMatchObject({ stage: 'ready', textingDeclined: true });
+    // Ready is not live: the working pages stay locked until Fifth Stone Dev turns it on.
+    expect((await call('GET', '/portal/today', 'owner')).statusCode).toBe(403);
+    // Choosing again changes nothing.
+    expect((await call('POST', '/portal/onboarding/no-texting', 'owner')).statusCode).toBe(200);
+    expect((await audits()).filter((a) => a.action === 'onboarding.texting_declined')).toHaveLength(
+      1,
+    );
+  });
+
+  it('sends the application only when the owner confirms it, turning texting back on', async () => {
     const unconfirmed = await call('POST', '/portal/onboarding/application', 'owner', {
       confirmed: false,
     });
@@ -328,20 +347,25 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
 
     const res = await call('POST', '/portal/onboarding/application', 'owner', { confirmed: true });
     expect(res.statusCode).toBe(200);
-    expect(res.json().stage).toBe('applied');
+    expect(res.json().stage).toBe('ready');
     expect(res.json().application.submittedAt).not.toBeNull();
+    expect(res.json().application.declinedAt).toBeNull();
     expect(res.json().steps.every((s: { done: boolean }) => s.done)).toBe(true);
     expect((await audits()).at(-1)).toMatchObject({
       action: 'onboarding.application_submitted',
       detail: { resubmitted: false },
     });
 
-    // Sent is not live: the working pages stay locked until Fifth Stone Dev turns it on.
-    expect((await call('GET', '/portal/me', 'staff')).json().stage).toBe('applied');
-    expect((await call('GET', '/portal/today', 'owner')).statusCode).toBe(403);
+    expect((await call('GET', '/portal/me', 'staff')).json()).toMatchObject({
+      stage: 'ready',
+      textingDeclined: false,
+    });
+    // Once it is with the carriers, declining is Fifth Stone Dev's call.
+    const decline = await call('POST', '/portal/onboarding/no-texting', 'owner');
+    expect(decline.json()).toEqual({ error: 'application_sent' });
   });
 
-  it('a live business has nothing to apply for', async () => {
+  it('a business whose texting is approved has nothing to apply for', async () => {
     const res = await call(
       'POST',
       '/portal/onboarding/application',
@@ -351,7 +375,7 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
       },
     );
     expect(res.statusCode).toBe(409);
-    expect(res.json()).toEqual({ error: 'already_live' });
+    expect(res.json()).toEqual({ error: 'already_approved' });
   });
 
   it('opens the working pages once the business is live', async () => {
@@ -431,6 +455,11 @@ describe.skipIf(!ready)('portal onboarding (local stack, test tenant)', () => {
         trade: { key: 'auto_repair' },
         jobMinutes: 30,
       });
+      const config = await pool.query<{ act_now_after_hours: number }>(
+        `select act_now_after_hours from app.tenant_config where tenant_id = $1`,
+        [T],
+      );
+      expect(config.rows[0]?.act_now_after_hours).toBe(8);
       const { rows } = await pool.query<{ version: number }>(
         `select version from app.tenant_templates where tenant_id = $1 order by version`,
         [T],

@@ -12,7 +12,7 @@ const NAV: { label: string; icon: IconName; to?: string }[] = [
   { label: 'Templates & AI', icon: 'templates', to: '/templates' },
   { label: 'Setup', icon: 'setup', to: '/setup' },
   { label: 'Reporting', icon: 'reporting' },
-  { label: 'Settings', icon: 'settings' },
+  { label: 'Settings', icon: 'settings', to: '/settings' },
 ];
 
 /** Before go-live only setup is open (decision 35); staff have nothing to change yet. */
@@ -20,7 +20,7 @@ function navFor(me: Me): typeof NAV {
   if (me.stage === 'live') return NAV;
   if (me.role !== 'owner') return [];
   return [
-    ...(me.stage === 'applied' ? [{ label: 'Status', icon: 'clock' as const, to: '/' }] : []),
+    ...(me.stage === 'ready' ? [{ label: 'Status', icon: 'clock' as const, to: '/' }] : []),
     { label: 'Setup', icon: 'setup', to: '/setup' },
     { label: 'Templates & AI', icon: 'templates', to: '/templates' },
   ];
@@ -31,17 +31,19 @@ function ServiceRow({
   state,
 }: {
   label: string;
-  state: ServiceState | 'connected' | 'revoked' | 'disconnected';
+  state: ServiceState | 'connected' | 'revoked' | 'disconnected' | 'not_used';
 }) {
   const live = state === 'approved' || state === 'connected';
   const text =
-    state === 'connected'
-      ? 'Connected'
-      : state === 'revoked'
-        ? 'Reconnect needed'
-        : state === 'disconnected'
-          ? 'Not connected'
-          : serviceLabel(state);
+    state === 'not_used'
+      ? 'Not used'
+      : state === 'connected'
+        ? 'Connected'
+        : state === 'revoked'
+          ? 'Reconnect needed'
+          : state === 'disconnected'
+            ? 'Not connected'
+            : serviceLabel(state);
   return (
     <li className="service">
       <Icon
@@ -129,7 +131,11 @@ export function Shell({
           <div className="sidebar__footer">
             <h2 className="sidebar__heading">Services</h2>
             <ul className="services">
-              <ServiceRow label="Texting" state={me.services.texting} />
+              {me.textingDeclined ? (
+                <ServiceRow label="Texting" state="not_used" />
+              ) : (
+                <ServiceRow label="Texting" state={me.services.texting} />
+              )}
               <ServiceRow label="Email" state={me.services.email} />
               <ServiceRow label="Calendar" state={me.calendar?.status ?? 'disconnected'} />
             </ul>

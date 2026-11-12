@@ -31,6 +31,11 @@ export interface Workflow {
   summary: string;
   /** Who approves and where: by text for people on the road, in the portal for a front desk. */
   approverChannel: 'text' | 'portal';
+  /**
+   * How long a lead may wait on the business before it goes to Act now (decision 37). Copied to
+   * the business when it picks this workflow; repairs and drop-offs go stale fastest.
+   */
+  actNowAfterHours: number;
   /** The starter template set; every key the engine sends at a fixed point. */
   templates: Record<string, string>;
 }
@@ -66,6 +71,7 @@ export const WORKFLOWS: readonly Workflow[] = [
     name: 'Service call',
     summary: 'A visit to fix something, sooner when it is urgent.',
     approverChannel: 'text',
+    actNowAfterHours: 4,
     templates: {
       missed_call_text_back: TEXT_BACK,
       slot_offer: 'Thanks. Here are open times for a visit. Reply with a number: {slots}',
@@ -82,6 +88,7 @@ export const WORKFLOWS: readonly Workflow[] = [
     name: 'Estimate visit',
     summary: 'A visit to look at the job and give a quote.',
     approverChannel: 'text',
+    actNowAfterHours: 24,
     templates: {
       missed_call_text_back: TEXT_BACK,
       slot_offer: 'Thanks. Here are open times for an estimate visit. Reply with a number: {slots}',
@@ -98,6 +105,7 @@ export const WORKFLOWS: readonly Workflow[] = [
     name: 'Recurring service',
     summary: 'A first visit; the regular schedule is set up with a person after that.',
     approverChannel: 'text',
+    actNowAfterHours: 24,
     templates: {
       missed_call_text_back: TEXT_BACK,
       slot_offer: 'Thanks. Here are open times for a first visit. Reply with a number: {slots}',
@@ -115,6 +123,7 @@ export const WORKFLOWS: readonly Workflow[] = [
     name: 'Studio appointment',
     summary: 'A consult or session at your place, approved at the front desk.',
     approverChannel: 'portal',
+    actNowAfterHours: 24,
     templates: {
       missed_call_text_back: TEXT_BACK,
       slot_offer: 'Thanks. Here are open appointment times. Reply with a number: {slots}',
@@ -131,6 +140,7 @@ export const WORKFLOWS: readonly Workflow[] = [
     name: 'Shop drop-off',
     summary: 'A time to bring the item in; the work happens at your shop.',
     approverChannel: 'text',
+    actNowAfterHours: 8,
     templates: {
       missed_call_text_back: TEXT_BACK,
       slot_offer: 'Thanks. Here are open drop-off times. Reply with a number: {slots}',

@@ -159,17 +159,24 @@ or email address. Repeat contacts keep one history.
 4. Review pre-filled questions and templates.
 5. Approvers and staff logins.
 6. **Test it:** call the new number, hang up, receive the text back.
-7. **Apply for texting:** review what goes to the carriers (business details, how texts are
-   used, how customers agree to them, sample messages from the owner's own templates), confirm
-   it is accurate and send it.
+7. **Texting (optional, decision 36):** either review what goes to the carriers (business
+   details, how texts are used, how customers agree to them, sample messages from the owner's own
+   templates), confirm it is accurate and send it; or go without texting for now. A business
+   without texting gets missed calls and voicemails on its Front Desk to call back, and can turn
+   texting on later from this step.
 
-**Locked until live** (owner, 2026-11-11; decision 35). A business signs in to a portal that
-shows only Setup and Templates & AI until it is live. After the application is sent, the owner
-sees a status page (setup finished, texting registration, going live); staff see only that
-page. The Front Desk, lead pages and calendar stay locked on the server, and no calls, texts,
-jobs or calendar syncs run for the business. Fifth Stone Dev submits the application (by hand
-until the Phase 4 adapter), moves the texting status card, and turns the business on once
-texting is approved.
+**Act now** (owner, 2026-11-11; decision 37). The Front Desk's first queue holds every lead that
+cannot wait: someone may be at risk, a requested time's hold runs out within 4 hours, a customer
+wants to move or cancel an appointment within 48 hours, or a lead has waited longer than the
+business's own limit (set from its workflow: service call 4 hours, shop drop-off 8, others 24).
+
+**Locked until live** (owner, 2026-11-11; decisions 35 and 36). A business signs in to a
+portal that shows only Setup and Templates & AI until it is live. Once setup is finished, the
+owner sees a status page (setup, texting, going live); staff see only that page. The Front Desk,
+lead pages and calendar stay locked on the server, and no calls, texts, jobs or calendar syncs
+run for the business. Fifth Stone Dev turns it on with the operator CLI once setup is finished
+and its number is in place. **Going live never waits on texting approval**: texting switches on
+whenever it is approved, and until then no text is sent.
 
 ## Channels and vendors
 

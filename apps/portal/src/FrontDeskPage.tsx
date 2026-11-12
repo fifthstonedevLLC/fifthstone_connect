@@ -15,7 +15,15 @@ import {
 } from '@fsc/conversation';
 import { useEffect, useMemo, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { displayName, needLine, sentence, urgentFlag, waitingLabel, whenLabel } from './format';
+import {
+  displayName,
+  needLine,
+  sentence,
+  urgentFlag,
+  waitLimitLabel,
+  waitingLabel,
+  whenLabel,
+} from './format';
 import { Icon, type IconName } from './icons';
 import { LeadWorkspace } from './LeadPage';
 import type { LeadCard, Me, Need, Today } from './types';
@@ -31,7 +39,7 @@ import { useApi } from './useApi';
  */
 
 const QUEUE_UI: Record<QueueKey, { label: string; hint: string; icon: IconName }> = {
-  act_now: { label: 'Act now', hint: 'At risk or waiting over a day', icon: 'warning' },
+  act_now: { label: 'Act now', hint: 'At risk or running late', icon: 'warning' },
   approve: { label: 'Approve', hint: 'Customer picked a time', icon: 'check' },
   reply: { label: 'Reply', hint: 'Questions for the business', icon: 'reply' },
   call_back: { label: 'Call back', hint: 'Calls to make', icon: 'phone' },
@@ -69,7 +77,9 @@ const PRIORITY_LABEL: Record<Priority, string> = {
 
 const PRIORITY_REASON: Record<PriorityResult['reason'], string> = {
   risk: 'Someone may be at risk',
-  overdue: 'Waited over a day',
+  hold_expiring: 'Held time runs out soon',
+  appointment_soon: 'Appointment is coming up',
+  overdue: 'Waited too long',
   yours: 'Needs a response',
   theirs: 'No action needed',
 };
@@ -90,18 +100,23 @@ function useWide(): boolean {
 
 const allCards = (data: Today) => Object.values(data.lanes).flat();
 
-const facts = (card: LeadCard) => ({
+// The appointment matters for a move or cancel; the hold for a request to approve (decision 37).
+const facts = (card: LeadCard, overdueHours: number) => ({
   need: card.next.need,
   urgent: card.urgent,
   waitingSince: card.waitingSince,
+  holdExpiresAt: card.holdExpiresAt,
+  appointmentAt: card.slotStart,
+  overdueHours,
 });
 
-const cardPriority = (card: LeadCard) => priorityOf(facts(card));
+const cardPriority = (card: LeadCard, overdueHours: number) =>
+  priorityOf(facts(card, overdueHours));
 
 function queueItems(data: Today, queue: QueueKey): LeadCard[] {
   return orderForQueue(
     queue,
-    allCards(data).filter((card) => inQueue(queue, facts(card))),
+    allCards(data).filter((card) => inQueue(queue, facts(card, data.actNowAfterHours))),
     (card) => card,
   );
 }
@@ -161,17 +176,19 @@ function Row({
   card,
   queue,
   timeZone,
+  overdueHours,
   selected,
   onOpen,
 }: {
   card: LeadCard;
   queue: QueueKey;
   timeZone: string;
+  overdueHours: number;
   selected: boolean;
   onOpen: () => void;
 }) {
   const owner = isOwnerQueue(queue);
-  const priority = cardPriority(card);
+  const priority = cardPriority(card, overdueHours);
   return (
     <li>
       <button
@@ -223,7 +240,9 @@ export function FrontDeskPage({ me, accessToken }: { me: Me; accessToken: string
       Object.fromEntries(
         QUEUES.map((q) => [
           q.key,
-          data ? queueItems(data, q.key).map((card) => cardPriority(card).level) : [],
+          data
+            ? queueItems(data, q.key).map((card) => cardPriority(card, data.actNowAfterHours).level)
+            : [],
         ]),
       ) as Record<QueueKey, Priority[]>,
     [data],
@@ -372,7 +391,8 @@ export function FrontDeskPage({ me, accessToken }: { me: Me; accessToken: string
           <ul className="legend" aria-label="What the colours mean">
             <li>
               <span className="legend__dot legend__dot--now" aria-hidden="true" />
-              <strong>Act now</strong> at risk, or waiting over a day
+              <strong>Act now</strong> at risk, about to lose a time, or waiting over{' '}
+              {waitLimitLabel(data?.actNowAfterHours ?? 24)}
             </li>
             <li>
               <span className="legend__dot legend__dot--soon" aria-hidden="true" />
@@ -424,6 +444,7 @@ export function FrontDeskPage({ me, accessToken }: { me: Me; accessToken: string
                       card={card}
                       queue={queue}
                       timeZone={timeZone}
+                      overdueHours={data.actNowAfterHours}
                       selected={wide && card.id === selected?.id}
                       onOpen={() => select(card)}
                     />
@@ -439,7 +460,7 @@ export function FrontDeskPage({ me, accessToken }: { me: Me; accessToken: string
               <section className="pane" aria-label={`Contact: ${displayName(selected)}`}>
                 <div className="pane__bar">
                   {(() => {
-                    const p = cardPriority(selected);
+                    const p = cardPriority(selected, data.actNowAfterHours);
                     return (
                       <span className={`priority priority--${p.level} priority--wide`}>
                         {PRIORITY_LABEL[p.level]} · {PRIORITY_REASON[p.reason]}

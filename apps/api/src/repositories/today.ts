@@ -1,4 +1,10 @@
-import { nextStep, urgentFirst, type Need, type NextAction } from '@fsc/conversation';
+import {
+  OVERDUE_HOURS,
+  nextStep,
+  urgentFirst,
+  type Need,
+  type NextAction,
+} from '@fsc/conversation';
 import { LANE_STATES, type LeadState, type Urgency } from '@fsc/core';
 import type { DbClient } from '../db.js';
 
@@ -17,6 +23,8 @@ export interface LeadCard {
   slotStart: string | null;
   /** State of the open, approved or changed request, if any. */
   requestState: 'pending' | 'approved' | 'changed' | null;
+  /** When the pending request's held time is released if nobody decides (ISO 8601). */
+  holdExpiresAt: string | null;
   /** An emergency, safety or crisis lead: shown first and flagged. */
   urgent: boolean;
   /** When the lead entered its current state: how long it has been waiting (ISO 8601). */
@@ -26,6 +34,12 @@ export interface LeadCard {
 }
 
 export type Lanes = Record<keyof typeof LANE_STATES, LeadCard[]>;
+
+/** The Front Desk's leads, and this business's limit before a waiting lead is late. */
+export interface Today {
+  lanes: Lanes;
+  actNowAfterHours: number;
+}
 
 interface Row {
   id: string;
@@ -38,6 +52,7 @@ interface Row {
   created_at: Date;
   slot_start: Date | null;
   request_state: 'pending' | 'approved' | 'changed' | null;
+  hold_expires_at: Date | null;
   state_changed_at: Date;
   nudged: boolean;
   has_voicemail: boolean;
@@ -47,11 +62,14 @@ interface Row {
  * Runs inside `withTenant`. The explicit tenant filter repeats what row-level security already
  * enforces, so the query is correct even read on its own (CLAUDE.md rule 3).
  */
-export async function getToday(client: DbClient, tenantId: string): Promise<Lanes> {
+export async function getToday(client: DbClient, tenantId: string): Promise<Today> {
   const laneStates = Object.values(LANE_STATES).flat();
   const { rows } = await client.query<Row>(
     `select l.id, c.display_name, c.phone, l.summary, l.state, l.state_reason, l.urgency,
             l.created_at, l.state_changed_at, r.slot_start, r.state as request_state,
+            (select h.expires_at from app.calendar_holds h
+              where h.tenant_id = l.tenant_id and h.request_id = r.id and h.state = 'active')
+              as hold_expires_at,
             exists (select 1 from app.jobs j
                      where j.tenant_id = l.tenant_id and j.lead_id = l.id
                        and j.action_type = 'send_nudge' and j.status <> 'skipped') as nudged,
@@ -61,7 +79,7 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
        from app.leads l
        join app.contacts c on c.tenant_id = l.tenant_id and c.id = l.contact_id
        left join lateral (
-         select slot_start, state from app.requests r
+         select id, slot_start, state from app.requests r
           where r.tenant_id = l.tenant_id and r.lead_id = l.id
             and r.state in ('pending', 'approved', 'changed')
           order by r.created_at desc
@@ -108,6 +126,7 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
       createdAt: row.created_at.toISOString(),
       slotStart: row.slot_start?.toISOString() ?? null,
       requestState: row.request_state,
+      holdExpiresAt: row.hold_expires_at?.toISOString() ?? null,
       urgent: step.urgent,
       waitingSince: row.state_changed_at.toISOString(),
       next: { need: step.need, action: step.action },
@@ -115,5 +134,9 @@ export async function getToday(client: DbClient, tenantId: string): Promise<Lane
   }
   // Someone may be at risk: these come first however long ago they came in.
   lanes.needsYou = urgentFirst(lanes.needsYou);
-  return lanes;
+  const config = await client.query<{ act_now_after_hours: number }>(
+    `select act_now_after_hours from app.tenant_config where tenant_id = $1`,
+    [tenantId],
+  );
+  return { lanes, actNowAfterHours: config.rows[0]?.act_now_after_hours ?? OVERDUE_HOURS };
 }

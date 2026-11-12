@@ -102,7 +102,10 @@ export const BusinessHoursListSchema = z
 
 export type BusinessHoursList = z.output<typeof BusinessHoursListSchema>;
 
-/** The setup steps, in order (SCOPE.md v0.2); the last sends the texting application. */
+/**
+ * The setup steps, in order (SCOPE.md v0.2). The last is a choice: send the texting application,
+ * or go without texting for now (decision 36).
+ */
 export const ONBOARDING_STEPS = [
   'business_type',
   'details',
@@ -110,11 +113,11 @@ export const ONBOARDING_STEPS = [
   'templates',
   'team',
   'test',
-  'apply',
+  'texting',
 ] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
-/** What the database knows about a business's setup. */
+/** What the database knows about a business's setup (one row of `app.setup_progress`). */
 export interface OnboardingFacts {
   typeConfirmed: boolean;
   profileSaved: boolean;
@@ -124,25 +127,35 @@ export interface OnboardingFacts {
   approvers: number;
   testRun: boolean;
   applicationSent: boolean;
+  textingDeclined: boolean;
+}
+
+/** A row of `app.setup_progress` as facts. */
+export function factsFromProgress(row: {
+  type_confirmed: boolean;
+  profile_saved: boolean;
+  hours_set: boolean;
+  calendar_connected: boolean;
+  templates_reviewed: boolean;
+  approvers: number;
+  test_run: boolean;
+  application_sent: boolean;
+  texting_declined: boolean;
+}): OnboardingFacts {
+  return {
+    typeConfirmed: row.type_confirmed,
+    profileSaved: row.profile_saved,
+    hoursSet: row.hours_set,
+    calendarConnected: row.calendar_connected,
+    templatesReviewed: row.templates_reviewed,
+    approvers: row.approvers,
+    testRun: row.test_run,
+    applicationSent: row.application_sent,
+    textingDeclined: row.texting_declined,
+  };
 }
 
 /** Each step and whether it is done. A step is done only when its data says so. */
-/**
- * Where a business stands (decision 35): finishing setup, application sent and waiting for
- * approval, or live. Only live businesses use the portal's working pages.
- */
-export type SetupStage = 'setting_up' | 'applied' | 'live';
-
-export function setupStage(live: boolean, applicationSent: boolean): SetupStage {
-  if (live) return 'live';
-  return applicationSent ? 'applied' : 'setting_up';
-}
-
-/** Whether everything before the application is done, so it can be sent. */
-export function readyToApply(steps: readonly { key: OnboardingStep; done: boolean }[]): boolean {
-  return steps.filter((s) => s.key !== 'apply').every((s) => s.done);
-}
-
 export function onboardingSteps(facts: OnboardingFacts): { key: OnboardingStep; done: boolean }[] {
   const done: Record<OnboardingStep, boolean> = {
     business_type: facts.typeConfirmed,
@@ -151,7 +164,45 @@ export function onboardingSteps(facts: OnboardingFacts): { key: OnboardingStep; 
     templates: facts.templatesReviewed,
     team: facts.approvers > 0,
     test: facts.testRun,
-    apply: facts.applicationSent,
+    texting: facts.applicationSent || facts.textingDeclined,
   };
   return ONBOARDING_STEPS.map((key) => ({ key, done: done[key] }));
+}
+
+/**
+ * Where a business stands (decisions 35 and 36): finishing setup, setup finished and waiting for
+ * Fifth Stone Dev to turn it on, or live. Only live businesses use the portal's working pages.
+ * Texting approval is not part of it: texting turns on whenever it is approved.
+ */
+export type SetupStage = 'setting_up' | 'ready' | 'live';
+
+export function setupStage(live: boolean, setupDone: boolean): SetupStage {
+  if (live) return 'live';
+  return setupDone ? 'ready' : 'setting_up';
+}
+
+export function setupDone(steps: readonly { key: OnboardingStep; done: boolean }[]): boolean {
+  return steps.every((s) => s.done);
+}
+
+/** Whether everything before the texting step is done, so the application can be sent. */
+export function readyToApply(steps: readonly { key: OnboardingStep; done: boolean }[]): boolean {
+  return steps.filter((s) => s.key !== 'texting').every((s) => s.done);
+}
+
+/** Why a business cannot go live yet; empty when it can (decision 36). */
+export type GoLiveProblem = 'disabled' | 'already_live' | 'setup_incomplete' | 'no_number';
+
+export function goLiveProblems(input: {
+  status: 'onboarding' | 'active' | 'disabled';
+  setupDone: boolean;
+  /** The Fifth Stone Connect number calls are forwarded to; without it nothing comes in. */
+  connectNumber: string | null;
+}): GoLiveProblem[] {
+  if (input.status === 'disabled') return ['disabled'];
+  if (input.status === 'active') return ['already_live'];
+  const problems: GoLiveProblem[] = [];
+  if (!input.setupDone) problems.push('setup_incomplete');
+  if (!input.connectNumber) problems.push('no_number');
+  return problems;
 }

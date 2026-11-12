@@ -1,4 +1,6 @@
 import {
+  CAPABILITIES,
+  FREE_TEXT_CHANNELS,
   AiSettingsSchema,
   BusinessHoursListSchema,
   BusinessProfileSchema,
@@ -29,7 +31,15 @@ import { z } from 'zod';
 import { requirePortalUser, type PortalUser, type TokenVerifier } from './auth.js';
 import { withTenant, type DbClient } from './db.js';
 import { applyAction } from './repositories/actions.js';
-import { sendReply } from './repositories/replies.js';
+import { sendReply, type ReplyInput } from './repositories/replies.js';
+import { userCan } from './repositories/permissions.js';
+import {
+  getBusinessSettings,
+  saveActNowHours,
+  saveFreeTextChannels,
+  saveStaffCapabilities,
+  setPersonActive,
+} from './repositories/business-settings.js';
 import { getLead } from './repositories/lead.js';
 import { getMe } from './repositories/me.js';
 import {
@@ -43,6 +53,7 @@ import {
 import {
   chooseBusinessType,
   confirmBusinessType,
+  declineTexting,
   submitApplication,
   getOnboarding,
   markTemplatesReviewed,
@@ -134,6 +145,7 @@ const LeadCardSchema = z.object({
   createdAt: z.iso.datetime(),
   slotStart: z.iso.datetime().nullable(),
   requestState: z.enum(['pending', 'approved', 'changed']).nullable(),
+  holdExpiresAt: z.iso.datetime().nullable(),
   urgent: z.boolean(),
   waitingSince: z.iso.datetime(),
   next: z.object({ need: z.enum(NEEDS), action: z.enum(NEXT_ACTIONS).nullable() }),
@@ -146,13 +158,17 @@ const TodaySchema = z.object({
     booked: z.array(LeadCardSchema),
     wentQuiet: z.array(LeadCardSchema),
   }),
+  actNowAfterHours: z.number().int(),
 });
 
 const MeSchema = z.object({
   displayName: z.string(),
   role: z.enum(['owner', 'staff']),
   tenant: z.object({ name: z.string(), slug: z.string(), timezone: z.string() }),
-  stage: z.enum(['setting_up', 'applied', 'live']),
+  stage: z.enum(['setting_up', 'ready', 'live']),
+  textingDeclined: z.boolean(),
+  capabilities: z.array(z.enum(CAPABILITIES)),
+  freeTextChannels: z.array(z.enum(FREE_TEXT_CHANNELS)),
   services: z.object({
     texting: z.enum(SERVICE_REGISTRATION_STATES),
     email: z.enum(SERVICE_REGISTRATION_STATES),
@@ -334,6 +350,8 @@ const OnboardingSchema = z.object({
   application: z.object({
     ready: z.boolean(),
     submittedAt: IsoDate.nullable(),
+    declinedAt: IsoDate.nullable(),
+    registration: z.enum(SERVICE_REGISTRATION_STATES),
     preview: z
       .object({
         useCase: z.string(),
@@ -342,7 +360,7 @@ const OnboardingSchema = z.object({
       })
       .nullable(),
   }),
-  stage: z.enum(['setting_up', 'applied', 'live']),
+  stage: z.enum(['setting_up', 'ready', 'live']),
   connectNumber: z.string().nullable(),
 });
 
@@ -458,10 +476,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         { schema: { response: { 200: TodaySchema, 401: ErrorSchema, 403: ErrorSchema } } },
         async (request) => {
           const user = request.portalUser!;
-          const lanes = await withTenant(deps.pool, user.tenantId, (client) =>
-            getToday(client, user.tenantId),
-          );
-          return { lanes };
+          return withTenant(deps.pool, user.tenantId, (client) => getToday(client, user.tenantId));
         },
       );
 
@@ -539,6 +554,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           const user = request.portalUser!;
           const { id } = request.params;
           const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+            if (!(await userCan(client, user.tenantId, user.role, 'act_on_leads'))) {
+              return { ok: false as const, error: 'not_permitted' as const };
+            }
             const applied = await applyAction(
               client,
               user.tenantId,
@@ -551,27 +569,32 @@ export function buildApp(deps: AppDeps): FastifyInstance {
               : applied;
           });
           if (!outcome.ok) {
-            return reply
-              .code(outcome.error === 'not_found' ? 404 : 409)
-              .send({ error: outcome.error });
+            const status =
+              outcome.error === 'not_permitted' ? 403 : outcome.error === 'not_found' ? 404 : 409;
+            return reply.code(status).send({ error: outcome.error });
           }
           return outcome.lead ?? reply.code(404).send({ error: 'not_found' });
         },
       );
 
-      // Template replies only (decision 26). `messageId` comes from the client, so submitting the
-      // same reply twice records one message. Answers with the lead as it now stands.
+      // A template reply (decision 26), or a person's own words where the owner has switched free
+      // text on (decision 39); each needs its own permission (decision 40). `messageId` comes
+      // from the client, so submitting the same reply twice records one message. Answers with the
+      // lead as it now stands.
       typed.post(
         '/leads/:id/replies',
         {
           schema: {
             params: z.object({ id: z.uuid() }),
-            body: z
-              .object({
-                templateKey: z.string().regex(/^[a-z][a-z_]{1,59}$/),
-                messageId: z.uuid(),
-              })
-              .strict(),
+            body: z.union([
+              z
+                .object({
+                  templateKey: z.string().regex(/^[a-z][a-z_]{1,59}$/),
+                  messageId: z.uuid(),
+                })
+                .strict(),
+              z.object({ text: z.string().max(1600), messageId: z.uuid() }).strict(),
+            ]),
             response: {
               200: LeadDetailSchema,
               401: ErrorSchema,
@@ -584,23 +607,32 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         async (request, reply) => {
           const user = request.portalUser!;
           const { id } = request.params;
+          const body = request.body;
+          const input: ReplyInput =
+            'text' in body
+              ? { kind: 'text', text: body.text }
+              : { kind: 'template', templateKey: body.templateKey };
           const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+            const needs = input.kind === 'text' ? 'reply_free_text' : 'reply_templates';
+            if (!(await userCan(client, user.tenantId, user.role, needs))) {
+              return { ok: false as const, error: 'not_permitted' as const };
+            }
             const sent = await sendReply(
               client,
               user.tenantId,
               user.portalUserId,
               id,
-              request.body.templateKey,
-              request.body.messageId,
+              input,
+              body.messageId,
             );
             return sent.ok
               ? { ok: true as const, lead: await getLead(client, user.tenantId, id) }
               : sent;
           });
           if (!outcome.ok) {
-            return reply
-              .code(outcome.error === 'not_found' ? 404 : 409)
-              .send({ error: outcome.error });
+            const status =
+              outcome.error === 'not_permitted' ? 403 : outcome.error === 'not_found' ? 404 : 409;
+            return reply.code(status).send({ error: outcome.error });
           }
           return outcome.lead ?? reply.code(404).send({ error: 'not_found' });
         },
@@ -624,13 +656,18 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         reply: FastifyReply,
         write: (client: DbClient) => Promise<WriteResult>,
       ) => {
-        if (user.role !== 'owner') return reply.code(403).send({ error: 'owner_only' });
         const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+          if (!(await userCan(client, user.tenantId, user.role, 'edit_templates'))) {
+            return { ok: false as const, error: 'not_permitted' as const };
+          }
           const written = await write(client);
           return written.ok
             ? { ok: true as const, settings: await getSettings(client, user.tenantId, user.role) }
             : written;
         });
+        if (!outcome.ok && outcome.error === 'not_permitted') {
+          return reply.code(403).send({ error: 'not_permitted' });
+        }
         if (outcome.ok) return outcome.settings;
         if (outcome.error === 'template_problems') return reply.code(422).send(outcome);
         return reply.code(outcome.error === 'not_found' ? 404 : 409).send({ error: outcome.error });
@@ -689,6 +726,138 @@ export function buildApp(deps: AppDeps): FastifyInstance {
           const kind: SettingsKind = request.params.kind;
           return writeSettings(user, reply, (client) =>
             restoreSettings(client, user.tenantId, user.portalUserId, kind, request.body),
+          );
+        },
+      );
+
+      // The Settings page (Iteration 1): everyone reads it; only the owner changes it. Each write
+      // answers with the settings as they now stand (decision 24).
+      const BusinessSettingsSchema = z.object({
+        canEdit: z.boolean(),
+        team: z.array(
+          z.object({
+            id: z.uuid(),
+            name: z.string(),
+            role: z.enum(['owner', 'staff']),
+            mobile: z.string().nullable(),
+            approvesRequests: z.boolean(),
+            active: z.boolean(),
+          }),
+        ),
+        staffCapabilities: z.array(z.enum(CAPABILITIES)),
+        freeTextChannels: z.array(z.enum(FREE_TEXT_CHANNELS)),
+        actNowAfterHours: z.number().int(),
+        texting: z.object({
+          state: z.enum(SERVICE_REGISTRATION_STATES),
+          declined: z.boolean(),
+        }),
+      });
+      const BusinessWriteResponses = {
+        200: BusinessSettingsSchema,
+        401: ErrorSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+        409: ErrorSchema,
+      };
+      typed.get(
+        '/business',
+        {
+          schema: { response: { 200: BusinessSettingsSchema, 401: ErrorSchema, 403: ErrorSchema } },
+        },
+        async (request) => {
+          const user = request.portalUser!;
+          return withTenant(deps.pool, user.tenantId, (client) =>
+            getBusinessSettings(client, user.tenantId, user.role),
+          );
+        },
+      );
+      const writeBusiness = async (
+        user: PortalUser,
+        reply: FastifyReply,
+        write: (client: DbClient) => Promise<{ ok: true } | { ok: false; error: string }>,
+      ) => {
+        if (user.role !== 'owner') return reply.code(403).send({ error: 'owner_only' });
+        const outcome = await withTenant(deps.pool, user.tenantId, async (client) => {
+          const written = await write(client);
+          return written.ok
+            ? {
+                ok: true as const,
+                settings: await getBusinessSettings(client, user.tenantId, user.role),
+              }
+            : written;
+        });
+        if (outcome.ok) return outcome.settings;
+        return reply.code(outcome.error === 'not_found' ? 404 : 409).send({ error: outcome.error });
+      };
+      typed.put(
+        '/business/permissions',
+        {
+          schema: {
+            body: z.object({ staffCapabilities: z.array(z.enum(CAPABILITIES)) }).strict(),
+            response: BusinessWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeBusiness(user, reply, (client) =>
+            saveStaffCapabilities(
+              client,
+              user.tenantId,
+              user.portalUserId,
+              request.body.staffCapabilities,
+            ),
+          );
+        },
+      );
+      typed.put(
+        '/business/free-text',
+        {
+          schema: {
+            body: z.object({ channels: z.array(z.enum(FREE_TEXT_CHANNELS)) }).strict(),
+            response: BusinessWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeBusiness(user, reply, (client) =>
+            saveFreeTextChannels(client, user.tenantId, user.portalUserId, request.body.channels),
+          );
+        },
+      );
+      typed.put(
+        '/business/act-now',
+        {
+          schema: {
+            body: z.object({ hours: z.number().int().min(1).max(168) }).strict(),
+            response: BusinessWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeBusiness(user, reply, (client) =>
+            saveActNowHours(client, user.tenantId, user.portalUserId, request.body.hours),
+          );
+        },
+      );
+      typed.put(
+        '/business/team/:id',
+        {
+          schema: {
+            params: z.object({ id: z.uuid() }),
+            body: z.object({ active: z.boolean() }).strict(),
+            response: BusinessWriteResponses,
+          },
+        },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeBusiness(user, reply, (client) =>
+            setPersonActive(
+              client,
+              user.tenantId,
+              user.portalUserId,
+              request.params.id,
+              request.body.active,
+            ),
           );
         },
       );
@@ -756,6 +925,18 @@ export function buildApp(deps: AppDeps): FastifyInstance {
               user.role,
               request.body.confirmed,
             ),
+          );
+        },
+      );
+
+      // Or the owner goes without texting for now (decision 36).
+      typed.post(
+        '/onboarding/no-texting',
+        { schema: { response: OnboardingWriteResponses } },
+        async (request, reply) => {
+          const user = request.portalUser!;
+          return writeOnboarding(user, reply, (client) =>
+            declineTexting(client, user.tenantId, user.portalUserId, user.role),
           );
         },
       );

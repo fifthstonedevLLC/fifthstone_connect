@@ -12,6 +12,163 @@ last_updated: '2026-11-02'
 
 Newest first. Each entry: date, change, rationale, test evidence.
 
+## 2026-11-12 — Iteration 1: Settings, permissions, free text, set-password
+
+**Change:** the first roadmap iteration (decisions 39 and 40 resolved; decision 26 superseded).
+
+- **Permissions** (`packages/core/src/permissions.ts`): four capabilities the owner grants to
+  staff: act on contacts, reply with templates, reply in their own words, edit templates and AI.
+  Staff start with the first two, as before; the owner holds all. Every lead action, reply and
+  template or AI save checks the capability on the server (`403 not_permitted`); `/portal/me`
+  returns the person's capabilities so the portal hides what would be refused.
+- **Free-text replies over texts**: an owner-only switch (off by default). With it on, people
+  allowed to type a reply on the lead page ("Your own words"), with a live text count. The server
+  checks the switch, the permission, opt-out and closed leads (as for templates), at most 3
+  segments, and that the first text to a customer names the business (`checkFreeText` in
+  `packages/conversation`). The message is recorded as from staff; the audit names it free text
+  and its length, never the words.
+- **Settings page** (`/settings`, the sidebar item that said "Soon"): team (turn a staff member's
+  access off or back on; the owner always stays on; someone turned off cannot sign in and stops
+  approving), what staff can do, the free-text switch, and the Act now limit (decision 37).
+  Routes: `GET /portal/business`, `PUT /portal/business/permissions`, `/free-text`, `/act-now`,
+  `/team/:id`; owner-only writes, each audited.
+- **Set-password screen**: opening a one-time link signs the person in once and asks for a
+  password (10 characters or more). Local Supabase Auth now returns to the portal
+  (`site_url` and redirect URLs in `supabase/config.toml`) and requires 10 characters.
+- **Operator CLI**: `add-person <slug> --name --email [--mobile]` adds staff with a login and a
+  set-password link; `password-link <email>` makes a fresh one. Links go to `PORTAL_URL`.
+- Migration `20261111234513_permissions_and_free_text.sql`: `tenant_config.staff_capabilities` and
+  `free_text_channels`. Ledger row added.
+- Docs: decisions 26, 39 and 40, `ROADMAP.md`, `CLAUDE.md`, `ONBOARDING.md`, `.env.example`.
+
+**Not decided:** owners inviting staff themselves from Settings (the API would need Supabase's
+admin key on the server); a manager role; the same free-text switch for email and social
+channels as they are built.
+
+**Test evidence:** core permission tests; free-text rule tests; API tests on the local stack
+(staff start with two capabilities; free text refused while off; only the owner changes
+Settings; first text must name the business; too long refused; message stored as staff with an
+audit that holds no words; staff need the permission even with the switch on; removed
+permissions refuse actions, template replies and template editing; Act now limit 1 hour to a
+week; the owner cannot be turned off; someone turned off cannot sign in); operator tests
+(add-person once, a login from another business refused, password-link only for people who sign
+in). By hand on the local stack after restarting Supabase with the new Auth settings:
+`add-person` made a set-password link that opened the portal's password screen and then the
+Front Desk; as the owner, Settings turned free text on, and a typed reply on a lead was queued as
+a staff message. The database was reset afterwards.
+
+## 2026-11-11 — Roadmap: every channel, free text, permissions
+
+**Change:** new `docs/product/ROADMAP.md`, the proposed next iterations after the owner's
+direction that Fifth Stone Connect gather every way customers reach a business (calls, texts,
+email, web forms, Facebook Messenger, Instagram, later WhatsApp) and let the owner allow
+free-text replies, with permissions. Four iterations: Settings, permissions and free text over
+texts; email, web form and a channel model; the Contacts page, an order support workflow
+(Trailer Toad) and reporting; real adapters with Messenger and Instagram first among social. A
+gap list (set-password screen, staff invites, attachments, quiet hours, per-channel templates
+and others). Open decisions 38 to 43 added; backlog rows added; `CLAUDE.md` points to the
+roadmap.
+
+**Rationale:** the reference businesses show the phone is not always the front door (WayMaker
+Ink works through Messenger and email) and not every conversation ends in a booking (Trailer
+Toad sells products).
+
+**Social platforms (same day):** the owner's list (Messenger, Instagram, WhatsApp, LinkedIn, X,
+TikTok, Telegram) was checked for third-party access and added to `ROADMAP.md` as tiers: build
+(Messenger, Instagram, then WhatsApp, all on one Meta app), possible (Telegram's free Bot API;
+X's pay-per-use API), partner-gated (LinkedIn Page messaging, TikTok's beta messaging API).
+Decision 42 now covers WhatsApp; decision 44 added; backlog rows updated. Sources are listed in
+the roadmap and are vendor and integrator pages, to be confirmed against each platform's own
+documentation when its adapter is built.
+
+**Owner's call (same day):** LinkedIn and TikTok are removed: no partner programs. Telegram and X
+move into the roadmap as Iteration 5; any platform's extra cost or limits are settled per client
+at contract time. Decision 44 resolved; backlog updated.
+
+**Test evidence:** documentation only; no code changed.
+
+## 2026-11-11 — Act now: closer to too late, per business
+
+**Change:** Act now catches the cases that slip before 24 hours are up (owner, 2026-11-11;
+decision 37). A lead is red when:
+
+- someone may be at risk (unchanged);
+- a requested time's hold runs out within 4 hours (it used to turn red at the same moment the
+  default 24-hour hold expired, too late to act);
+- a customer wants to move or cancel an appointment within 48 hours (the slot needs filling);
+- it has waited on the business longer than that business's own limit.
+
+The limit is per business: migration `20261111231904_act_now_rules.sql` adds
+`tenant_config.act_now_after_hours`, set from the workflow when it is picked (service call 4
+hours, shop drop-off 8, estimate visit, recurring service and studio appointment 24). Existing
+businesses and the mock seed get their workflow's default. `/portal/today` returns the limit and
+each pending request's hold expiry; the Front Desk legend names the limit ("waiting over 4
+hours") and the lead shows why it is red ("Held time runs out soon", "Appointment is coming up",
+"Waited too long"). Rules in `packages/conversation/src/priority.ts`; defaults in `playbooks.ts`.
+Ledger row added.
+
+**Not decided:** editing the limit in Settings (the Settings page is not built); counting only
+business hours.
+
+**Test evidence:** priority tests (hold 5 hours left is amber, 4 or past is red; move or cancel
+within 48 hours red, three weeks out amber; the business's limit used; the hold check only for
+approvals); API tests on the local stack (Riverbend's limit 4 and Northline's 24 with every
+approval carrying its hold; picking auto repair sets 8); portal format test for the limit's
+wording. Checked in the browser: Riverbend's legend reads "waiting over 4 hours".
+
+## 2026-11-11 — Texting optional, and the operator CLI
+
+**Change:** a business no longer depends on texting approval (owner, 2026-11-11; decision 36,
+revising 35), and Fifth Stone Dev's side is a working command-line tool.
+
+- Setup step 7 is now **Texting**, a choice: send the application, or go without texting for now
+  (and turn it on later from the same step). Either finishes setup. The stages are setting up,
+  ready (setup finished, waiting to be turned on) and live. The engine already sends no text
+  unless texting is approved; those leads go to the Front Desk to call back.
+- Migration `20261111214727_optional_texting.sql`: `onboarding_progress.texting_declined_at`
+  (never together with an application on record) and the view `app.setup_progress`, one row of
+  setup facts per business, read by the API and the operator CLI so both judge "setup finished"
+  the same way. Ledger row added.
+- `@fsc/core`: step `texting`, `factsFromProgress`, `setupDone`, stage `ready`, and
+  `goLiveProblems` (finished setup and a number; never texting approval).
+- API: `POST /portal/onboarding/no-texting` (owner only; refused once an application is on
+  record or texting is approved). The application can be sent while live, unless texting is
+  already approved. `/portal/me` adds `textingDeclined`.
+- Portal: the texting step offers both choices; the status page reads "Setup is finished" and
+  says going live does not wait on texting; the Texting service card reads "Not used" for a
+  business without texting.
+- Operator CLI (`npm run operator -- <command>`, `apps/operator`): `list`, `show`, `create`
+  (business as `onboarding`, status cards, owner login through Supabase Auth's admin API and a
+  one-time set-password link printed for the operator, so no email is sent), `number`,
+  `texting` (`submitted` and `approved` need an application on record), `go-live` and
+  `disable`. Each change is one transaction with an operator audit event, safe to run twice.
+  Guard: `OPERATOR_CONFIRM_ENV` names the database; development allows mock businesses, emails
+  and numbers only; staging and production changes need `--confirm <environment>`; production
+  never takes a `mock-` business. Uses the admin database connection, since it changes what the
+  application may only read. No new external dependencies (workspace packages, `pg` and `zod`,
+  already in use).
+- CI runs the operator tests against the local stack with the API and worker tests.
+- Docs: `SCOPE.md`, decisions 35 and 36, `ONBOARDING.md` (operator steps), ADR-0003 decision 5
+  status, `CLAUDE.md` (commands, layout), `.env.example`.
+
+**Rationale:** the owner does not want a business held up by carrier approval, or forced to text
+at all; missed calls on the Front Desk are useful on their own.
+
+**Not decided:** Twilio subaccount and number purchase in `create` (Phase 4, owner approval);
+job replay and data export commands.
+
+**Test evidence:** core tests (texting step done by either choice, stage `ready`, go-live rules);
+API tests on the local stack (going without texting finishes setup, ready is still locked,
+choosing twice writes once, applying clears the choice, declining after applying is refused, a
+business with texting approved has nothing to apply for); operator tests on the local stack
+(create, safe re-run, a slug or login that belongs elsewhere refused, go-live refused before
+setup and a number, texting refused without an application, a taken number refused, go-live
+without texting, disable) and guard tests; pgTAP (`setup_progress` shows only the business's own
+row). By hand on the local stack: the real CLI created a mock business through local Supabase
+Auth (set-password link printed, no email), refused a non-mock business on development, and
+took Cedar Lane live without texting after the owner chose "Go without texting" in the browser;
+the Front Desk opened with Texting "Not used". The database was reset afterwards.
+
 ## 2026-11-11 — Locked until live: setup and the texting application
 
 **Change:** a business cannot use the portal's working pages until it is live (owner,
